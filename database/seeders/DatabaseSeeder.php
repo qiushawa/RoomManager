@@ -7,6 +7,7 @@ use Illuminate\Database\Seeder;
 
 use Database\Seeders\ClassroomSeeder;
 use Database\Seeders\BlacklistReasonSeeder;
+use Database\Seeders\TimePeriodSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,6 +21,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             ClassroomSeeder::class,
             BlacklistReasonSeeder::class,
+            TimePeriodSeeder::class,
         ]);
 
     }
