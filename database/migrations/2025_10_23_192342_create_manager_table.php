@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('manager', function (Blueprint $table) {
-            $table->char('account', 30)->comment('管理者帳號');
+            $table->char('account', 30)->primary()->comment('管理者帳號');
             $table->string('password', 45)->nullable()->comment('管理者密碼');
             $table->char('name', 5)->nullable()->comment('管理者姓名');
             $table->string('email', 45)->nullable()->comment('管理者Email');
