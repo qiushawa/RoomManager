@@ -11,9 +11,12 @@ use Illuminate\Database\Eloquent\Model;
  */
 class Classroom extends Model
 {
+    public $keyType = 'string';
+    public $incrementing = false;
+    public $timestamps = false;
+
     protected $table = 'classroom';
     protected $primaryKey = 'room_id';
-    public $timestamps = false;
     protected $fillable = [
         'room_id',
         'room_name',
