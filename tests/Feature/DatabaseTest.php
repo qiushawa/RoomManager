@@ -7,6 +7,7 @@ use Tests\TestCase;
 use App\Models\Classroom;
 use App\Models\BlacklistReason;
 use App\Models\Manager;
+use App\Models\Borrower;
 
 class DatabaseTest extends TestCase
 {
@@ -48,5 +49,20 @@ class DatabaseTest extends TestCase
         // 驗證資料庫是否包含該資料
         $this->assertDatabaseHas('manager', $data);
 
+    }
+
+    public function test_it_can_create_a_borrower(): void
+    {
+        $data = [
+            'student_id' => '12345678',
+            'email' => 'testborrower@example.com',
+            'name' => '測試借用者',
+            'cellphone' => '0912345678',
+            'department' => '資訊工程系',
+        ];
+
+        Borrower::create($data);
+        // 驗證資料庫是否包含該資料
+        $this->assertDatabaseHas('borrower', $data);
     }
 }
