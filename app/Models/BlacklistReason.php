@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * 此模型用於操作 classroom 資料表，對應教室資訊。
  */
-class Blacklist extends Model
+class BlacklistReason extends Model
 {
     public $keyType = 'int';
     public $incrementing = false;
