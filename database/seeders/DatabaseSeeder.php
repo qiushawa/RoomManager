@@ -25,9 +25,9 @@ class DatabaseSeeder extends Seeder
             BlacklistReasonSeeder::class,
             TimePeriodSeeder::class,
         ]);
-        
+
         // 先清除舊有資料，再產生新的借用者資料
-        Borrower::truncate();
+        Borrower::delete();
         Borrower::factory()->count(10)->create();
     }
 }
