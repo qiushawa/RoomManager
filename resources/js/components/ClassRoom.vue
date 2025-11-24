@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-4">
-    <div v-for="classroom in classroom" :key="classroom.name" class="flex flex-col gap-4">
+    <div v-for="classroom in classrooms" :key="classroom.name" class="flex flex-col gap-4">
       <h1>{{ classroom.name }}</h1>
       <ul>
         <li
@@ -8,7 +8,7 @@
           :key="item.id">
           <button
             @click="$emit('item-click', item)"
-            class="bg-gray-500 p-2 h-10 w-50 text-white flex items-center justify-center"
+            class="bg-gray-500 p-2 h-10 w-52 text-white flex items-center justify-center"
             type="button"
           >
             {{ item.title }}
@@ -23,7 +23,7 @@
 import { defineProps } from 'vue'
 
 defineProps({
-  classroom: {
+  classrooms: {
     type: Array,
     required: true
   }

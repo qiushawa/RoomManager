@@ -16,7 +16,7 @@ Route::get('kuanyuu', function () {
 
 // classrooms
 Route::get('/classroom', function () {
-    $classroom = [
+    $classrooms = [
         [
             'name' => '綜三館BGC',
             'items' => [
@@ -45,5 +45,5 @@ Route::get('/classroom', function () {
     ];
 
     // 使用 Inertia 回傳 Vue 頁面
-    return Inertia::render('Classroom')->with('classrooms', $classroom);
+    return Inertia::render('Classroom')->with('classrooms', $classrooms);
 })->name('classroom');
