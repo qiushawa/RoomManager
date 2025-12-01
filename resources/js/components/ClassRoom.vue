@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col gap-4">
     <div v-for="classroom in classrooms" :key="classroom.name" class="flex flex-col gap-4">
-      <h1>{{ classroom.name }}</h1>
+      <h1>{{ classrooms.name }}</h1>
       <ul>
         <li
           v-for="item in classroom.items"

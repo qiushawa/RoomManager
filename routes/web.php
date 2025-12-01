@@ -4,18 +4,6 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Home');
-});
-
-
-Route::get('kuanyuu', function () {
-    return Inertia::render('Kuanyuu');
-});
-
-
-
-// classrooms
-Route::get('/classroom', function () {
     $classrooms = [
         [
             'name' => '綜三館BGC',
@@ -43,7 +31,5 @@ Route::get('/classroom', function () {
             ],
         ],
     ];
-
-    // 使用 Inertia 回傳 Vue 頁面
-    return Inertia::render('Classroom')->with('classrooms', $classrooms);
-})->name('classroom');
+    return Inertia::render('Home')->with('classrooms', $classrooms);
+});
