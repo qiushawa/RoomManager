@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    $classrooms = [
+    $building = [
         [
             'name' => '綜三館BGC',
             'items' => [
@@ -31,5 +31,5 @@ Route::get('/', function () {
             ],
         ],
     ];
-    return Inertia::render('Home')->with('classrooms', $classrooms);
+    return Inertia::render('Home')->with('classrooms', $building);
 });

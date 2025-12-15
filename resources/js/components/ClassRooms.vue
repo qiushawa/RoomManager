@@ -1,10 +1,10 @@
 <template>
   <div class="flex flex-col gap-4">
-    <div v-for="classroom in classrooms" :key="classroom.name" class="flex flex-col gap-4">
-      <h1>{{ classroom.name }}</h1>
+    <div v-for="building in classrooms" :key="building.name" class="flex flex-col gap-4">
+      <h1>{{ building.name }}</h1>
       <ul>
         <li
-          v-for="item in classroom.items"
+          v-for="item in building.items"
           :key="item.id">
           <button
             @click="$emit('item-click', item)"

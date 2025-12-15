@@ -1,12 +1,12 @@
 <template>
     <div>
         <h1>Home Page</h1>
-        <ClassRoom :classrooms="classrooms" />
+        <ClassRoom :building="classrooms" />
     </div>
 </template>
 
 <script setup lang="ts">
-    import ClassRoom from '@/components/ClassRoom.vue';
+    import ClassRooms from '@/components/ClassRooms.vue';
     import { defineProps } from 'vue';
     const { classrooms } = defineProps<{
         classrooms: Array<{
