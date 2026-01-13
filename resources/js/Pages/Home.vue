@@ -1,20 +1,12 @@
 <template>
     <div>
         <h1>Home Page</h1>
-        <ClassRoom :building="classrooms" />
+        <RoomSelector :buildings="buildings" />
     </div>
 </template>
 
 <script setup lang="ts">
-    import ClassRooms from '@/components/ClassRooms.vue';
-    import { defineProps } from 'vue';
-    const { classrooms } = defineProps<{
-        classrooms: Array<{
-            name: string;
-            items: Array<{
-                id: number;
-                title: string;
-            }>;
-        }>;
-    }>();
+import RoomSelector from '@/components/RoomSelector.vue';
+import type { BuildingView } from '@/types';
+const { buildings } = defineProps<{ buildings: BuildingView[] }>();
 </script>
