@@ -13,7 +13,10 @@ return new class extends Migration
     {
         Schema::create('blacklist_reasons', function (Blueprint $table) {
             $table->id();
+            $table->string('reason', 50)->comment('事由內容');
             $table->timestamps();
+
+            $table->comment('黑名單事由資料表');
         });
     }
 

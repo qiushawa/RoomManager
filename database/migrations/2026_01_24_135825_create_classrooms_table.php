@@ -13,7 +13,13 @@ return new class extends Migration
     {
         Schema::create('classrooms', function (Blueprint $table) {
             $table->id();
+            $table->string('code', 7)->comment('教室代號');
+            $table->string('name', 25)->comment('教室名稱');
+            $table->boolean('is_active')->default(true)->comment('1=啟用, 0=停用');
             $table->timestamps();
+
+            $table->unique('code', 'uk_classrooms_code');
+            $table->comment('教室資料表');
         });
     }
 

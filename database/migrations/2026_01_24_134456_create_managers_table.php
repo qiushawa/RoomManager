@@ -13,7 +13,16 @@ return new class extends Migration
     {
         Schema::create('managers', function (Blueprint $table) {
             $table->id();
+            $table->string('username', 50)->comment('管理員帳號');
+            $table->string('password', 255)->comment('管理員密碼');
+            $table->string('name', 50)->comment('顯示名稱');
+            $table->string('email', 100)->nullable()->comment('電子郵件');
             $table->timestamps();
+
+            $table->unique('username', 'uk_managers_username');
+            $table->index('email', 'idx_managers_email');
+
+            $table->comment('管理員資料表');
         });
     }
 
