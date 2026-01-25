@@ -6,5 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Holiday extends Model
 {
-    //
+    protected $fillable = [
+        'date',
+        'name',
+        'is_release_slot'
+    ];
 }
