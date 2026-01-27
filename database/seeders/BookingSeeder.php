@@ -18,7 +18,7 @@ class BookingSeeder extends Seeder
     {
         $borrowers = Borrower::all();
         $classrooms = Classroom::where('is_active', true)->get();
-        $timeSlots = TimeSlot::where('name', '!=', 'CN')->get();
+        $timeSlots = TimeSlot::where('name', '!=', '午休')->get();
 
         if ($borrowers->isEmpty() || $classrooms->isEmpty() || $timeSlots->isEmpty()) {
             return;

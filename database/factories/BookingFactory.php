@@ -19,11 +19,12 @@ class BookingFactory extends Factory
      */
     public function definition(): array
     {
+        $startSlot = TimeSlot::factory();
         return [
             'borrower_id' => Borrower::factory(),
             'classroom_id' => Classroom::factory(),
-            'start_slot_id' => TimeSlot::factory(),
-            'end_slot_id' => TimeSlot::factory(),
+            'start_slot_id' => $startSlot,
+            'end_slot_id' => $startSlot,
             'reason' => $this->faker->sentence(),
             'teacher' => $this->faker->name(),
             'status' => $this->faker->numberBetween(0, 3),

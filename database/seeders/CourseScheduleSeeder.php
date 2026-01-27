@@ -28,10 +28,6 @@ class CourseScheduleSeeder extends Seeder
             for ($i = 0; $i < $coursesCount; $i++) {
                 // 隨機選一個時段
                 $startSlot = $timeSlots->random();
-                // 假設課程長度 1-3 小時，但要確保連續時段存在
-                // 這裡簡化，先假設都只佔用 1 個時段，或者確保有下一個時段的邏輯比較複雜
-                // 為了種子簡單，我們先只排 1 個時段的課，或者亂數如果選到最後一個時段就只排1節
-                
                 CourseSchedule::factory()->create([
                     'classroom_id' => $classroom->id,
                     'start_slot_id' => $startSlot->id,
