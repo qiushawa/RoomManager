@@ -17,4 +17,14 @@ class Borrower extends Model
         'department',
         'is_active'
     ];
+
+    public function blacklist()
+    {
+        return $this->hasOne(Blacklist::class);
+    }
+
+    public function bookings()
+    {
+        return $this->hasMany(Booking::class);
+    }
 }
