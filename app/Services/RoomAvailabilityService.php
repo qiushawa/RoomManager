@@ -92,7 +92,7 @@ class RoomAvailabilityService
     /**
      * 計算開始與結束 ID 之間的所有時段代號
      */
-    private function getSlotsInRange($startId, $endId): array
+    private function getSlotsInRange(int $startId, int $endId): array
     {
         // 在已排序的集合中尋找索引位置
         $startIndex = $this->timeSlots->search(fn($t) => $t->id == $startId);
