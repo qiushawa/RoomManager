@@ -26,9 +26,20 @@
             >
                 {{ formattedDate }}
             </span>
-            
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-300 group-hover:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-3 w-3 text-gray-300 group-hover:text-blue-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                />
             </svg>
         </button>
 
@@ -37,7 +48,7 @@
             type="date"
             :value="dateString"
             @input="handleInput"
-            class="absolute bottom-0 left-0 h-0 w-0 opacity-0 pointer-events-none"
+            class="pointer-events-none absolute bottom-0 left-0 h-0 w-0 opacity-0"
         />
     </div>
 </template>
@@ -46,8 +57,8 @@
 import { ref } from 'vue';
 
 defineProps<{
-    formattedDate: string;  // 顯示用
-    dateString: string;     // Input value 用
+    formattedDate: string; // 顯示用
+    dateString: string; // Input value 用
 }>();
 
 const emit = defineEmits<{
@@ -60,7 +71,7 @@ const dateInput = ref<HTMLInputElement | null>(null);
 const openCalendar = () => {
     try {
         dateInput.value?.showPicker();
-    } catch (err) {
+    } catch {
         dateInput.value?.click();
     }
 };

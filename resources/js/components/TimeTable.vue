@@ -160,7 +160,6 @@ const toggleSlotRange = (day: WeekDate, period: Period) => {
             return;
         }
     } else {
-
         if (currentIndices.length === 0) {
             newMin = targetIndex;
             newMax = targetIndex;

@@ -2,13 +2,14 @@
     <div
         class="hidden w-64 flex-col border-l border-gray-200 bg-white p-6 lg:flex"
     >
-        <h3 class="mb-6 text-sm font-bold uppercase tracking-wider text-gray-400">
+        <h3
+            class="mb-6 text-sm font-bold tracking-wider text-gray-400 uppercase"
+        >
             申請進度
         </h3>
 
         <div class="flex flex-col">
-            
-            <div class="flex group">
+            <div class="group flex">
                 <div class="mr-4 flex flex-col items-center">
                     <div
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300"
@@ -22,20 +23,20 @@
                         :class="visualStep > 1 ? 'bg-[#4a90e2]' : 'bg-gray-100'"
                     ></div>
                 </div>
-                <div class="pb-8 pt-2">
+                <div class="pt-2 pb-8">
                     <div
                         class="text-base font-bold transition-colors duration-300"
                         :class="getStepTextClass(1)"
                     >
                         選擇教室
                     </div>
-                    <div class="mt-1 text-xs text-gray-500 break-words">
+                    <div class="mt-1 text-xs break-words text-gray-500">
                         {{ targetRoom ? targetRoom.name : '尚未選擇' }}
                     </div>
                 </div>
             </div>
 
-            <div class="flex group">
+            <div class="group flex">
                 <div class="mr-4 flex flex-col items-center">
                     <div
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300"
@@ -49,7 +50,7 @@
                         :class="visualStep > 2 ? 'bg-[#4a90e2]' : 'bg-gray-100'"
                     ></div>
                 </div>
-                <div class="pb-8 pt-2">
+                <div class="pt-2 pb-8">
                     <div
                         class="text-base font-bold transition-colors duration-300"
                         :class="getStepTextClass(2)"
@@ -68,7 +69,7 @@
                 </div>
             </div>
 
-            <div class="flex group">
+            <div class="group flex">
                 <div class="mr-4 flex flex-col items-center">
                     <div
                         class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-all duration-300"
@@ -84,9 +85,7 @@
                     >
                         填寫表單
                     </div>
-                    <div class="mt-1 text-xs text-gray-400">
-                        最後確認
-                    </div>
+                    <div class="mt-1 text-xs text-gray-400">最後確認</div>
                 </div>
             </div>
         </div>
@@ -94,8 +93,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import type { Room, Step } from '@/types';
+import { computed } from 'vue';
 
 const props = defineProps<{
     targetRoom: Room | null;
@@ -105,9 +104,9 @@ const props = defineProps<{
 
 // 計算目前的步驟
 const visualStep = computed(() => {
-    if (!props.targetRoom) return 1;    // 還沒選教室 -> Step 1
+    if (!props.targetRoom) return 1; // 還沒選教室 -> Step 1
     if (props.currentStep === 1) return 2; // 選了教室，正在選時段 -> Step 2
-    return 3;                           // 進入填表單 -> Step 3
+    return 3; // 進入填表單 -> Step 3
 });
 
 // 圓圈樣式邏輯

@@ -37,7 +37,7 @@
                     >
                     <input
                         type="text"
-                        v-model="form.name"
+                        v-model="localForm.name"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="完整姓名"
                     />
@@ -48,7 +48,7 @@
                     >
                     <input
                         type="text"
-                        v-model="form.identity_code"
+                        v-model="localForm.identity_code"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="40123456"
                     />
@@ -59,7 +59,7 @@
                     >
                     <input
                         type="email"
-                        v-model="form.email"
+                        v-model="localForm.email"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="請輸入常用郵件"
                     />
@@ -70,7 +70,7 @@
                     >
                     <input
                         type="text"
-                        v-model="form.phone"
+                        v-model="localForm.phone"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="請輸入聯絡電話"
                     />
@@ -81,7 +81,7 @@
                     >
                     <input
                         type="text"
-                        v-model="form.department"
+                        v-model="localForm.department"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="請輸入科系"
                     />
@@ -92,7 +92,7 @@
                     >
                     <input
                         type="text"
-                        v-model="form.teacher"
+                        v-model="localForm.teacher"
                         class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                         placeholder="老師姓名"
                     />
@@ -120,7 +120,7 @@
                 >
                 <textarea
                     rows="3"
-                    v-model="form.reason"
+                    v-model="localForm.reason"
                     class="w-full rounded border border-gray-300 p-2 transition outline-none focus:border-blue-500"
                     placeholder="請填寫詳細事由..."
                 ></textarea>
@@ -131,10 +131,33 @@
 
 <script setup lang="ts">
 import type { ApplicantForm, Room, SelectedSlot } from '@/types';
+import { reactive, watch } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     targetRoom: Room;
     selectedSlots: SelectedSlot[];
     form: ApplicantForm;
 }>();
+
+const emit = defineEmits<{
+    (e: 'update:form', value: ApplicantForm): void;
+}>();
+
+const localForm = reactive({ ...props.form });
+
+watch(
+    () => props.form,
+    (newVal) => {
+        Object.assign(localForm, newVal);
+    },
+    { deep: true },
+);
+
+watch(
+    localForm,
+    (newVal) => {
+        emit('update:form', newVal);
+    },
+    { deep: true },
+);
 </script>
