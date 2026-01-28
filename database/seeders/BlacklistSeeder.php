@@ -21,7 +21,7 @@ class BlacklistSeeder extends Seeder
         $reasons = BlacklistReason::all();
         Blacklist::factory(10)->create()->each(function ($blacklist) use ($reasons) {
             $count = min($reasons->count(), rand(1, 3));
-            $selectedReasons = $reasons->random($count);
+            $selectedReasons = $reasons->shuffle()->take($count);
 
             foreach ($selectedReasons as $reason) {
                 BlacklistDetail::factory()->create([
