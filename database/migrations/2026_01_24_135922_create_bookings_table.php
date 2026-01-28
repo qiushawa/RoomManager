@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('borrower_id')->constrained('borrowers')->comment('借用人ID');
             $table->foreignId('classroom_id')->constrained('classrooms')->comment('教室ID');
-            $table->foreignId('start_time_slot_id')->constrained('time_slots')->comment('開始時段ID');
-            $table->foreignId('end_time_slot_id')->constrained('time_slots')->comment('結束時段ID');
+            $table->foreignId('start_slot_id')->constrained('time_slots')->comment('開始時段ID');
+            $table->foreignId('end_slot_id')->constrained('time_slots')->comment('結束時段ID');
             $table->string('reason', 100)->comment('借用事由');
             $table->string('teacher', 50)->comment('教師名稱');
             $table->tinyInteger('status')->default(0)->comment('0=待審核, 1=核准, 2=拒絕, 3=取消');
