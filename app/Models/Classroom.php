@@ -20,4 +20,11 @@ class Classroom extends Model
     {
         return $this->hasMany(CourseSchedule::class);
     }
+
+    // activeClassrooms 靜態方法
+    public static function activeClassrooms()
+    {
+        return self::where('is_active', true)->get();
+        }
+
 }
