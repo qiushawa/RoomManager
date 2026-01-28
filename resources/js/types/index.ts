@@ -1,15 +1,41 @@
-
-// 教室型別
-export interface Classroom {
-    id: number
-    name: string
-    active: boolean
+export interface Room {
+    id: number;
+    code: string;
+    name: string;
 }
 
+export interface Building {
+    name: string;
+    rooms: Room[];
+}
 
-// 檢視用型別
-export type ClassroomSummary = Pick<Classroom, 'id' | 'name'>
-export interface BuildingView {
-    name: string
-    classrooms: ClassroomSummary[]
+export interface Period {
+    code: string;
+    label: string;
+}
+
+export interface WeekDate {
+    date: string;
+    dayName: string;
+    fullDate: string;
+}
+
+export type OccupiedData = Record<string, string[]>;
+
+export interface SelectedSlot {
+    date: string;
+    period: string;
+    label: string;
+}
+
+export type Step = 1 | 2;
+
+export interface ApplicantForm {
+    name: string;
+    identity_code: string;
+    email: string;
+    phone: string;
+    department: string;
+    teacher: string;
+    reason: string;
 }

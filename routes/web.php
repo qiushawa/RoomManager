@@ -1,35 +1,14 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
+use App\Http\Controllers\HomeController;
 
+// 1. 首頁導向改為 /Home
 Route::get('/', function () {
-    $buildings = [
-        [
-            'name' => '綜三館BGC',
-            'classrooms' => [
-                ['id' => 1, 'name' => 'BGC0305'],
-                ['id' => 2, 'name' => 'BGC0402'],
-                ['id' => 3, 'name' => 'BGC0501'],
-                ['id' => 4, 'name' => 'BGC0508'],
-                ['id' => 5, 'name' => 'BGC0513'],
-                ['id' => 6, 'name' => 'BGC0601'],
-            ],
-        ],
-        [
-            'name' => '跨領域BCB',
-            'classrooms' => [
-                ['id' => 7, 'name' => 'BCB0303'],
-                ['id' => 8, 'name' => 'BCB0305'],
-            ],
-        ],
-        [
-            'name' => '科研大樓BRA',
-            'classrooms' => [
-                ['id' => 9, 'name' => 'BRA0102'],
-                ['id' => 10, 'name' => 'BRA0201'],
-            ],
-        ],
-    ];
-    return Inertia::render('Home')->with('buildings', $buildings);
+    return redirect('/Home');
 });
+
+// 2. 更改主要路由為 /Home
+// 注意：URL 大小寫通常視為不同，這裡依您的需求設定為 /Home
+Route::get('/Home', [HomeController::class, 'index'])->name('home.index');
+Route::post('/Home', [HomeController::class, 'store'])->name('home.store');
