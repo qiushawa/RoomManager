@@ -26,20 +26,46 @@ class RoomAvailabilityService
      */
     public function getOccupiedData(int $classroomId, Carbon $startDate, Carbon $endDate): array
     {
-        // 查詢教室並預載入 (範圍內的預約 & 課表)
-        $classroom = Classroom::with([
-            'bookings' => function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                      ->whereNotIn('status', [2, 3]); // 排除 2:拒絕, 3:取消
-            },
-            'courseSchedules'
-        ])->find($classroomId);
-        if (!$classroom) {
+        $room = Classroom::find($classroomId);
+        if (!$room) {
             return [];
         }
 
-        // 獲取範圍內的假日設定
+        return $this->calculateOccupancy($room, $startDate, $endDate);
+    }
+
+    /**
+     * 批次取得多間教室的佔用狀況
+     * @param Collection<int, Classroom> $rooms 必須預先載入 bookings, courseSchedules (範圍內)
+     */
+    public function getBatchOccupiedData(Collection $rooms, Carbon $startDate, Carbon $endDate): array
+    {
+        // 預先取出範圍內的假日 (一次查詢)
         $holidays = Holiday::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get();
+
+        $result = [];
+        foreach ($rooms as $room) {
+            $result[$room->code] = $this->calculateOccupancy($room, $startDate, $endDate, $holidays);
+        }
+
+        return $result;
+    }
+
+    private function calculateOccupancy(Classroom $room, Carbon $startDate, Carbon $endDate, ?Collection $holidays = null): array
+    {
+        // 若未傳入 holidays，則自行查詢 (相容單一查詢)
+        if (is_null($holidays)) {
+            $holidays = Holiday::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get();
+        }
+
+        // 確保關聯已載入 (若已載入則跳過，避免重複查詢)
+        $room->loadMissing([
+            'bookings' => function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                    ->whereNotIn('status', [2, 3]);
+            },
+            'courseSchedules'
+        ]);
 
         $occupiedData = [];
         $currentDate = $startDate->copy();
@@ -48,34 +74,29 @@ class RoomAvailabilityService
             $dateStr = $currentDate->format('Y-m-d');
             $occupiedSlots = collect();
 
-            // -! 實驗性功能
-            // 檢查假日 (若為假日且未釋出，則全天佔用)
+            // 檢查假日
             $holiday = $holidays->firstWhere('date', $dateStr);
-
             if ($holiday && !$holiday->is_release_slot) {
                 $occupiedData[$dateStr] = $this->timeSlots->pluck('name')->toArray();
                 $currentDate->addDay();
                 continue;
             }
 
-            // 檢查固定課表 (day_of_week: 1=週一 ... 7=週日)
+            // 檢查固定課表
             $dayOfWeek = $currentDate->dayOfWeekIso;
-            $courses = $classroom->courseSchedules->where('day_of_week', $dayOfWeek);
-
+            $courses = $room->courseSchedules->where('day_of_week', $dayOfWeek);
             foreach ($courses as $course) {
                 $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
                 $occupiedSlots = $occupiedSlots->merge($slots);
             }
 
             // 檢查單次預約
-            $bookings = $classroom->bookings->where('date', $dateStr);
-
+            $bookings = $room->bookings->where('date', $dateStr);
             foreach ($bookings as $booking) {
                 $slots = $this->getSlotsInRange($booking->start_slot_id, $booking->end_slot_id);
                 $occupiedSlots = $occupiedSlots->merge($slots);
             }
 
-            // 寫入結果
             if ($occupiedSlots->isNotEmpty()) {
                 $occupiedData[$dateStr] = $occupiedSlots->unique()->values()->toArray();
             }
