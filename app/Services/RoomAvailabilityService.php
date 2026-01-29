@@ -36,7 +36,7 @@ class RoomAvailabilityService
 
     /**
      * 批次取得多間教室的佔用狀況
-     * @param Collection $rooms 必須預先載入 bookings, courseSchedules (範圍內)
+     * @param Collection<int, Classroom> $rooms 必須預先載入 bookings, courseSchedules (範圍內)
      */
     public function getBatchOccupiedData(Collection $rooms, Carbon $startDate, Carbon $endDate): array
     {
@@ -51,7 +51,7 @@ class RoomAvailabilityService
         return $result;
     }
 
-    private function calculateOccupancy($room, Carbon $startDate, Carbon $endDate, $holidays = null): array
+    private function calculateOccupancy(Classroom $room, Carbon $startDate, Carbon $endDate, ?Collection $holidays = null): array
     {
         // 若未傳入 holidays，則自行查詢 (相容單一查詢)
         if (is_null($holidays)) {

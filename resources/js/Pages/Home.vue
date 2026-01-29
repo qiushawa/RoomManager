@@ -227,13 +227,17 @@ watch(
 
 // --- 操作邏輯：資料獲取與導航 ---
 const fetchData = () => {
-    // 只有日期變更時才需要向後端請求
+    // 當沒有選擇教室時,不發送請求
+    if (!targetRoom.value) {
+        return;
+    }
 
+    // 只有日期變更時才需要向後端請求
     const year = baseDate.value.getFullYear();
     const month = String(baseDate.value.getMonth() + 1).padStart(2, '0');
     const day = String(baseDate.value.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
-    
+
     router.get(
         '/Home',
         {
