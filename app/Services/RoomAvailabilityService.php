@@ -34,7 +34,6 @@ class RoomAvailabilityService
             },
             'courseSchedules'
         ])->find($classroomId);
-
         if (!$classroom) {
             return [];
         }
@@ -52,7 +51,7 @@ class RoomAvailabilityService
             // -! 實驗性功能
             // 檢查假日 (若為假日且未釋出，則全天佔用)
             $holiday = $holidays->firstWhere('date', $dateStr);
-            
+
             if ($holiday && !$holiday->is_release_slot) {
                 $occupiedData[$dateStr] = $this->timeSlots->pluck('name')->toArray();
                 $currentDate->addDay();
@@ -72,7 +71,7 @@ class RoomAvailabilityService
             $bookings = $classroom->bookings->where('date', $dateStr);
 
             foreach ($bookings as $booking) {
-                $slots = $this->getSlotsInRange($booking->start_time_slot_id, $booking->end_time_slot_id);
+                $slots = $this->getSlotsInRange($booking->start_slot_id, $booking->end_slot_id);
                 $occupiedSlots = $occupiedSlots->merge($slots);
             }
 
@@ -92,9 +91,13 @@ class RoomAvailabilityService
     /**
      * 計算開始與結束 ID 之間的所有時段代號
      */
-    private function getSlotsInRange(int $startId, int $endId): array
+    private function getSlotsInRange($startId, $endId): array
     {
         // 在已排序的集合中尋找索引位置
+        // 除錯用 印出startId, endId (當startId或endId不存在時)
+        if (! $this->timeSlots->contains('id', $startId) || ! $this->timeSlots->contains('id', $endId)) {
+            return [];
+        }
         $startIndex = $this->timeSlots->search(fn($t) => $t->id == $startId);
         $endIndex = $this->timeSlots->search(fn($t) => $t->id == $endId);
 
