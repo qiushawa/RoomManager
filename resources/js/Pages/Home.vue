@@ -258,7 +258,7 @@ const selectRoom = (room: Room) => {
         targetRoom.value = room;
         currentStep.value = 1;
         selectedSlots.value = [];
-
+        if (typeof window === 'undefined') return;
         const url = new URL(window.location.href);
         url.searchParams.set('room_code', room.code);
         window.history.replaceState({}, '', url.toString());
