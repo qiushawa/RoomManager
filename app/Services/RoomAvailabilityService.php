@@ -58,18 +58,14 @@ class RoomAvailabilityService
             $holidays = Holiday::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get();
         }
 
-        // 確保關聯已載入 (防呆)
-        if (!$room->relationLoaded('bookings')) {
-            $room->load([
-                'bookings' => function ($query) use ($startDate, $endDate) {
-                    $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                        ->whereNotIn('status', [2, 3]);
-                }
-            ]);
-        }
-        if (!$room->relationLoaded('courseSchedules')) {
-            $room->load('courseSchedules');
-        }
+        // 確保關聯已載入 (若已載入則跳過，避免重複查詢)
+        $room->loadMissing([
+            'bookings' => function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                    ->whereNotIn('status', [2, 3]);
+            },
+            'courseSchedules'
+        ]);
 
         $occupiedData = [];
         $currentDate = $startDate->copy();
