@@ -29,35 +29,44 @@ class HomeController extends Controller
 
         $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label']);
 
-        // 2. 接收參數 (改用 room_code)
+        // 2. 接收參數
         $dateParam = $request->input('date', now()->format('Y-m-d'));
-        $targetRoomCode = $request->input('room_code'); // <--- 修改這裡
-        
+        $targetRoomCode = $request->input('room_code');
+
         $baseDate = Carbon::parse($dateParam);
-        $startDate = $baseDate->copy()->startOfWeek(CarbonInterface::SUNDAY); 
+        $startDate = $baseDate->copy()->startOfWeek(CarbonInterface::SUNDAY);
         $endDate = $startDate->copy()->addDays(6);
 
-        $occupiedData = [];
-
-        // 3. 透過 Code 查詢 ID，再計算佔用
-        if ($targetRoomCode) {
-            // 先找出對應的教室
-            $room = Classroom::where('code', $targetRoomCode)->first();
-
-            if ($room) {
-                // Service 維持傳入 ID (因為資料庫關聯較快)
-                $occupiedData = $this->availabilityService->getOccupiedData(
-                    $room->id, 
-                    $startDate, 
-                    $endDate
-                );
-            }
+        // 3. 批次查詢所有教室的佔用狀況
+        // 收集所有教室 ID
+        $allClassrooms = collect();
+        foreach ($buildings as $building) {
+            $allClassrooms = $allClassrooms->merge($building['rooms']);
         }
+
+        // 轉為 Eloquent Collection 以使用 load 方法
+        $allClassrooms = \Illuminate\Database\Eloquent\Collection::make($allClassrooms);
+
+        // 預載入關聯 (減少 N+1)
+        // 注意：這裡 $allClassrooms 裡的項目是 Model 實例，可以直接 load
+        $allClassrooms->load([
+            'bookings' => function ($query) use ($startDate, $endDate) {
+                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                    ->whereNotIn('status', [2, 3]);
+            },
+            'courseSchedules'
+        ]);
+
+        $allOccupiedData = $this->availabilityService->getBatchOccupiedData(
+            $allClassrooms,
+            $startDate,
+            $endDate
+        );
 
         return Inertia::render('Home', [
             'buildings' => $buildings,
             'periods' => $periods,
-            'initialOccupiedData' => $occupiedData,
+            'allOccupiedData' => $allOccupiedData, // 傳遞所有資料
             'filters' => [
                 'date' => $baseDate->format('Y-m-d'),
                 'room_code' => $targetRoomCode // <--- 回傳給前端的是 code

@@ -129,7 +129,7 @@ import TimeTable from '@/components/TimeTable.vue';
 const props = defineProps<{
     buildings: Building[];
     periods: Period[];
-    initialOccupiedData: OccupiedData;
+    allOccupiedData: Record<string, OccupiedData>; // 改為接收所有資料
     filters: {
         date: string;
         room_code?: string;
@@ -150,7 +150,12 @@ const findRoomByCode = (code?: string): Room | null => {
 
 // --- 狀態管理：資料與介面 ---
 const baseDate = ref<Date>(new Date(props.filters.date));
-const occupiedData = ref<OccupiedData>(props.initialOccupiedData);
+// occupiedData 改為 computed，根據目前選中的教室從 allOccupiedData 取值
+const occupiedData = computed(() => {
+    if (!targetRoom.value) return {};
+    return props.allOccupiedData[targetRoom.value.code] || {};
+});
+
 const targetRoom = ref<Room | null>(findRoomByCode(props.filters.room_code));
 const currentStep = ref<Step>(1);
 const selectedSlots = ref<SelectedSlot[]>([]);
@@ -216,34 +221,29 @@ const isConsecutive = computed(() => {
 
 // --- 監聽器 ---
 watch(
-    () => props.initialOccupiedData,
-    (newData) => (occupiedData.value = newData),
-);
-
-watch(
     () => props.filters.date,
     (newDateStr) => (baseDate.value = new Date(newDateStr)),
 );
 
 // --- 操作邏輯：資料獲取與導航 ---
 const fetchData = () => {
-    if (!targetRoom.value) return;
+    // 只有日期變更時才需要向後端請求
 
     const year = baseDate.value.getFullYear();
     const month = String(baseDate.value.getMonth() + 1).padStart(2, '0');
     const day = String(baseDate.value.getDate()).padStart(2, '0');
     const dateStr = `${year}-${month}-${day}`;
-
+    
     router.get(
         '/Home',
         {
-            room_code: targetRoom.value.code,
+            room_code: targetRoom.value?.code, // 保持當前教室
             date: dateStr,
         },
         {
             preserveState: true,
             preserveScroll: true,
-            only: ['initialOccupiedData', 'filters'],
+            only: ['allOccupiedData', 'filters'], // 只更新資料
             replace: true,
         },
     );
@@ -254,7 +254,10 @@ const selectRoom = (room: Room) => {
         targetRoom.value = room;
         currentStep.value = 1;
         selectedSlots.value = [];
-        fetchData();
+
+        const url = new URL(window.location.href);
+        url.searchParams.set('room_code', room.code);
+        window.history.replaceState({}, '', url.toString());
     }
 };
 
@@ -282,7 +285,6 @@ const resetSelection = () => {
     targetRoom.value = null;
     selectedSlots.value = [];
     currentStep.value = 1;
-    occupiedData.value = {};
 
     Object.assign(applicantForm, {
         name: '',
