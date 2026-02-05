@@ -10,8 +10,11 @@ export interface Building {
 }
 
 export interface Period {
+    id: number;
     code: string;
     label: string;
+    start_time?: string;
+    end_time?: string;
 }
 
 export interface WeekDate {
@@ -20,11 +23,19 @@ export interface WeekDate {
     fullDate: string;
 }
 
-export type OccupiedData = Record<string, string[]>;
+export type OccupiedStatus = 'approved' | 'pending' | 'course' | 'holiday';
+
+export type OccupiedData = Record<string, Record<string, OccupiedStatus>>;
+
+export interface HighlightInfo {
+    date: string;
+    slots: string[];
+}
 
 export interface SelectedSlot {
     date: string;
     period: string;
+    id: number;
     label: string;
 }
 

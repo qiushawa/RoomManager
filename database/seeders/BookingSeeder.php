@@ -24,17 +24,17 @@ class BookingSeeder extends Seeder
             return;
         }
 
-        // 產生 20 筆預約
-        for ($i = 0; $i < 20; $i++) {
-            $slot = $timeSlots->random();
-            
-            Booking::factory()->create([
-                'borrower_id' => $borrowers->random()->id,
-                'classroom_id' => $classrooms->random()->id,
-                'start_slot_id' => $slot->id,
-                'end_slot_id' => $slot->id, // 簡化：單節借用
-                'date' => now()->addDays(rand(-5, 10)), // 過去或未來幾天
-            ]);
-        }
+        // // 產生 20 筆預約
+        // for ($i = 0; $i < 20; $i++) {
+        //     $slot = $timeSlots->random();
+
+        //     Booking::factory()->create([
+        //         'borrower_id' => $borrowers->random()->id,
+        //         'classroom_id' => $classrooms->random()->id,
+        //         'start_slot_id' => $slot->id,
+        //         'end_slot_id' => $slot->id, // 簡化：單節借用
+        //         'date' => now()->addDays(rand(-5, 10)), // 過去或未來幾天
+        //     ]);
+        // }
     }
 }

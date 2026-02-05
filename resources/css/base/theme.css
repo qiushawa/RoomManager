@@ -1,0 +1,32 @@
+/**
+ * 系統主題顏色定義
+ * 使用 Tailwind CSS v4 @theme 自訂顏色
+ */
+@theme {
+    /* === 主色 === */
+    --color-primary: #4a90e2;           /* 主要藍色 */
+    --color-primary-light: #6ba5e9;     /* 淺藍色 */
+    --color-primary-dark: #3a7bc8;      /* 深藍色 */
+
+    /* === 狀態顏色 === */
+    --color-success: #5cb85c;           /* 綠色 - 成功/選取中 */
+    --color-success-light: #7cc67c;
+    --color-success-dark: #4a9a4a;
+
+    --color-warning: #f0ad4e;           /* 橘黃色 - 已借出/警告 */
+    --color-warning-light: #f5c57a;
+    --color-warning-dark: #d9973a;
+
+    --color-info: #5bc0de;              /* 水藍色 - 申請中/資訊 */
+    --color-info-light: #85d0e7;
+    --color-info-dark: #3fb0d3;
+
+    --color-danger: #d9534f;            /* 紅色 - 假日/危險 */
+    --color-danger-light: #e27573;
+    --color-danger-dark: #c9302c;
+
+    /* === 中性色 === */
+    --color-neutral: #6b7280;           /* 深灰色 - 課程使用 */
+    --color-neutral-light: #9ca3af;
+    --color-neutral-dark: #4b5563;
+}
