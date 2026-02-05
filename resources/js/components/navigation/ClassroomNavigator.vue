@@ -2,14 +2,14 @@
     <SidebarBase
         width="narrow"
         visibility="md"
-        background-image="/img/building-g3.png"
+        :background-image="buildingBg"
         background-overlay="bg-gradient-to-b from-slate-900/75 via-slate-800/70 to-slate-900/85"
     >
         <!-- Header -->
         <template #header>
             <div class="flex items-center gap-3">
                 <img
-                    :src="'/img/2339815.jpg'"
+                    :src="logoImg"
                     alt="Logo"
                     class="h-10 w-10 rounded-xl object-cover shadow-lg ring-2 ring-white/30"
                 />
@@ -71,6 +71,8 @@
  */
 import { SidebarBase } from '@/layouts';
 import type { Building, Room } from '@/types';
+import buildingBg from '@img/building-g3.png';
+import logoImg from '@img/2339815.jpg';
 
 withDefaults(
     defineProps<{
