@@ -5,6 +5,7 @@
 
 import type { WeekDate } from '@/types';
 import { formatDateForDisplay, formatDateToYYYYMMDD, getWeekDates } from '@/utils';
+import { API_ENDPOINTS } from '@/constants';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -76,7 +77,7 @@ export function useDateSelection(options: UseDateSelectionOptions) {
         const dateStr = formatDateToYYYYMMDD(baseDate.value);
 
         router.get(
-            '/Home',
+            API_ENDPOINTS.home,
             {
                 room_code: roomCode,
                 date: dateStr,

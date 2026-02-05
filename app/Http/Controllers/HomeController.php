@@ -85,28 +85,28 @@ class HomeController extends Controller
     {
         $requestData = $request->validate([
             'classroom_id' => 'required|exists:classrooms,id',
-            'classroom_code'=>'required|string', // 新增教室 code 驗證
+            'classroom_code' => 'required|string', // 新增教室 code 驗證
             'date' => 'required|date',
             'start_slot_id' => 'required|exists:time_slots,id',
             'end_slot_id' => 'required|exists:time_slots,id',
             'applicant.name' => 'required|string|max:255',
-            'applicant.identity_code' => 'nullable|string|max:50',
-            'applicant.email' => 'nullable|email|max:255',
+            'applicant.identity_code' => 'required|string|max:50', // 必填以確保借用者身份識別
+            'applicant.email' => 'required|email|max:255', // 必填以發送確認郵件
             'applicant.phone' => 'nullable|string|max:20',
             'applicant.department' => 'nullable|string|max:255',
             'applicant.teacher' => 'nullable|string|max:255',
             'applicant.reason' => 'nullable|string|max:1000',
         ]);
 
-        // 檢查借用者是否存在
+        // 使用 identity_code + email 組合查詢借用者，避免身份混淆
         $applicantData = $requestData['applicant'];
         $borrower = Borrower::firstOrCreate(
             [
-                'identity_code' => $applicantData['identity_code'] ?? null,
+                'identity_code' => $applicantData['identity_code'],
+                'email' => $applicantData['email'],
             ],
             [
                 'name' => $applicantData['name'],
-                'email' => $applicantData['email'] ?? null,
                 'phone' => $applicantData['phone'] ?? null,
                 'department' => $applicantData['department'] ?? null,
             ]

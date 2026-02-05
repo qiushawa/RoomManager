@@ -4,6 +4,7 @@
  */
 
 import type { ApplicantForm, Room, SelectedSlot, Step } from '@/types';
+import { API_ENDPOINTS } from '@/constants';
 import { router } from '@inertiajs/vue3';
 import { reactive, ref } from 'vue';
 
@@ -48,7 +49,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         currentStep.value = 1;
         resetForm();
         onReset?.();
-        router.get('/Home', {}, { replace: true });
+        router.get(API_ENDPOINTS.home, {}, { replace: true });
     };
 
     // 進入下一步
@@ -114,7 +115,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             applicant: { ...applicantForm },
         };
 
-        router.post('/bookings', payload, {
+        router.post(API_ENDPOINTS.bookings, payload, {
             preserveState: false,
             preserveScroll: false,
             onSuccess: () => {
