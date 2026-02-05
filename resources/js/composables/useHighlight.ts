@@ -4,7 +4,7 @@
  */
 
 import type { HighlightInfo } from '@/types';
-import { ref } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 
 /** 高亮持續時間 (毫秒) */
 const HIGHLIGHT_DURATION = 5000;
@@ -12,12 +12,41 @@ const HIGHLIGHT_DURATION = 5000;
 export function useHighlight(initialInfo: HighlightInfo | null = null) {
     const highlightInfo = ref<HighlightInfo | null>(initialInfo);
 
-    // 如果有初始高亮，設定自動清除計時器
-    if (highlightInfo.value) {
-        setTimeout(() => {
+    // 計時器 ID，用於清理
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    // 排程自動清除高亮
+    const scheduleAutoClear = () => {
+        // 如果沒有高亮資訊，不需要設定計時器
+        if (!highlightInfo.value) return;
+
+        // 清除之前的計時器（避免重複）
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+        }
+
+        // 設定新的計時器
+        timeoutId = setTimeout(() => {
             highlightInfo.value = null;
+            timeoutId = null;
         }, HIGHLIGHT_DURATION);
-    }
+    };
+
+    // 監聽 highlightInfo 變化，自動排程清除
+    watch(
+        highlightInfo,
+        () => {
+            scheduleAutoClear();
+        },
+        { immediate: true }
+    );
+
+    // 組件卸載時清理計時器，避免記憶體洩漏
+    onUnmounted(() => {
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+        }
+    });
 
     // 檢查特定格子是否高亮
     const isHighlighted = (dateStr: string, code: string): boolean => {
@@ -28,16 +57,17 @@ export function useHighlight(initialInfo: HighlightInfo | null = null) {
         );
     };
 
-    // 設定高亮
+    // 設定高亮（watch 會自動處理計時器）
     const setHighlight = (info: HighlightInfo) => {
         highlightInfo.value = info;
-        setTimeout(() => {
-            highlightInfo.value = null;
-        }, HIGHLIGHT_DURATION);
     };
 
     // 清除高亮
     const clearHighlight = () => {
+        if (timeoutId !== null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
         highlightInfo.value = null;
     };
 
