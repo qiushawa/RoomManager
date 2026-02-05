@@ -215,7 +215,7 @@ interface ApplicantForm {
 
 ```typescript
 /** 是否顯示垂直步驟進度 (開發用) */
-SHOW_STEP_PROGRESS_VERTICAL: number;
+SHOW_STEP_PROGRESS_VERTICAL: boolean;
 
 /** 時段狀態顏色配置 */
 STATUS_COLORS: {
