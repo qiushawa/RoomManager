@@ -11,4 +11,4 @@ Route::get('/', function () {
 // 2. 更改主要路由為 /Home
 // 注意：URL 大小寫通常視為不同，這裡依您的需求設定為 /Home
 Route::get('/Home', [HomeController::class, 'index'])->name('home.index');
-Route::post('/Home', [HomeController::class, 'store'])->name('home.store');
+Route::post('/bookings', [HomeController::class, 'store'])->name('home.store');

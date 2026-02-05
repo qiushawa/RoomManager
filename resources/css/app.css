@@ -1,1 +1,7 @@
 @import 'tailwindcss';
+
+/* 基礎樣式 */
+@import './base/index.css';
+
+/* 元件樣式 */
+@import './components/index.css';

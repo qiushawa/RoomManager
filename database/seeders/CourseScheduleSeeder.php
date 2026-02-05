@@ -21,20 +21,20 @@ class CourseScheduleSeeder extends Seeder
         if ($classrooms->isEmpty() || $timeSlots->isEmpty()) {
             return;
         }
-        foreach ($classrooms as $classroom) {
-            // 每間教室排 5-10 堂課
-            $coursesCount = rand(5, 10);
+        // foreach ($classrooms as $classroom) {
+        //     // 每間教室排 5-10 堂課
+        //     $coursesCount = rand(30, 50);
 
-            for ($i = 0; $i < $coursesCount; $i++) {
-                // 隨機選一個時段
-                $startSlot = $timeSlots->random();
-                CourseSchedule::factory()->create([
-                    'classroom_id' => $classroom->id,
-                    'start_slot_id' => $startSlot->id,
-                    'end_slot_id' => $startSlot->id, // 簡化：單節課
-                    'day_of_week' => rand(1, 6), // 週一到週六
-                ]);
-            }
-        }
+        //     for ($i = 0; $i < $coursesCount; $i++) {
+        //         // 隨機選一個時段
+        //         $startSlot = $timeSlots->random();
+        //         CourseSchedule::factory()->create([
+        //             'classroom_id' => $classroom->id,
+        //             'start_slot_id' => $startSlot->id,
+        //             'end_slot_id' => $startSlot->id, // 簡化：單節課
+        //             'day_of_week' => rand(1, 6), // 週一到週六
+        //         ]);
+        //     }
+        // }
     }
 }

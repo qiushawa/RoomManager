@@ -77,7 +77,9 @@ class RoomAvailabilityService
             // 檢查假日
             $holiday = $holidays->firstWhere('date', $dateStr);
             if ($holiday && !$holiday->is_release_slot) {
-                $occupiedData[$dateStr] = $this->timeSlots->pluck('name')->toArray();
+                $occupiedData[$dateStr] = $this->timeSlots->pluck('name')->mapWithKeys(function ($name) {
+                    return [$name => 'holiday'];
+                })->toArray();
                 $currentDate->addDay();
                 continue;
             }
@@ -87,18 +89,26 @@ class RoomAvailabilityService
             $courses = $room->courseSchedules->where('day_of_week', $dayOfWeek);
             foreach ($courses as $course) {
                 $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
-                $occupiedSlots = $occupiedSlots->merge($slots);
+                foreach ($slots as $slot) {
+                    $occupiedSlots->push(['slot' => $slot, 'status' => 'course']);
+                }
             }
 
-            // 檢查單次預約
+            // 檢查單次預約 (區分狀態：0=申請中, 1=已核准)
             $bookings = $room->bookings->where('date', $dateStr);
             foreach ($bookings as $booking) {
                 $slots = $this->getSlotsInRange($booking->start_slot_id, $booking->end_slot_id);
-                $occupiedSlots = $occupiedSlots->merge($slots);
+                $status = $booking->status == 0 ? 'pending' : 'approved';
+                foreach ($slots as $slot) {
+                    $occupiedSlots->push(['slot' => $slot, 'status' => $status]);
+                }
             }
 
             if ($occupiedSlots->isNotEmpty()) {
-                $occupiedData[$dateStr] = $occupiedSlots->unique()->values()->toArray();
+                // 轉換為關聯陣列格式: { slot: status }
+                $occupiedData[$dateStr] = $occupiedSlots->unique('slot')->mapWithKeys(function ($item) {
+                    return [$item['slot'] => $item['status']];
+                })->toArray();
             }
 
             $currentDate->addDay();

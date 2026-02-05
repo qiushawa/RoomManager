@@ -1,0 +1,27 @@
+/**
+ * 時間表格相關樣式
+ */
+
+/* 隱藏捲軸 */
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* 時段高亮脈衝動畫 */
+@keyframes pulse-once {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.85;
+        transform: scale(1.02);
+    }
+}
+.animate-pulse-once {
+    animation: pulse-once 0.8s ease-in-out 3;
+}
