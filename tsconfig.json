@@ -14,6 +14,9 @@
         "paths": {
             "@/*": [
                 "./resources/js/*"
+            ],
+            "@img/*": [
+                "./resources/img/*"
             ]
         },
         "typeRoots": [
