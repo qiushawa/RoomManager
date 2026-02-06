@@ -1,6 +1,6 @@
 <template>
     <aside
-        class="sticky top-0 relative flex h-auto w-full shrink-0 flex-col overflow-hidden md:h-dvh"
+        class="sticky top-0 flex h-auto w-full shrink-0 flex-col overflow-hidden md:h-dvh"
         :class="[sidebarWidthClass, visibilityClass]"
     >
         <!-- 背景層 -->

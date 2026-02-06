@@ -50,3 +50,13 @@ export interface ApplicantForm {
     teacher: string;
     reason: string;
 }
+
+export interface Booking {
+    id: number;
+    date: string;
+    status: number;
+    borrower?: { name: string; identity_code: string };
+    classroom?: { name: string };
+    start_slot?: { name: string };
+    end_slot?: { name: string };
+}

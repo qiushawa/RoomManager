@@ -12,3 +12,5 @@ Route::get('/', function () {
 // 注意：URL 大小寫通常視為不同，這裡依您的需求設定為 /Home
 Route::get('/Home', [HomeController::class, 'index'])->name('home.index');
 Route::post('/bookings', [HomeController::class, 'store'])->name('home.store');
+
+require __DIR__.'/admin.php';
