@@ -29,4 +29,56 @@
     --color-neutral: #6b7280;           /* 深灰色 - 課程使用 */
     --color-neutral-light: #9ca3af;
     --color-neutral-dark: #4b5563;
+
+    /* === 後台管理主題語意色（深色預設值） === */
+    --color-a-bg: #1e293b;
+    --color-a-surface: rgba(30, 41, 59, 0.6);
+    --color-a-surface-2: rgba(51, 65, 85, 0.4);
+    --color-a-surface-hover: rgba(51, 65, 85, 0.2);
+    --color-a-surface-active: #475569;
+    --color-a-badge: rgba(51, 65, 85, 0.5);
+    --color-a-input: rgba(51, 65, 85, 0.4);
+    --color-a-header: rgba(30, 41, 59, 0.8);
+    --color-a-border: rgba(51, 65, 85, 0.5);
+    --color-a-border-card: rgba(51, 65, 85, 0.6);
+    --color-a-border-2: rgba(71, 85, 105, 0.5);
+    --color-a-divider: rgba(51, 65, 85, 0.3);
+    --color-a-text: #ffffff;
+    --color-a-text-body: #e2e8f0;
+    --color-a-text-2: #cbd5e1;
+    --color-a-text-muted: #94a3b8;
+    --color-a-text-dim: #64748b;
+
+    /* === 動畫 === */
+    --animate-shimmer: shimmer 1.5s infinite;
+
+    @keyframes shimmer {
+        100% {
+            transform: translateX(100%);
+        }
+    }
+}
+
+/* ========================================
+ * 後台管理 — 淺色主題覆蓋
+ * ======================================== */
+
+[data-admin-theme="light"] {
+    --color-a-bg: #f1f5f9;
+    --color-a-surface: rgba(255, 255, 255, 0.9);
+    --color-a-surface-2: rgba(241, 245, 249, 0.8);
+    --color-a-surface-hover: rgba(226, 232, 240, 0.5);
+    --color-a-surface-active: #e2e8f0;
+    --color-a-badge: rgba(226, 232, 240, 0.8);
+    --color-a-input: #ffffff;
+    --color-a-header: rgba(241, 245, 249, 0.85);
+    --color-a-border: #e2e8f0;
+    --color-a-border-card: #cbd5e1;
+    --color-a-border-2: #d1d5db;
+    --color-a-divider: rgba(226, 232, 240, 0.6);
+    --color-a-text: #0f172a;
+    --color-a-text-body: #1e293b;
+    --color-a-text-2: #334155;
+    --color-a-text-muted: #64748b;
+    --color-a-text-dim: #94a3b8;
 }

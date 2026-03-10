@@ -15,5 +15,8 @@ class TimeSlot extends Model
         'end_time'
     ];
 
-    // 這裡需要定義關聯嗎
+    public function bookings()
+    {
+        return $this->belongsToMany(Booking::class, 'booking_time_slot');
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Classroom;
 use App\Models\TimeSlot;
 use App\Models\Holiday;
+use App\Models\Semester;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -53,19 +54,17 @@ class RoomAvailabilityService
 
     private function calculateOccupancy(Classroom $room, Carbon $startDate, Carbon $endDate, ?Collection $holidays = null): array
     {
-        // 若未傳入 holidays，則自行查詢 (相容單一查詢)
         if (is_null($holidays)) {
             $holidays = Holiday::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get();
         }
 
-        // 確保關聯已載入 (若已載入則跳過，避免重複查詢)
         $room->loadMissing([
-            'bookings' => function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                    ->whereNotIn('status', [2, 3]);
-            },
-            'courseSchedules'
+            'bookings.timeSlots', // 預載多對多時段
+            'courseSchedules.semester'
         ]);
+
+        // 取得與日期範圍重疊的學期
+        $semesters = Semester::overlapping($startDate, $endDate);
 
         $occupiedData = [];
         $currentDate = $startDate->copy();
@@ -84,30 +83,53 @@ class RoomAvailabilityService
                 continue;
             }
 
-            // 檢查固定課表
-            $dayOfWeek = $currentDate->dayOfWeekIso;
-            $courses = $room->courseSchedules->where('day_of_week', $dayOfWeek);
-            foreach ($courses as $course) {
-                $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
-                foreach ($slots as $slot) {
-                    $occupiedSlots->push(['slot' => $slot, 'status' => 'course']);
+            // --- 判斷日期落在哪個學期 ---
+            $currentSemester = $semesters->first(function ($sem) use ($currentDate) {
+                return $currentDate->between($sem->start_date, $sem->end_date);
+            });
+
+            // 檢查固定課表 (僅在學期內，且課表屬於該學期)
+            if ($currentSemester) {
+                $dayOfWeek = $currentDate->dayOfWeekIso;
+                $courses = $room->courseSchedules
+                    ->where('semester_id', $currentSemester->id)
+                    ->where('day_of_week', $dayOfWeek);
+                foreach ($courses as $course) {
+                    $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
+                    foreach ($slots as $slot) {
+                        $occupiedSlots->push([
+                            'slot' => $slot,
+                            'status' => 'course',
+                            'title' => $course->course_name,
+                            'instructor' => $course->teacher_name
+                        ]);
+                    }
                 }
             }
 
-            // 檢查單次預約 (區分狀態：0=申請中, 1=已核准)
-            $bookings = $room->bookings->where('date', $dateStr);
+            // 檢查單次預約
+            $bookings = $room->bookings->where('date', $dateStr)->whereNotIn('status', [2, 3]);
             foreach ($bookings as $booking) {
-                $slots = $this->getSlotsInRange($booking->start_slot_id, $booking->end_slot_id);
+                $slots = $booking->timeSlots->pluck('name')->toArray();
                 $status = $booking->status == 0 ? 'pending' : 'approved';
                 foreach ($slots as $slot) {
-                    $occupiedSlots->push(['slot' => $slot, 'status' => $status]);
+                    $occupiedSlots->push([
+                        'slot' => $slot,
+                        'status' => $status,
+                        'title' => $booking->reason,
+                        'applicant' => $booking->borrower ? $booking->borrower->name : null,
+                        'instructor' => $booking->teacher
+                    ]);
                 }
             }
 
             if ($occupiedSlots->isNotEmpty()) {
-                // 轉換為關聯陣列格式: { slot: status }
                 $occupiedData[$dateStr] = $occupiedSlots->unique('slot')->mapWithKeys(function ($item) {
-                    return [$item['slot'] => $item['status']];
+                    $val = ['status' => $item['status']];
+                    if (!empty($item['title'])) $val['title'] = $item['title'];
+                    if (!empty($item['applicant'])) $val['applicant'] = $item['applicant'];
+                    if (!empty($item['instructor'])) $val['instructor'] = $item['instructor'];
+                    return [$item['slot'] => $val];
                 })->toArray();
             }
 

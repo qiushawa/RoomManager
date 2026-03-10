@@ -2,12 +2,8 @@
     <AppLayout>
         <!-- 左側邊欄 -->
         <template #left-sidebar>
-            <ClassroomNavigator
-                :buildings="buildings"
-                :active-room-code="targetRoom?.code"
-                @select-room="selectRoom"
-                class="hidden md:flex"
-            />
+            <ClassroomNavigator :buildings="buildings" :active-room-code="targetRoom?.code" @select-room="selectRoom"
+                class="flex" width="medium" />
         </template>
 
         <!-- 主內容區 -->
@@ -16,110 +12,55 @@
 
             <div v-else class="relative flex h-full flex-1 flex-col">
                 <header
-                    class="z-10 flex h-[88px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm"
-                >
+                    class="z-10 flex h-[88px] shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6 shadow-sm">
                     <div>
-                        <span
-                            class="text-xs tracking-wider text-gray-400 uppercase"
-                            >{{ targetRoom.code }}</span
-                        >
-                        <h2
-                            class="text-2xl font-bold text-primary"
-                        >
+                        <span class="text-xs tracking-wider text-gray-400 uppercase">{{ targetRoom.code }}</span>
+                        <h2 class="text-2xl font-bold text-primary">
                             {{ targetRoom.name }}
                         </h2>
                     </div>
-                    <button
-                        @click="resetSelection"
-                        class="flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-red-500"
-                    >
+                    <!-- 關閉按鈕: 跳至首頁 -->
+                    <button @click="resetSelection"
+                        class="flex items-center gap-1 text-sm text-gray-400 transition-colors hover:text-red-500">
                         <span class="text-lg">×</span> 關閉
                     </button>
                 </header>
 
                 <div class="flex flex-1 overflow-hidden">
                     <!-- 左側：ScheduleGrid 區域 -->
-                    <div
-                        class="flex flex-1 flex-col overflow-hidden bg-gradient-to-br from-white to-slate-50 p-2 md:p-4"
-                    >
-                        <ScheduleGrid
-                            class="h-full"
-                            :week-dates="weekDates"
-                            :periods="periods"
-                            :occupied-data="occupiedData"
-                            :highlight-info="highlightInfo"
-                            v-model="selectedSlots"
-                        />
-
-                        <div
-                            v-if="
-                                selectedSlots.length > 0 &&
-                                !isConsecutive
-                            "
-                            class="shrink-0 px-2 pt-2"
-                        >
-                            <div
-                                class="animate-fade-in flex items-center gap-2 rounded border border-red-200 bg-red-50 px-4 py-2 text-sm font-bold text-red-600"
-                            >
-                                <span class="text-xl">⚠️</span> 請選擇連續的時段
-                            </div>
-                        </div>
+                    <div class="flex flex-1 flex-col overflow-hidden bg-gradient-to-br from-white to-slate-50 p-4">
+                        <ScheduleGrid class="h-full" :week-dates="weekDates" :periods="periods"
+                            :occupied-data="occupiedData" :highlight-info="highlightInfo" v-model="selectedSlots" />
                     </div>
                 </div>
 
-                <ScheduleToolbar
-                    class="relative z-20 shrink-0 border-t border-gray-200 bg-white"
-                    :current-step="currentStep"
-                    :selected-count="selectedSlots.length"
-                    :formatted-date="footerDateDisplay"
-                    :current-date-string="currentDateYYYYMMDD"
-                    @change-week="changeWeek"
-                    @reset-today="resetToToday"
-                    @update-date="updateDate"
-                    @next-step="nextStep"
-                    @prev-step="currentStep = 1"
-                    @submit="submitForm"
-                />
+                <ScheduleToolbar class="relative z-20 shrink-0 border-t border-gray-200 bg-white"
+                    :current-step="currentStep" :selected-count="selectedSlots.length"
+                    :formatted-date="footerDateDisplay" :current-date-string="currentDateYYYYMMDD"
+                    @change-week="changeWeek" @reset-today="resetToToday" @update-date="updateDate"
+                    @next-step="nextStep" @prev-step="currentStep = 1" @submit="submitForm" />
             </div>
         </template>
 
         <!-- 右側邊欄 -->
         <template #right-sidebar>
-            <SelectionSummaryPanel
-                v-if="targetRoom"
-                :room="targetRoom"
-                :selected-slots="selectedSlots"
-                @next-step="nextStep"
-            />
+            <SelectionSummaryPanel v-if="targetRoom" :room="targetRoom" :selected-slots="selectedSlots"
+                @next-step="nextStep" width="medium" />
         </template>
 
         <!-- 額外元素 -->
         <template #extra>
-            <BookingProgressStepper
-                v-if="SHOW_STEP_PROGRESS_VERTICAL"
-                class="hidden lg:flex"
-                :target-room="targetRoom"
-                :current-step="currentStep"
-                :selected-count="selectedSlots.length"
-            />
+            <BookingProgressStepper v-if="SHOW_STEP_PROGRESS_VERTICAL" class="flex" :target-room="targetRoom"
+                :current-step="currentStep" :selected-count="selectedSlots.length" />
 
             <!-- 借用須知彈出視窗 -->
-            <GuidelinesModal
-                :show="showGuidelinesModal"
-                @close="showGuidelinesModal = false"
-                @confirm="onGuidelinesConfirmed"
-            />
+            <GuidelinesModal :show="showGuidelinesModal" @close="showGuidelinesModal = false"
+                @confirm="onGuidelinesConfirmed" />
 
             <!-- 申請表單彈出視窗 -->
-            <BookingFormModal
-                :show="showBookingFormModal"
-                :target-room="targetRoom"
-                :selected-slots="selectedSlots"
-                :form="applicantForm"
-                @close="showBookingFormModal = false"
-                @update:form="Object.assign(applicantForm, $event)"
-                @submit="submitForm"
-            />
+            <BookingFormModal :show="showBookingFormModal" :target-room="targetRoom" :selected-slots="selectedSlots"
+                :form="applicantForm" @close="showBookingFormModal = false"
+                @update:form="Object.assign(applicantForm, $event)" @submit="submitForm" />
         </template>
     </AppLayout>
 </template>
@@ -147,7 +88,7 @@ import type {
 import { useBookingFlow, useDateSelection, useHighlight } from '@/composables';
 
 // --- 工具函式 ---
-import { checkSlotsConsecutive, findRoomByCode, formatDateStringForDisplay } from '@/utils';
+import { findRoomByCode, formatDateStringForDisplay } from '@/utils';
 
 // --- 元件引用 ---
 import {
@@ -208,15 +149,10 @@ watchFiltersDate(() => props.filters.date);
 // --- 時段選取狀態 (直接管理) ---
 const selectedSlots = ref<SelectedSlot[]>([]);
 
-const isConsecutive = computed(() =>
-    checkSlotsConsecutive(selectedSlots.value, props.periods)
-);
-
 // --- Composable: 預約流程 ---
 const bookingFlow = useBookingFlow({
     getTargetRoom: () => targetRoom.value,
     getSelectedSlots: () => selectedSlots.value,
-    isConsecutive: () => isConsecutive.value,
     onReset: () => {
         targetRoom.value = null;
         selectedSlots.value = [];

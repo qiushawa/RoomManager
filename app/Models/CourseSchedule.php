@@ -10,6 +10,7 @@ class CourseSchedule extends Model
     use HasFactory;
 
     protected $fillable = [
+        'semester_id',
         'classroom_id',
         'course_name',
         'teacher_name',
@@ -17,6 +18,11 @@ class CourseSchedule extends Model
         'start_slot_id',
         'end_slot_id',
     ];
+
+    public function semester()
+    {
+        return $this->belongsTo(Semester::class);
+    }
 
     public function classroom()
     {

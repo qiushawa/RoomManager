@@ -85,20 +85,19 @@ class HomeController extends Controller
     {
         $requestData = $request->validate([
             'classroom_id' => 'required|exists:classrooms,id',
-            'classroom_code' => 'required|string', // 新增教室 code 驗證
+            'classroom_code' => 'required|string',
             'date' => 'required|date',
-            'start_slot_id' => 'required|exists:time_slots,id',
-            'end_slot_id' => 'required|exists:time_slots,id',
+            'time_slot_ids' => 'required|array|min:1',
+            'time_slot_ids.*' => 'exists:time_slots,id',
             'applicant.name' => 'required|string|max:255',
-            'applicant.identity_code' => 'required|string|max:50', // 必填以確保借用者身份識別
-            'applicant.email' => 'required|email|max:255', // 必填以發送確認郵件
+            'applicant.identity_code' => 'required|string|max:50',
+            'applicant.email' => 'required|email|max:255',
             'applicant.phone' => 'nullable|string|max:20',
             'applicant.department' => 'nullable|string|max:255',
             'applicant.teacher' => 'nullable|string|max:255',
             'applicant.reason' => 'nullable|string|max:1000',
         ]);
 
-        // 使用 identity_code + email 組合查詢借用者，避免身份混淆
         $applicantData = $requestData['applicant'];
         $borrower = Borrower::firstOrCreate(
             [
@@ -111,32 +110,28 @@ class HomeController extends Controller
                 'department' => $applicantData['department'] ?? null,
             ]
         );
-        // 建立預約
+
         $booking = new Booking();
         $booking->classroom_id = $requestData['classroom_id'];
         $booking->borrower_id = $borrower->id;
         $booking->date = $requestData['date'];
-        $booking->start_slot_id = $requestData['start_slot_id'];
-        $booking->end_slot_id = $requestData['end_slot_id'];
         $booking->reason = $applicantData['reason'] ?? null;
         $booking->teacher = $applicantData['teacher'] ?? null;
-        $booking->status = 0; // 預設為待審核
+        $booking->status = 0;
         $booking->save();
 
-        // 轉址回日曆表頁面，帶上教室 code 和日期
+        // 關聯多個時段
+        $booking->timeSlots()->sync($requestData['time_slot_ids']);
+
         $roomCode = $requestData['classroom_code'];
         $date = $requestData['date'];
 
-        // 使用 flash session 傳遞高亮資訊
-        $startSlot = TimeSlot::find($requestData['start_slot_id']);
-        $endSlot = TimeSlot::find($requestData['end_slot_id']);
-        $slots = TimeSlot::whereBetween('start_time', [$startSlot->start_time, $endSlot->start_time])
+        $slots = TimeSlot::whereIn('id', $requestData['time_slot_ids'])
             ->orderBy('start_time')
             ->pluck('name')
             ->toArray();
 
-        // 發送確認郵件給申請人
-        $booking->load(['classroom', 'borrower', 'startSlot', 'endSlot']);
+        $booking->load(['classroom', 'borrower', 'timeSlots']);
         if ($borrower->email) {
             Mail::to($borrower->email)->send(new BookingSubmitted($booking, $slots));
         }
@@ -147,6 +142,6 @@ class HomeController extends Controller
                 'date' => $date,
                 'slots' => $slots
             ]);
-}
+    }
 
 }

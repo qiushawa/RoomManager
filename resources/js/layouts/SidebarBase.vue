@@ -1,31 +1,17 @@
 <template>
-    <aside
-        class="sticky top-0 relative flex h-auto w-full shrink-0 flex-col overflow-hidden md:h-dvh"
-        :class="[sidebarWidthClass, visibilityClass]"
-    >
+    <aside class="sticky top-0 relative flex shrink-0 flex-col overflow-hidden h-dvh"
+        :class="[sidebarWidthClass, visibilityClass]">
         <!-- 背景層 -->
         <div v-if="hasBackground" class="absolute inset-0">
             <slot name="background">
-                <img
-                    v-if="backgroundImage"
-                    :src="backgroundImage"
-                    alt=""
-                    class="h-full w-full object-cover"
-                />
-                <div
-                    v-if="backgroundOverlay"
-                    class="absolute inset-0"
-                    :class="backgroundOverlay"
-                />
+                <img v-if="backgroundImage" :src="backgroundImage" alt="" class="h-full w-full object-cover" />
+                <div v-if="backgroundOverlay" class="absolute inset-0" :class="backgroundOverlay" />
             </slot>
         </div>
 
         <!-- Header -->
-        <div
-            v-if="$slots.header"
-            class="relative z-10 flex h-[88px] shrink-0 items-center border-b px-4"
-            :class="headerClass"
-        >
+        <div v-if="$slots.header" class="relative z-10 flex h-[88px] shrink-0 items-center border-b px-4"
+            :class="headerClass">
             <slot name="header" />
         </div>
 
@@ -35,11 +21,8 @@
         </div>
 
         <!-- Footer -->
-        <div
-            v-if="$slots.footer"
-            class="relative z-10 flex h-[88px] shrink-0 items-center justify-center border-t px-3"
-            :class="footerClass"
-        >
+        <div v-if="$slots.footer" class="relative z-10 flex h-[88px] shrink-0 items-center justify-center border-t px-3"
+            :class="footerClass">
             <slot name="footer" />
         </div>
     </aside>
@@ -108,9 +91,9 @@ const hasBackground = computed(
 
 const sidebarWidthClass = computed(() => {
     const widthMap: Record<string, string> = {
-        narrow: 'md:w-44 lg:w-52 xl:w-60 2xl:w-72',
-        medium: 'w-56 xl:w-64',
-        wide: 'w-64 xl:w-80',
+        narrow: 'w-64',
+        medium: 'w-72',
+        wide: 'w-80',
     };
     return widthMap[props.width] || props.width;
 });
@@ -118,8 +101,8 @@ const sidebarWidthClass = computed(() => {
 const visibilityClass = computed(() => {
     const visibilityMap: Record<string, string> = {
         always: 'flex',
-        md: 'hidden md:flex',
-        lg: 'hidden lg:flex',
+        md: 'flex',
+        lg: 'flex',
     };
     return visibilityMap[props.visibility] || 'flex';
 });

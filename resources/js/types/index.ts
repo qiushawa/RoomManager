@@ -25,7 +25,14 @@ export interface WeekDate {
 
 export type OccupiedStatus = 'approved' | 'pending' | 'course' | 'holiday';
 
-export type OccupiedData = Record<string, Record<string, OccupiedStatus>>;
+export interface OccupiedItem {
+    status: OccupiedStatus;
+    title?: string;
+    instructor?: string;
+    applicant?: string;
+}
+
+export type OccupiedData = Record<string, Record<string, OccupiedItem | OccupiedStatus>>;
 
 export interface HighlightInfo {
     date: string;
@@ -49,4 +56,12 @@ export interface ApplicantForm {
     department: string;
     teacher: string;
     reason: string;
+}
+
+export interface Booking {
+    id: number;
+    user_name: string;
+    classroom_name: string;
+    date: string;
+    status: 0 | 1 | 2 | 3; // 0: pending, 1: approved, 2: rejected, 3: cancelled
 }

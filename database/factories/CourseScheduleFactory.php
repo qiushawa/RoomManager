@@ -19,6 +19,7 @@ class CourseScheduleFactory extends Factory
     public function definition(): array
     {
         return [
+            'semester_id' => \App\Models\Semester::factory(),
             'classroom_id' => Classroom::factory(),
             'course_name' => $this->faker->jobTitle() . '課程',
             'teacher_name' => $this->faker->name(),
