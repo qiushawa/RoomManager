@@ -25,9 +25,11 @@ class HomeController extends Controller
     {
         // 1. 基礎資料 (保持不變)
         // 注意：這裡前端需要用到 code，請確保你的 Classroom 查詢有 select 'code'
+        // 只獲取啟用的教室，並且只選取必要的欄位 (id, name, code)
         $buildings = [
-            ['name' => '綜三館 BGC', 'rooms' => Classroom::where('code', 'like', 'BGC%')->get(['id', 'name', 'code'])],
-            ['name' => '跨領域 BCB', 'rooms' => Classroom::where('code', 'like', 'BCB%')->get(['id', 'name', 'code'])],
+            ['name' => '綜三館 BGC', 'rooms' => Classroom::where('code', 'like', 'BGC%')->where('is_active', true)->get(['id', 'name', 'code'])],
+            ['name' => '跨領域 BCB', 'rooms' => Classroom::where('code', 'like', 'BCB%')->where('is_active', true)->get(['id', 'name', 'code'])],
+            ['name' => '科研大樓 BRA', 'rooms' => Classroom::where('code', 'like', 'BRA%')->where('is_active', true)->get(['id', 'name', 'code'])],
         ];
 
         $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label', 'start_time', 'end_time']);

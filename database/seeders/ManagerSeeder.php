@@ -14,10 +14,10 @@ class ManagerSeeder extends Seeder
     public function run(): void
     {
         Manager::firstOrCreate(
-            ['username' => 'admin'],
+            ['username' => 'test'],
             [
                 'name' => 'Administrator',
-                'password' => Hash::make('password'),
+                'password' => Hash::make('test'),
             ]
         );
     }

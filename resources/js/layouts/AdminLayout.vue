@@ -25,16 +25,28 @@
                     總覽
                 </Link>
 
-                <Link href="/admin/bookings" :class="[
+                <Link href="/admin/reviews" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
-                    isActive('/admin/bookings') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                    isActive('/admin/reviews') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
-                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/bookings') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
+                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/reviews') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                    </svg>
+                    審核列表
+                </Link>
+
+                <Link href="/admin/borrowing-records" :class="[
+                    'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
+                    isActive('/admin/borrowing-records') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                ]">
+                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/borrowing-records') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
-                    預約管理
+                    短期借用紀錄
                 </Link>
 
                 <Link href="/admin/rooms" :class="[
@@ -146,7 +158,7 @@
                                         目前沒有待審核的申請
                                     </div>
                                     <Link v-for="item in notifItems" :key="item.id"
-                                        href="/admin/bookings?status=0"
+                                        href="/admin/reviews"
                                         class="flex gap-3 px-4 py-3 hover:bg-a-surface-hover transition-colors border-b border-a-divider last:border-b-0"
                                     >
                                         <div class="shrink-0 mt-0.5 h-8 w-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
@@ -167,7 +179,7 @@
                                         </div>
                                     </Link>
                                 </div>
-                                <Link v-if="notifCount > 0" href="/admin/bookings?status=0"
+                                <Link v-if="notifCount > 0" href="/admin/reviews"
                                     class="block px-4 py-2.5 text-center text-xs font-medium text-primary-light hover:bg-a-surface-hover transition-colors border-t border-a-border">
                                     查看全部待審核申請
                                 </Link>

@@ -172,26 +172,7 @@ class AdminController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString()
-            ->through(fn ($booking) => [
-                'id' => $booking->id,
-                'date' => $booking->date,
-                'status' => $booking->status,
-                'reason' => $booking->reason,
-                'teacher' => $booking->teacher,
-                'created_at' => $booking->created_at->format('Y-m-d H:i'),
-                'borrower' => $booking->borrower ? [
-                    'name' => $booking->borrower->name,
-                    'identity_code' => $booking->borrower->identity_code,
-                    'department' => $booking->borrower->department,
-                    'email' => $booking->borrower->email,
-                    'phone' => $booking->borrower->phone,
-                ] : null,
-                'classroom' => $booking->classroom ? [
-                    'code' => $booking->classroom->code,
-                    'name' => $booking->classroom->name,
-                ] : null,
-                'time_slots' => $booking->timeSlots->pluck('name')->toArray(),
-            ]);
+            ->through(fn ($booking) => $this->formatBooking($booking));
 
         $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label']);
 
@@ -200,6 +181,100 @@ class AdminController extends Controller
             'filters' => $request->only(['status', 'search']),
             'periods' => $periods,
         ]);
+    }
+
+    /**
+     * 審核列表（僅待審核）
+     */
+    public function reviews(Request $request)
+    {
+        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
+            ->where('status', 0);
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('classroom', fn ($c) => $c->where('code', 'like', "%{$search}%")->orWhere('name', 'like', "%{$search}%"))
+                  ->orWhereHas('borrower', fn ($b) => $b->where('name', 'like', "%{$search}%"))
+                  ->orWhere('reason', 'like', "%{$search}%");
+            });
+        }
+
+        $bookings = $query->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString()
+            ->through(fn ($booking) => $this->formatBooking($booking));
+
+        $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label']);
+
+        return Inertia::render('Admin/ReviewList', [
+            'bookings' => $bookings,
+            'filters' => $request->only(['search']),
+            'periods' => $periods,
+        ]);
+    }
+
+    /**
+     * 短期借用紀錄（已審核）
+     */
+    public function borrowingRecords(Request $request)
+    {
+        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
+            ->where('status', '!=', 0);
+
+        if ($request->filled('status') && $request->input('status') !== 'all') {
+            $query->where('status', (int) $request->input('status'));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('classroom', fn ($c) => $c->where('code', 'like', "%{$search}%")->orWhere('name', 'like', "%{$search}%"))
+                  ->orWhereHas('borrower', fn ($b) => $b->where('name', 'like', "%{$search}%"))
+                  ->orWhere('reason', 'like', "%{$search}%");
+            });
+        }
+
+        $bookings = $query->orderBy('date', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->paginate(15)
+            ->withQueryString()
+            ->through(fn ($booking) => $this->formatBooking($booking));
+
+        $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label']);
+
+        return Inertia::render('Admin/BorrowingRecords', [
+            'bookings' => $bookings,
+            'filters' => $request->only(['status', 'search']),
+            'periods' => $periods,
+        ]);
+    }
+
+    /**
+     * 格式化預約資料
+     */
+    private function formatBooking(Booking $booking): array
+    {
+        return [
+            'id' => $booking->id,
+            'date' => $booking->date,
+            'status' => $booking->status,
+            'reason' => $booking->reason,
+            'teacher' => $booking->teacher,
+            'created_at' => $booking->created_at->format('Y-m-d H:i'),
+            'borrower' => $booking->borrower ? [
+                'name' => $booking->borrower->name,
+                'identity_code' => $booking->borrower->identity_code,
+                'department' => $booking->borrower->department,
+                'email' => $booking->borrower->email,
+                'phone' => $booking->borrower->phone,
+            ] : null,
+            'classroom' => $booking->classroom ? [
+                'code' => $booking->classroom->code,
+                'name' => $booking->classroom->name,
+            ] : null,
+            'time_slots' => $booking->timeSlots->pluck('name')->toArray(),
+        ];
     }
 
     /**
@@ -246,7 +321,62 @@ class AdminController extends Controller
      */
     public function rooms()
     {
-        return Inertia::render('Admin/Rooms');
+        $classrooms = Classroom::orderBy('code')
+            ->get()
+            ->map(fn ($c) => [
+                'id' => $c->id,
+                'code' => $c->code,
+                'name' => $c->name,
+                'is_active' => (bool) $c->is_active,
+                'bookings_count' => $c->bookings()->count(),
+            ]);
+
+        return Inertia::render('Admin/Rooms', [
+            'classrooms' => $classrooms,
+        ]);
+    }
+
+    /**
+     * 新增教室
+     */
+    public function storeRoom(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:7|unique:classrooms,code',
+            'name' => 'required|string|max:25',
+        ]);
+
+        Classroom::create([
+            'code' => $validated['code'],
+            'name' => $validated['name'],
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', '教室已新增。');
+    }
+
+    /**
+     * 切換教室啟用狀態
+     */
+    public function toggleRoom(Classroom $classroom)
+    {
+        $classroom->update(['is_active' => !$classroom->is_active]);
+
+        return back()->with('success', '教室狀態已更新。');
+    }
+
+    /**
+     * 刪除教室
+     */
+    public function destroyRoom(Classroom $classroom)
+    {
+        if ($classroom->bookings()->exists()) {
+            return back()->withErrors(['classroom' => '此教室有關聯的借用紀錄，無法刪除。']);
+        }
+
+        $classroom->delete();
+
+        return back()->with('success', '教室已刪除。');
     }
 
     /**

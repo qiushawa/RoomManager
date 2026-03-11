@@ -26,9 +26,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/logout', [AdminController::class, 'logout'])->name('logout');
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/bookings', [AdminController::class, 'bookings'])->name('bookings');
+        Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
+        Route::get('/borrowing-records', [AdminController::class, 'borrowingRecords'])->name('borrowingRecords');
         Route::patch('/bookings/{booking}/status', [AdminController::class, 'updateBookingStatus'])->name('bookings.updateStatus');
         Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
         Route::get('/rooms', [AdminController::class, 'rooms'])->name('rooms');
+        Route::post('/rooms', [AdminController::class, 'storeRoom'])->name('rooms.store');
+        Route::patch('/rooms/{classroom}/toggle', [AdminController::class, 'toggleRoom'])->name('rooms.toggle');
+        Route::delete('/rooms/{classroom}', [AdminController::class, 'destroyRoom'])->name('rooms.destroy');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
     });

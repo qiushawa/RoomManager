@@ -10,9 +10,7 @@
                 <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
                     管理員登入
                 </h1>
-                <p class="text-sm text-gray-500 mt-1">
-                    RoomManager 控制台
-                </p>
+
             </div>
 
             <!-- Form -->
@@ -21,7 +19,7 @@
                 <!-- Username -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        管理員帳號 (Username)
+                        帳號
                     </label>
                     <input v-model="form.username" type="text" required
                         class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
@@ -40,18 +38,14 @@
                     <div v-if="form.errors.password" class="mt-1 text-sm text-red-500">{{ form.errors.password }}</div>
                 </div>
 
-                <!-- Remember -->
+                <!-- Remember
                 <div class="flex items-center justify-between text-sm">
                     <label class="flex items-center text-gray-600">
                         <input type="checkbox" v-model="form.remember"
                             class="mr-2 text-primary focus:ring-primary border-gray-300 rounded" />
                         記住我
                     </label>
-
-                    <a href="#" class="text-primary hover:text-primary-dark transition-colors font-medium">
-                        忘記密碼
-                    </a>
-                </div>
+                </div> -->
 
                 <!-- Button -->
                 <button type="submit" :disabled="form.processing"
