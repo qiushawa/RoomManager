@@ -14,6 +14,12 @@ Route::get('/', function () {
 // 注意：URL 大小寫通常視為不同，這裡依您的需求設定為 /Home
 Route::get('/Home', [HomeController::class, 'index'])->name('home.index');
 Route::post('/bookings', [HomeController::class, 'store'])->name('home.store');
+Route::get('/bookings/{booking}/cancel', [HomeController::class, 'showCancelConfirmation'])
+    ->middleware('signed')
+    ->name('bookings.cancel.confirm');
+Route::post('/bookings/{booking}/cancel', [HomeController::class, 'destroy'])
+    ->middleware('signed')
+    ->name('bookings.cancel.destroy');
 
 // --- 管理員路由 ---
 Route::prefix('admin')->name('admin.')->group(function () {

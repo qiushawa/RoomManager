@@ -10,6 +10,7 @@ use App\Services\RoomAvailabilityService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -144,6 +145,89 @@ class HomeController extends Controller
                 'date' => $date,
                 'slots' => $slots
             ]);
+    }
+
+    public function showCancelConfirmation(Request $request, string $booking)
+    {
+        $bookingModel = $this->findBookingForCancellation($booking);
+
+        if (! $bookingModel) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'confirm',
+                'state' => 'missing',
+                'summary' => null,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        return Inertia::render('BookingCancellation', [
+            'mode' => 'confirm',
+            'state' => $bookingModel->status === 0 ? 'confirm' : ($bookingModel->status === 3 ? 'cancelled' : 'locked'),
+            'summary' => $this->formatBookingSummary($bookingModel),
+            'cancelActionUrl' => URL::signedRoute('bookings.cancel.destroy', ['booking' => $bookingModel->id]),
+            'homeUrl' => route('home.index'),
+        ]);
+    }
+
+    public function destroy(Request $request, string $booking)
+    {
+        $bookingModel = $this->findBookingForCancellation($booking);
+
+        if (! $bookingModel) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'result',
+                'state' => 'missing',
+                'summary' => null,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        $summary = $this->formatBookingSummary($bookingModel);
+
+        if ($bookingModel->status !== 0) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'result',
+                'state' => $bookingModel->status === 3 ? 'cancelled' : 'locked',
+                'summary' => $summary,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        $bookingModel->status = 3;
+        $bookingModel->save();
+
+        return Inertia::render('BookingCancellation', [
+            'mode' => 'result',
+            'state' => 'cancelled',
+            'summary' => $summary,
+            'cancelActionUrl' => null,
+            'homeUrl' => route('home.index'),
+        ]);
+    }
+
+    protected function findBookingForCancellation(string $bookingId): ?Booking
+    {
+        return Booking::with(['classroom', 'borrower', 'timeSlots'])
+            ->find($bookingId);
+    }
+
+    protected function formatBookingSummary(Booking $booking): array
+    {
+        return [
+            'borrower_name' => $booking->borrower?->name ?? '未提供',
+            'classroom_name' => trim(($booking->classroom?->code ?? '') . ' ' . ($booking->classroom?->name ?? '')),
+            'date' => Carbon::parse($booking->date)->format('Y年m月d日'),
+            'teacher' => $booking->teacher ?: '未填寫',
+            'reason' => $booking->reason ?: '未填寫',
+            'time_slots' => $booking->timeSlots
+                ->sortBy('start_time')
+                ->map(fn ($timeSlot) => sprintf('%s (%s-%s)', $timeSlot->name, substr((string) $timeSlot->start_time, 0, 5), substr((string) $timeSlot->end_time, 0, 5)))
+                ->values()
+                ->all(),
+        ];
     }
 
 }
