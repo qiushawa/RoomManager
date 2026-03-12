@@ -134,6 +134,28 @@ watch(
 );
 
 const handleSubmit = () => {
+    // 關閉彈窗並送出表單資料
+    let errors = validate(localForm.identity_code);
+    if (errors) {
+        // 這裡可以加入錯誤提示機制，目前僅簡單阻止提交
+        alert(errors);
+        return;
+    }
+    emit('close');
     emit('submit', localForm);
+};
+
+// 輸入格式檢查
+const validate = (value: string) => {
+    /*
+    檢查所有輸入欄位是否符合基本格式要求，並返回錯誤訊息（如果有的話
+    */
+    let errors: string = '';
+    // 學號/員工編號格式檢查（假設為8位數字）
+    if (!/^\d{8}$/.test(value)) {
+        errors += '學號/員工編號格式錯誤\n';
+    }
+    // 預留
+    return errors;
 };
 </script>

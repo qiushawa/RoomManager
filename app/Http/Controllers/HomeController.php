@@ -91,13 +91,13 @@ class HomeController extends Controller
             'date' => 'required|date',
             'time_slot_ids' => 'required|array|min:1',
             'time_slot_ids.*' => 'exists:time_slots,id',
-            'applicant.name' => 'required|string|max:255',
-            'applicant.identity_code' => 'required|string|max:50',
+            'applicant.name' => 'required|string|max:50',
+            'applicant.identity_code' => 'required|string|max:8',
             'applicant.email' => 'required|email|max:255',
-            'applicant.phone' => 'nullable|string|max:20',
-            'applicant.department' => 'nullable|string|max:255',
-            'applicant.teacher' => 'nullable|string|max:255',
-            'applicant.reason' => 'nullable|string|max:1000',
+            'applicant.phone' => 'nullable|string|max:10',
+            'applicant.department' => 'nullable|string|max:50',
+            'applicant.teacher' => 'nullable|string|max:50',
+            'applicant.reason' => 'nullable|string|max:255',
         ]);
 
         $applicantData = $requestData['applicant'];
