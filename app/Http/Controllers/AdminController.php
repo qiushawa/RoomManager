@@ -250,6 +250,14 @@ class AdminController extends Controller
         ]);
     }
 
+
+    // longTermBorrowing
+    public function longTermBorrowing(Request $request)
+    {
+        // 這裡可以實作長期借用的相關邏輯，例如顯示長期借用的列表、申請表單等
+        return Inertia::render('Admin/LongTermBorrowing');
+    }
+
     /**
      * 格式化預約資料
      */

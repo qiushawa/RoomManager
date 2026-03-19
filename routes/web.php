@@ -42,5 +42,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/rooms/{classroom}', [AdminController::class, 'destroyRoom'])->name('rooms.destroy');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
+        Route::get('/long-term-borrowing', [AdminController::class, 'longTermBorrowing'])->name('longTermBorrowing');
     });
 });

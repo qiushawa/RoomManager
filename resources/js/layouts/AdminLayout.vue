@@ -32,7 +32,7 @@
                     <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/reviews') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2l4-4" />
                     </svg>
                     審核列表
                 </Link>
@@ -44,7 +44,7 @@
                     <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/borrowing-records') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     短期借用紀錄
                 </Link>
@@ -56,23 +56,25 @@
                     <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/rooms') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" />
                     </svg>
                     教室管理
                 </Link>
-
-                <Link href="/admin/users" :class="[
+                <!-- 長期借用管理 -->
+                <!-- 長期借用管理 -->
+                <Link href="/admin/long-term-borrowing" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
-                    isActive('/admin/users') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                    isActive('/admin/long-term-borrowing') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
-                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/users') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
+                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/long-term-borrowing') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
                         fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2 2 4-4" />
                     </svg>
-                    用戶管理
-                </Link>
 
+                    長期借用管理
+                </Link>
                 <Link href="/admin/settings" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/settings') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
@@ -125,10 +127,12 @@
 
                     <!-- 通知鈴鐺 -->
                     <div class="relative" ref="notifRef">
-                        <button @click="toggleNotifications" class="text-a-text-muted hover:text-a-text-body relative transition-colors">
+                        <button @click="toggleNotifications"
+                            class="text-a-text-muted hover:text-a-text-body relative transition-colors">
                             <template v-if="notifCount > 0">
                                 <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span
+                                        class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                                     <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
                                 </span>
                             </template>
@@ -139,31 +143,33 @@
                         </button>
 
                         <!-- 通知下拉面板 -->
-                        <Transition
-                            enter-active-class="transition ease-out duration-150"
+                        <Transition enter-active-class="transition ease-out duration-150"
                             enter-from-class="opacity-0 translate-y-1 scale-95"
                             enter-to-class="opacity-100 translate-y-0 scale-100"
                             leave-active-class="transition ease-in duration-100"
                             leave-from-class="opacity-100 translate-y-0 scale-100"
-                            leave-to-class="opacity-0 translate-y-1 scale-95"
-                        >
+                            leave-to-class="opacity-0 translate-y-1 scale-95">
                             <div v-if="showNotif"
                                 class="absolute right-0 top-full mt-2 w-96 rounded-xl bg-a-bg border border-a-border-card shadow-2xl shadow-black/20 z-50 overflow-hidden">
                                 <div class="flex items-center justify-between px-4 py-3 border-b border-a-border">
                                     <span class="text-sm font-semibold text-a-text">待審核申請</span>
-                                    <span v-if="notifCount > 0" class="text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 font-medium">{{ notifCount }} 筆</span>
+                                    <span v-if="notifCount > 0"
+                                        class="text-xs bg-red-500/20 text-red-400 border border-red-500/30 rounded-full px-2 py-0.5 font-medium">{{
+                                            notifCount }} 筆</span>
                                 </div>
                                 <div class="max-h-80 overflow-y-auto">
-                                    <div v-if="notifItems.length === 0" class="px-4 py-8 text-center text-sm text-a-text-dim">
+                                    <div v-if="notifItems.length === 0"
+                                        class="px-4 py-8 text-center text-sm text-a-text-dim">
                                         目前沒有待審核的申請
                                     </div>
-                                    <Link v-for="item in notifItems" :key="item.id"
-                                        href="/admin/reviews"
-                                        class="flex gap-3 px-4 py-3 hover:bg-a-surface-hover transition-colors border-b border-a-divider last:border-b-0"
-                                    >
-                                        <div class="shrink-0 mt-0.5 h-8 w-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
-                                            <svg class="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    <Link v-for="item in notifItems" :key="item.id" href="/admin/reviews"
+                                        class="flex gap-3 px-4 py-3 hover:bg-a-surface-hover transition-colors border-b border-a-divider last:border-b-0">
+                                        <div
+                                            class="shrink-0 mt-0.5 h-8 w-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
+                                            <svg class="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24"
+                                                stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                         </div>
                                         <div class="min-w-0 flex-1">
