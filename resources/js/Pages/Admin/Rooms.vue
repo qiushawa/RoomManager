@@ -114,56 +114,33 @@
             </div>
         </div>
 
-        <!-- 刪除確認 Modal -->
-        <teleport to="body">
-            <transition
-                enter-active-class="transition-opacity duration-200"
-                enter-from-class="opacity-0"
-                leave-active-class="transition-opacity duration-150"
-                leave-to-class="opacity-0"
-            >
-                <div v-if="deleteTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" @click="deleteTarget = null">
-                    <div class="w-full max-w-sm rounded-xl border border-a-border-card bg-a-bg p-6 shadow-2xl" @click.stop>
-                        <h3 class="text-base font-semibold text-a-text">確認刪除</h3>
-                        <p class="mt-2 text-sm text-a-text-2">
-                            確定要刪除教室 <span class="font-medium text-a-text">{{ deleteTarget.code }}</span>（{{ deleteTarget.name }}）嗎？此操作無法復原。
-                        </p>
-                        <div class="mt-5 flex justify-end gap-2">
-                            <button @click="deleteTarget = null"
-                                class="rounded-lg border border-a-border-2 bg-a-surface-2 px-4 py-2 text-xs font-medium text-a-text-2 hover:bg-a-surface-hover transition-colors">
-                                取消
-                            </button>
-                            <button @click="doDelete"
-                                class="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600 transition-colors">
-                                確認刪除
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </transition>
-        </teleport>
+        <ConfirmDeleteDialog
+            :open="Boolean(deleteTarget)"
+            :message="deleteMessage"
+            @cancel="cancelDelete"
+            @confirm="doDelete"
+        />
     </AdminLayout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/layouts/AdminLayout.vue';
-
-interface ClassroomItem {
-    id: number;
-    code: string;
-    name: string;
-    is_active: boolean;
-    bookings_count: number;
-}
+import { ConfirmDeleteDialog } from '@/components';
+import { useConfirmDelete } from '@/composables';
+import type { AdminClassroomItem } from '@/types';
 
 defineProps<{
-    classrooms: ClassroomItem[];
+    classrooms: AdminClassroomItem[];
 }>();
 
 const form = useForm({ code: '', name: '' });
-const deleteTarget = ref<ClassroomItem | null>(null);
+const { deleteTarget, confirmDelete, cancelDelete, doDelete: deleteByTarget } = useConfirmDelete<AdminClassroomItem>();
+const deleteMessage = computed(() => {
+    if (!deleteTarget.value) return '';
+    return `確定要刪除教室 ${deleteTarget.value.code}（${deleteTarget.value.name}）嗎？此操作無法復原。`;
+});
 
 function addRoom() {
     form.post('/admin/rooms', {
@@ -172,19 +149,11 @@ function addRoom() {
     });
 }
 
-function toggleRoom(room: ClassroomItem) {
+function toggleRoom(room: AdminClassroomItem) {
     router.patch(`/admin/rooms/${room.id}/toggle`, {}, { preserveScroll: true });
 }
 
-function confirmDelete(room: ClassroomItem) {
-    deleteTarget.value = room;
-}
-
 function doDelete() {
-    if (!deleteTarget.value) return;
-    router.delete(`/admin/rooms/${deleteTarget.value.id}`, {
-        preserveScroll: true,
-        onSuccess: () => { deleteTarget.value = null; },
-    });
+    deleteByTarget((item) => `/admin/rooms/${item.id}`);
 }
 </script>

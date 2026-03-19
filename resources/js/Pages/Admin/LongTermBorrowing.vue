@@ -194,52 +194,7 @@
                 </div>
 
                 <!-- 已儲存記錄清單 -->
-                <div class="rounded-2xl border border-a-border-card bg-a-surface">
-                    <div class="flex items-center justify-between border-b border-a-divider px-4 py-3">
-                        <span class="text-sm font-medium text-a-text">已儲存記錄</span>
-                        <span class="rounded-full bg-a-badge px-2 py-0.5 text-xs text-a-text-2">{{ manualRecords.length }}</span>
-                    </div>
-
-                    <div v-if="manualRecords.length === 0" class="px-4 py-12 text-center text-xs text-a-text-dim">
-                        尚無資料
-                    </div>
-
-                    <ul v-else class="divide-y divide-a-divider max-h-[620px] overflow-auto">
-                        <li
-                            v-for="record in manualRecords"
-                            :key="record.id"
-                            class="px-4 py-3"
-                        >
-                            <div class="flex items-start justify-between gap-2">
-                                <div class="min-w-0 flex-1">
-                                    <!-- 教室 + 類型 badge -->
-                                    <div class="flex items-center gap-2">
-                                        <p class="text-sm font-medium text-a-text truncate">{{ record.classroom_code }}</p>
-                                        <span
-                                            class="shrink-0 rounded border px-1.5 py-0.5 text-[10px]"
-                                            :class="record.borrow_type === 1
-                                                ? 'border-blue-400/30 bg-blue-500/10 text-blue-300'
-                                                : 'border-violet-400/30 bg-violet-500/10 text-violet-300'"
-                                        >
-                                            {{ record.borrow_type === 1 ? '一般' : '課程' }}
-                                        </span>
-                                    </div>
-                                    <!-- 星期 -->
-                                    <p class="mt-0.5 text-xs text-a-text-muted">{{ weekdayLabel(record.day_of_week) }}</p>
-                                    <!-- 日期範圍 -->
-                                    <p class="text-xs text-a-text-dim">{{ record.start_date }} ~ {{ record.end_date }}</p>
-                                    <!-- 老師 / 課程 -->
-                                    <p class="mt-0.5 text-xs text-a-text-muted truncate">
-                                        {{ record.teacher_name }}
-                                        <span v-if="record.course_name">｜{{ record.course_name }}</span>
-                                    </p>
-                                    <!-- 節次 -->
-                                    <p class="text-xs text-a-text-dim">{{ record.start_slot }} — {{ record.end_slot }}</p>
-                                </div>
-                            </div>
-                        </li>
-                    </ul>
-                </div>
+                <ManualRecordList :manual-records="manualRecords" />
             </section>
 
             <!-- ── 教室課表匯入 ── -->
@@ -255,74 +210,18 @@
 
                 <!-- 大樓教室選擇 -->
                 <div class="space-y-4">
-                    <div
+                    <ImportBuildingPanel
                         v-for="buildingCode in buildingOrder"
                         :key="buildingCode"
-                        class="rounded-2xl border border-a-border-card bg-a-surface"
-                    >
-                        <!-- 大樓標題列 -->
-                        <div class="flex items-center justify-between border-b border-a-divider px-5 py-3">
-                            <div class="flex items-center gap-3">
-                                <h4 class="text-sm font-semibold text-a-text">{{ buildingLabels[buildingCode] }}</h4>
-                                <span class="text-xs text-a-text-dim">{{ classroomsByBuilding[buildingCode].length }} 間</span>
-                            </div>
-                            <button
-                                type="button"
-                                class="rounded-md border border-a-border-2 px-3 py-1 text-xs text-a-text-2 transition-colors hover:bg-a-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-                                :disabled="classroomsByBuilding[buildingCode].length === 0 || (selectedBuildingCode !== null && selectedBuildingCode !== buildingCode)"
-                                @click="selectAllInBuilding(buildingCode)"
-                            >
-                                全選
-                            </button>
-                        </div>
-
-                        <!-- 教室格狀列表 -->
-                        <div v-if="classroomsByBuilding[buildingCode].length === 0" class="px-5 py-6 text-center text-xs text-a-text-dim">
-                            此大樓目前沒有可匯入教室
-                        </div>
-
-                        <div v-else class="grid grid-cols-2 gap-2 p-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                            <div
-                                v-for="room in classroomsByBuilding[buildingCode]"
-                                :key="room.id"
-                                class="flex flex-col gap-1.5"
-                            >
-                                <label
-                                    class="flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2.5 transition-colors"
-                                    :class="selectedClassroomSet.has(room.id)
-                                        ? 'border-primary/40 bg-primary/8'
-                                        : 'border-a-divider hover:bg-a-surface-hover'"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        class="h-3.5 w-3.5 shrink-0 rounded border-a-border-2 bg-a-input text-primary focus:ring-primary/30"
-                                        :checked="selectedClassroomSet.has(room.id)"
-                                        @change="toggleClassroomSelection(room)"
-                                    />
-                                    <div class="min-w-0 flex-1">
-                                        <p class="truncate text-xs font-medium text-a-text">{{ room.code }}</p>
-                                        <p class="truncate text-[11px] text-a-text-dim">{{ room.name }}</p>
-                                    </div>
-                                    <span
-                                        v-if="room.has_imported"
-                                        class="shrink-0 rounded border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-300"
-                                    >
-                                        已匯入
-                                    </span>
-                                </label>
-
-                                <!-- 撤回按鈕（在已匯入卡片下方） -->
-                                <button
-                                    v-if="room.has_imported"
-                                    type="button"
-                                    class="w-full rounded border border-red-500/30 bg-red-500/8 px-2 py-1 text-[11px] text-red-400 transition-colors hover:bg-red-500/20"
-                                    @click="revokeImport(room)"
-                                >
-                                    撤回匯入
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                        :building-code="buildingCode"
+                        :building-label="buildingLabels[buildingCode]"
+                        :rooms="classroomsByBuilding[buildingCode]"
+                        :selected-building-code="selectedBuildingCode"
+                        :selected-classroom-set="selectedClassroomSet"
+                        @select-all="selectAllInBuilding"
+                        @toggle-room="toggleClassroomSelection"
+                        @revoke-room="revokeImport"
+                    />
                 </div>
 
                 <!-- 工具列 + 動作按鈕 -->
@@ -355,40 +254,10 @@
                     </div>
                 </div>
 
-                <!-- 預覽結果 -->
-                <div v-if="previewSchedules.length > 0" class="overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-                    <div class="border-b border-emerald-500/20 px-4 py-2.5 text-sm font-medium text-emerald-400">
-                        預覽：{{ previewSchedules.length }} 筆課表 — 確認後才會正式匯入
-                    </div>
-                    <div class="max-h-80 overflow-auto">
-                        <table class="w-full text-sm">
-                            <thead class="sticky top-0 bg-a-surface-2">
-                                <tr class="text-left text-xs text-a-text-muted">
-                                    <th class="px-4 py-2 font-medium">教室</th>
-                                    <th class="px-4 py-2 font-medium">星期</th>
-                                    <th class="px-4 py-2 font-medium">節次</th>
-                                    <th class="px-4 py-2 font-medium">課程</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-a-divider">
-                                <tr
-                                    v-for="(row, index) in previewSchedules"
-                                    :key="`${row.classroom_id}-${row.day_of_week}-${row.start_slot_id}-${row.end_slot_id}-${index}`"
-                                    class="text-xs"
-                                >
-                                    <td class="px-4 py-2.5 font-medium text-a-text">{{ getClassroomLabel(row.classroom_id) }}</td>
-                                    <td class="px-4 py-2.5 text-a-text-muted">{{ weekdayLabel(row.day_of_week) }}</td>
-                                    <td class="px-4 py-2.5 text-a-text-muted">{{ row.start_slot_id }}–{{ row.end_slot_id }} 節</td>
-                                    <td class="px-4 py-2.5 text-a-text-muted">{{ row.course_name || '—' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <p v-else class="text-center text-xs text-a-text-dim">
-                    請先選擇教室後點擊預覽。
-                </p>
+                <ImportPreviewTable
+                    :classrooms="classrooms"
+                    :preview-schedules="previewSchedules"
+                />
             </section>
         </div>
     </AdminLayout>
@@ -398,50 +267,23 @@
 import { computed, ref, watch } from 'vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-
-type ImportConfig = {
-    year: number;
-    seme: number;
-    category: string;
-    building: string;
-};
-
-type BuildingCode = 'CB' | 'GC' | 'RA';
-
-type ClassroomOption = {
-    id: number;
-    code: string;
-    name: string;
-    has_imported?: boolean;
-    building_code?: BuildingCode | null;
-};
-
-type TimeSlotOption = {
-    id: number;
-    name: string;
-};
-
-type ManualRecord = {
-    id: number;
-    classroom_code: string;
-    classroom_name: string;
-    borrow_type: number;
-    teacher_name: string;
-    course_name: string;
-    day_of_week: number;
-    start_slot: string;
-    end_slot: string;
-    start_date: string | null;
-    end_date: string | null;
-};
-
-type PreviewSchedule = {
-    classroom_id: number;
-    start_slot_id: number;
-    end_slot_id: number;
-    day_of_week: number;
-    course_name: string;
-};
+import {
+    LONG_TERM_BORROW_TYPE_OPTIONS,
+    LONG_TERM_BUILDING_LABELS,
+    LONG_TERM_BUILDING_ORDER,
+    LONG_TERM_WEEKDAY_OPTIONS,
+} from '@/constants';
+import { ImportBuildingPanel, ImportPreviewTable, ManualRecordList } from '@/components/admin';
+import type {
+    BuildingCode,
+    ClassroomOption,
+    ImportConfig,
+    ManualFormData,
+    ManualRecord,
+    PreviewSchedule,
+    TimeSlotOption,
+} from '@/types';
+import { getRoomBuildingCode } from '@/utils';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
@@ -451,27 +293,10 @@ const props = defineProps<{
 }>();
 
 // ── 常數 ──────────────────────────────────────────────
-const buildingOrder: BuildingCode[] = ['CB', 'GC', 'RA'];
-const buildingLabels: Record<BuildingCode, string> = {
-    CB: '跨領域',
-    GC: '綜三館',
-    RA: '科研大樓',
-};
-
-const borrowTypeOptions = [
-    { value: 1, label: '一般借用' },
-    { value: 2, label: '課程使用' },
-];
-
-const weekdayOptions = [
-    { value: 1, label: '週一' },
-    { value: 2, label: '週二' },
-    { value: 3, label: '週三' },
-    { value: 4, label: '週四' },
-    { value: 5, label: '週五' },
-    { value: 6, label: '週六' },
-    { value: 7, label: '週日' },
-];
+const buildingOrder = LONG_TERM_BUILDING_ORDER;
+const buildingLabels = LONG_TERM_BUILDING_LABELS;
+const borrowTypeOptions = LONG_TERM_BORROW_TYPE_OPTIONS;
+const weekdayOptions = LONG_TERM_WEEKDAY_OPTIONS;
 
 // ── 狀態 ──────────────────────────────────────────────
 const activeMode = ref<'manual' | 'import'>('manual');
@@ -482,16 +307,7 @@ const previewError = ref('');
 const previewSchedules = ref<PreviewSchedule[]>([]);
 
 // ── 手動表單 ──────────────────────────────────────────
-const manualForm = useForm<{
-    borrow_type: number;
-    classroom_id: number | '';
-    teacher_name: string;
-    course_name: string;
-    day_of_week: number[];
-    start_date: string;
-    end_date: string;
-    periods: number[];
-}>({
+const manualForm = useForm<ManualFormData>({
     borrow_type: 1,
     classroom_id: '',
     teacher_name: '',
@@ -548,32 +364,10 @@ const importServerError = computed(() => {
     return errors.import ?? '';
 });
 
-const classroomLabelMap = computed(() => {
-    const map = new Map<number, string>();
-    props.classrooms.forEach((room) => map.set(room.id, `${room.code} - ${room.name}`));
-    return map;
-});
-
 watch(selectedClassroomIds, () => {
     previewSchedules.value = [];
     previewError.value = '';
 });
-
-// ── 工具函式 ──────────────────────────────────────────
-function inferBuildingCode(code: string): BuildingCode | null {
-    const upper = String(code).toUpperCase();
-    if (upper.includes('CB')) return 'CB';
-    if (upper.includes('GC')) return 'GC';
-    if (upper.includes('RA')) return 'RA';
-    return null;
-}
-
-function getRoomBuildingCode(room: ClassroomOption): BuildingCode | null {
-    if (room.building_code === 'CB' || room.building_code === 'GC' || room.building_code === 'RA') {
-        return room.building_code;
-    }
-    return inferBuildingCode(room.code);
-}
 
 function toggleClassroomSelection(room: ClassroomOption) {
     importErrorMessage.value = '';
@@ -611,15 +405,6 @@ function selectAllInBuilding(buildingCode: BuildingCode) {
 function clearSelectedClassrooms() {
     selectedClassroomIds.value = [];
     importErrorMessage.value = '';
-}
-
-function weekdayLabel(day: number): string {
-    const labels = ['週一', '週二', '週三', '週四', '週五', '週六', '週日'];
-    return labels[day - 1] ?? `週${day}`;
-}
-
-function getClassroomLabel(classroomId: number): string {
-    return classroomLabelMap.value.get(classroomId) ?? `教室 #${classroomId}`;
 }
 
 async function previewImport() {

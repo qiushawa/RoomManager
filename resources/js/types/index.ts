@@ -65,3 +65,8 @@ export interface Booking {
     date: string;
     status: 0 | 1 | 2 | 3; // 0: pending, 1: approved, 2: rejected, 3: cancelled
 }
+
+export * from './admin';
+export * from './bookingCancellation';
+export * from './home';
+export * from './longTermBorrowing';

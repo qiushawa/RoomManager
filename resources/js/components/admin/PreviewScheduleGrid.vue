@@ -66,7 +66,7 @@
 </template>
 
 <script setup lang="ts">
-import { STATUS_COLORS } from '@/constants';
+import { useScheduleStatus } from '@/composables';
 import type { HighlightInfo, OccupiedData, OccupiedStatus, Period, SelectedSlot, WeekDate } from '@/types';
 import { formatPeriodLabel } from '@/utils';
 
@@ -92,30 +92,10 @@ const formatShortDate = (dateStr: string): string => {
     return `${month}/${day}`;
 };
 
-const getOccupiedStatus = (dateStr: string, code: string): OccupiedStatus | null => {
-    const value = props.occupiedData?.[dateStr]?.[code];
-    if (value && typeof value === 'string') {
-        return value as OccupiedStatus;
-    }
-    return null;
-};
-
-const getStatusClass = (dateStr: string, code: string): string => {
-    const status = getOccupiedStatus(dateStr, code);
-    if (isSelected(dateStr, code)) {
-        return 'bg-green-500 bg-opacity-80 shadow-inner';
-    }
-    if (!status) return 'bg-a-surface-hover';
-    return STATUS_COLORS[status] || 'bg-a-surface-hover';
-};
-
-const isSelected = (dateStr: string, periodCode: string): boolean => {
-    if (!props.selectedSlots || props.selectedSlots.length === 0) {
-        return false;
-    }
-
-    return props.selectedSlots.some(
-        (s) => s.date === dateStr && s.period === periodCode,
-    );
-};
+const { getStatusClass, isSelected } = useScheduleStatus({
+    occupiedData: () => props.occupiedData,
+    selectedSlots: () => props.selectedSlots,
+    defaultClass: 'bg-a-surface-hover',
+    selectedClass: 'bg-green-500 bg-opacity-80 shadow-inner',
+});
 </script>

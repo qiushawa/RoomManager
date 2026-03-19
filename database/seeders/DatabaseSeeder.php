@@ -24,8 +24,8 @@ class DatabaseSeeder extends Seeder
             BorrowerSeeder::class,
             BlacklistReasonSeeder::class,
             BlacklistSeeder::class,
-            // CourseScheduleSeeder::class,
-            // BookingSeeder::class,
+            CourseScheduleSeeder::class,
+            BookingSeeder::class,
         ]);
     }
 }

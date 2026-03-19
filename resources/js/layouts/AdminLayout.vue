@@ -209,7 +209,7 @@
 <script setup lang="ts">
 import { Link, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted } from 'vue';
-import { useAdminTheme } from '@/composables/useAdminTheme';
+import { useAdminTheme } from '@/composables';
 import sidebarBg from '../../img/2339815.jpg';
 
 const props = defineProps<{

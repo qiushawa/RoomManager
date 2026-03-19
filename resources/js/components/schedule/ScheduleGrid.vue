@@ -116,7 +116,7 @@
  * - 多選點擊（多次單選）與拖曳選取
  * - 高亮效果（用於顯示剛提交的時段）
  */
-import { STATUS_COLORS } from '@/constants';
+import { useScheduleStatus } from '@/composables';
 import type { HighlightInfo, OccupiedData, OccupiedStatus, Period, SelectedSlot, WeekDate } from '@/types';
 import { formatHeaderDate, formatPeriodLabel, formatSlotLabel, formatTime } from '@/utils';
 import { onMounted, onUnmounted, ref } from 'vue';
@@ -141,31 +141,22 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: SelectedSlot[]): void;
 }>();
 
-const getOccupiedItem = (dateStr: string, code: string) => {
-    return props.occupiedData?.[dateStr]?.[code] ?? null;
-};
+const {
+    getOccupiedItem,
+    getOccupiedStatus,
+    getStatusClassByStatus,
+    isSelected,
+} = useScheduleStatus({
+    occupiedData: () => props.occupiedData,
+    selectedSlots: () => props.modelValue,
+    defaultClass: 'bg-gray-400/90',
+});
 
-const getOccupiedStatus = (dateStr: string, code: string): OccupiedStatus | null => {
-    const item = getOccupiedItem(dateStr, code);
-    if (!item) return null;
-    if (typeof item === 'string') return item as OccupiedStatus;
-    return item.status as OccupiedStatus;
-};
-
-const getStatusClass = (status: OccupiedStatus | null): string => {
-    if (!status) return STATUS_COLORS.default;
-    return STATUS_COLORS[status] || STATUS_COLORS.default;
-};
+const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
 
 const isHighlighted = (dateStr: string, code: string): boolean => {
     if (!props.highlightInfo) return false;
     return props.highlightInfo.date === dateStr && props.highlightInfo.slots.includes(code);
-};
-
-const isSelected = (dateStr: string, periodCode: string): boolean => {
-    return props.modelValue.some(
-        (s) => s.date === dateStr && s.period === periodCode,
-    );
 };
 
 // 狀態管理：拖曳選取

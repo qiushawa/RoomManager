@@ -152,9 +152,10 @@
 </template>
 
 <script setup lang="ts">
-import PreviewScheduleGrid from '@/components/admin/PreviewScheduleGrid.vue';
+import { PreviewScheduleGrid } from '@/components/admin';
 import { formatPeriodLabel } from '@/utils';
 import type {
+    AdminBookingItem,
     HighlightInfo,
     OccupiedData,
     Period,
@@ -162,35 +163,10 @@ import type {
     WeekDate,
 } from '@/types';
 
-interface BookingBorrower {
-    name: string;
-    identity_code: string;
-    department: string | null;
-    email: string | null;
-    phone: string | null;
-}
-
-interface BookingClassroom {
-    code: string;
-    name: string;
-}
-
-interface BookingItem {
-    id: number;
-    date: string;
-    status: number;
-    reason: string | null;
-    teacher: string | null;
-    created_at: string;
-    borrower: BookingBorrower | null;
-    classroom: BookingClassroom | null;
-    time_slots: string[];
-}
-
 const props = withDefaults(
     defineProps<{
         open: boolean;
-        request: BookingItem | null;
+        request: AdminBookingItem | null;
         periods?: Period[];
     }>(),
     {
@@ -228,7 +204,7 @@ const formatDate = (dateString: string) => {
     });
 };
 
-const getWeekDatesForRequest = (request: BookingItem): WeekDate[] => {
+const getWeekDatesForRequest = (request: AdminBookingItem): WeekDate[] => {
     if (!request?.date) return [];
     const date = new Date(request.date);
     const dayOfWeek = date.getDay();
@@ -241,13 +217,13 @@ const getWeekDatesForRequest = (request: BookingItem): WeekDate[] => {
     }];
 };
 
-const getOccupiedDataForRequest = (request: BookingItem): OccupiedData => {
+const getOccupiedDataForRequest = (request: AdminBookingItem): OccupiedData => {
     if (!request?.date) return {};
     const dateStr = new Date(request.date).toISOString().split('T')[0];
     return { [dateStr]: {} };
 };
 
-const getSelectedSlotsForRequest = (request: BookingItem): SelectedSlot[] => {
+const getSelectedSlotsForRequest = (request: AdminBookingItem): SelectedSlot[] => {
     if (!request || !props.periods) return [];
 
     const dateStr = new Date(request.date).toISOString().split('T')[0];
@@ -267,7 +243,7 @@ const getSelectedSlotsForRequest = (request: BookingItem): SelectedSlot[] => {
         .filter((s): s is SelectedSlot => s !== null);
 };
 
-const getHighlightInfoForRequest = (request: BookingItem): HighlightInfo | null => {
+const getHighlightInfoForRequest = (request: AdminBookingItem): HighlightInfo | null => {
     if (!request || !props.periods) return null;
 
     const dateStr = new Date(request.date).toISOString().split('T')[0];

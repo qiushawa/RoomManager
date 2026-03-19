@@ -95,8 +95,8 @@
  * @emits submit - 送出表單
  */
 import { BaseModal, FormInput, FormTextarea } from '@/components/ui';
+import { useSyncedApplicantForm } from '@/composables';
 import type { ApplicantForm, Room, SelectedSlot } from '@/types';
-import { reactive, watch } from 'vue';
 
 const props = defineProps<{
     /** 是否顯示彈窗 */
@@ -115,23 +115,9 @@ const emit = defineEmits<{
     (e: 'update:form', value: ApplicantForm): void;
 }>();
 
-const localForm = reactive({ ...props.form });
-
-watch(
-    () => props.form,
-    (newVal) => {
-        Object.assign(localForm, newVal);
-    },
-    { deep: true },
-);
-
-watch(
-    localForm,
-    (newVal) => {
-        emit('update:form', newVal);
-    },
-    { deep: true },
-);
+const { localForm } = useSyncedApplicantForm(props.form, (value) => {
+    emit('update:form', value);
+});
 
 const handleSubmit = () => {
     // 關閉彈窗並送出表單資料

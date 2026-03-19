@@ -6,7 +6,7 @@
 import { computed } from 'vue';
 import { Doughnut } from 'vue-chartjs';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
-import { useAdminTheme } from '@/composables/useAdminTheme';
+import { useAdminTheme } from '@/composables';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 

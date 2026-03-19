@@ -13,6 +13,7 @@
 // 預約流程模組 (Booking)
 // ============================================================
 export {
+    BookingCancellationSummary,
     BookingForm,
     BookingFormModal,
     BookingProgressStepper,
@@ -42,13 +43,3 @@ export {
 // ============================================================
 export * from './ui';
 
-// ============================================================
-// 相容性別名（漸進式遷移用，未來可移除）
-// ============================================================
-export { ClassroomNavigator as RoomSidebar } from './navigation';
-export { WelcomeGuide as InstructionPanel } from './navigation';
-export { SelectionSummaryPanel as RoomInfoPanel } from './booking';
-export { BookingProgressStepper as StepProgressVertical } from './booking';
-export { ScheduleGrid as TimeTable } from './schedule';
-export { ScheduleToolbar as ActionFooter } from './schedule';
-export { DatePicker as DateSelector } from './schedule';

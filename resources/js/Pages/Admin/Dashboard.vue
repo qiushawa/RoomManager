@@ -34,84 +34,62 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 <!-- 圖表 1: 各教室借用次數 -->
-                <div class="bg-a-surface rounded-xl border border-a-border-card p-5 flex flex-col gap-4 h-80">
-                    <div class="flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-1 h-4 bg-blue-500 rounded-full"></div>
-                            <h3 class="text-sm font-semibold text-a-text-body">各教室借用次數</h3>
-                        </div>
-                        <span class="rounded-md bg-blue-500/10 border border-blue-500/20 px-2.5 py-1 text-xs text-blue-400 font-medium">
-                            {{ currentSemester ?? '無學期' }}
-                        </span>
-                    </div>
-                    <div class="flex-1 min-h-0">
-                        <BarChart
-                            :labels="bookingsPerRoomChart.labels"
-                            :data="bookingsPerRoomChart.data"
-                            bar-color="rgba(59, 130, 246, 0.7)"
-                            label="借用次數"
-                        />
-                    </div>
-                </div>
+                <DashboardChartCard
+                    title="各教室借用次數"
+                    :badge-text="currentSemester ?? '無學期'"
+                    accent-class="bg-blue-500"
+                    badge-class="border-blue-500/20 bg-blue-500/10 text-blue-400"
+                >
+                    <BarChart
+                        :labels="bookingsPerRoomChart.labels"
+                        :data="bookingsPerRoomChart.data"
+                        bar-color="rgba(59, 130, 246, 0.7)"
+                        label="借用次數"
+                    />
+                </DashboardChartCard>
 
                 <!-- 圖表 2: 各問題發生次數比例 -->
-                <div class="bg-a-surface rounded-xl border border-a-border-card p-5 flex flex-col gap-4 h-80">
-                    <div class="flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-1 h-4 bg-orange-500 rounded-full"></div>
-                            <h3 class="text-sm font-semibold text-a-text-body">各問題發生次數比例</h3>
-                        </div>
-                        <span class="rounded-md bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-xs text-orange-400 font-medium">分類</span>
-                    </div>
-                    <div class="flex-1 min-h-0">
-                        <DoughnutChart
-                            :labels="reasonChart.labels"
-                            :data="reasonChart.data"
-                        />
-                    </div>
-                </div>
+                <DashboardChartCard
+                    title="各問題發生次數比例"
+                    badge-text="分類"
+                    accent-class="bg-orange-500"
+                    badge-class="border-orange-500/20 bg-orange-500/10 text-orange-400"
+                >
+                    <DoughnutChart
+                        :labels="reasonChart.labels"
+                        :data="reasonChart.data"
+                    />
+                </DashboardChartCard>
 
                 <!-- 圖表 3: 各教室問題發生次數 -->
-                <div class="bg-a-surface rounded-xl border border-a-border-card p-5 flex flex-col gap-4 h-80">
-                    <div class="flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-1 h-4 bg-red-500 rounded-full"></div>
-                            <h3 class="text-sm font-semibold text-a-text-body">各教室問題發生次數</h3>
-                        </div>
-                        <span class="rounded-md bg-red-500/10 border border-red-500/20 px-2.5 py-1 text-xs text-red-400 font-medium">
-                            {{ currentSemester ?? '無學期' }}
-                        </span>
-                    </div>
-                    <div class="flex-1 min-h-0">
-                        <BarChart
-                            :labels="problemsPerRoomChart.labels"
-                            :data="problemsPerRoomChart.data"
-                            bar-color="rgba(239, 68, 68, 0.7)"
-                            label="問題次數"
-                        />
-                    </div>
-                </div>
+                <DashboardChartCard
+                    title="各教室問題發生次數"
+                    :badge-text="currentSemester ?? '無學期'"
+                    accent-class="bg-red-500"
+                    badge-class="border-red-500/20 bg-red-500/10 text-red-400"
+                >
+                    <BarChart
+                        :labels="problemsPerRoomChart.labels"
+                        :data="problemsPerRoomChart.data"
+                        bar-color="rgba(239, 68, 68, 0.7)"
+                        label="問題次數"
+                    />
+                </DashboardChartCard>
 
                 <!-- 圖表 4: 各時段借用熱度 -->
-                <div class="bg-a-surface rounded-xl border border-a-border-card p-5 flex flex-col gap-4 h-80">
-                    <div class="flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-1 h-4 bg-emerald-500 rounded-full"></div>
-                            <h3 class="text-sm font-semibold text-a-text-body">各時段借用熱度</h3>
-                        </div>
-                        <span class="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-xs text-emerald-400 font-medium">
-                            {{ currentSemester ?? '無學期' }}
-                        </span>
-                    </div>
-                    <div class="flex-1 min-h-0">
-                        <BarChart
-                            :labels="slotPopularityChart.labels"
-                            :data="slotPopularityChart.data"
-                            bar-color="rgba(16, 185, 129, 0.7)"
-                            label="借用次數"
-                        />
-                    </div>
-                </div>
+                <DashboardChartCard
+                    title="各時段借用熱度"
+                    :badge-text="currentSemester ?? '無學期'"
+                    accent-class="bg-emerald-500"
+                    badge-class="border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                >
+                    <BarChart
+                        :labels="slotPopularityChart.labels"
+                        :data="slotPopularityChart.data"
+                        bar-color="rgba(16, 185, 129, 0.7)"
+                        label="借用次數"
+                    />
+                </DashboardChartCard>
 
             </div>
 
@@ -122,24 +100,18 @@
 <script setup lang="ts">
 import { toRefs } from 'vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
-import MetricCard from '@/components/admin/MetricCard.vue';
-import BarChart from '@/components/admin/BarChart.vue';
-import DoughnutChart from '@/components/admin/DoughnutChart.vue';
-
-interface ChartData {
-    labels: string[];
-    data: number[];
-}
+import { BarChart, DashboardChartCard, DoughnutChart, MetricCard } from '@/components/admin';
+import type { AdminChartData } from '@/types';
 
 const props = defineProps<{
     activeClassroomsCount?: number;
     totalBookingsCount?: number;
     pendingBookingsCount?: number;
     currentSemester?: string | null;
-    bookingsPerRoomChart: ChartData;
-    reasonChart: ChartData;
-    problemsPerRoomChart: ChartData;
-    slotPopularityChart: ChartData;
+    bookingsPerRoomChart: AdminChartData;
+    reasonChart: AdminChartData;
+    problemsPerRoomChart: AdminChartData;
+    slotPopularityChart: AdminChartData;
 }>();
 
 const {

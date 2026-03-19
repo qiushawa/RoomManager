@@ -78,6 +78,7 @@ import { SHOW_STEP_PROGRESS_VERTICAL } from '@/constants';
 import type {
     Building,
     HighlightInfo,
+    HomePageProps,
     OccupiedData,
     Period,
     Room,
@@ -103,16 +104,7 @@ import {
 } from '@/components';
 
 // --- Props 定義 ---
-const props = defineProps<{
-    buildings: Building[];
-    periods: Period[];
-    allOccupiedData: Record<string, OccupiedData>;
-    filters: {
-        date: string;
-        room_code?: string;
-        highlight?: HighlightInfo | null;
-    };
-}>();
+const props = defineProps<HomePageProps>();
 
 // --- 狀態管理：教室選擇 ---
 const targetRoom = ref<Room | null>(

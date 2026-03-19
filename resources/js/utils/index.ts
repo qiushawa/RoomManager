@@ -23,3 +23,10 @@ export {
 
 // 教室相關
 export { findRoomByCode } from './room';
+
+// 長期借用相關
+export {
+    getRoomBuildingCode,
+    inferBuildingCode,
+    weekdayLabel,
+} from './longTermBorrowing';

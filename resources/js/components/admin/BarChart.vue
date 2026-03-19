@@ -14,7 +14,7 @@ import {
     Tooltip,
     Legend,
 } from 'chart.js';
-import { useAdminTheme } from '@/composables/useAdminTheme';
+import { useAdminTheme } from '@/composables';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 

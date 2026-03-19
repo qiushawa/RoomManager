@@ -89,7 +89,7 @@
  * 使用 v-model:form 進行雙向綁定。
  */
 import type { ApplicantForm, Room, SelectedSlot } from '@/types';
-import { reactive, watch } from 'vue';
+import { useSyncedApplicantForm } from '@/composables';
 
 const props = defineProps<{
     /** 目標教室資料 */
@@ -104,21 +104,7 @@ const emit = defineEmits<{
     (e: 'update:form', value: ApplicantForm): void;
 }>();
 
-const localForm = reactive({ ...props.form });
-
-watch(
-    () => props.form,
-    (newVal) => {
-        Object.assign(localForm, newVal);
-    },
-    { deep: true },
-);
-
-watch(
-    localForm,
-    (newVal) => {
-        emit('update:form', newVal);
-    },
-    { deep: true },
-);
+const { localForm } = useSyncedApplicantForm(props.form, (value) => {
+    emit('update:form', value);
+});
 </script>
