@@ -121,7 +121,7 @@ const { localForm } = useSyncedApplicantForm(props.form, (value) => {
 
 const handleSubmit = () => {
     // 關閉彈窗並送出表單資料
-    let errors = validate(localForm.identity_code);
+    const errors = validate(localForm.identity_code);
     if (errors) {
         // 這裡可以加入錯誤提示機制，目前僅簡單阻止提交
         alert(errors);

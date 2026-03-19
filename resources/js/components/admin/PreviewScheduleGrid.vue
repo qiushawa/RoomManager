@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 import { useScheduleStatus } from '@/composables';
-import type { HighlightInfo, OccupiedData, OccupiedStatus, Period, SelectedSlot, WeekDate } from '@/types';
+import type { HighlightInfo, OccupiedData, Period, SelectedSlot, WeekDate } from '@/types';
 import { formatPeriodLabel } from '@/utils';
 
 const props = withDefaults(

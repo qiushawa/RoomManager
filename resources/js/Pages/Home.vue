@@ -76,11 +76,7 @@ import { SHOW_STEP_PROGRESS_VERTICAL } from '@/constants';
 
 // --- 型別定義 ---
 import type {
-    Building,
-    HighlightInfo,
     HomePageProps,
-    OccupiedData,
-    Period,
     Room,
     SelectedSlot,
 } from '@/types';

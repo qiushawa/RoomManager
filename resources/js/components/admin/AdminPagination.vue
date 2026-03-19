@@ -14,10 +14,11 @@
                             ? 'text-a-text-muted hover:bg-a-surface-hover hover:text-a-text-body'
                             : 'cursor-not-allowed text-a-text-dim',
                 ]"
-                v-html="link.label"
                 preserve-state
                 preserve-scroll
-            />
+            >
+                <span v-html="link.label"></span>
+            </Link>
         </div>
     </div>
 </template>
