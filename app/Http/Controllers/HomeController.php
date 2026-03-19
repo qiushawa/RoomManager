@@ -10,6 +10,7 @@ use App\Services\RoomAvailabilityService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -25,9 +26,11 @@ class HomeController extends Controller
     {
         // 1. 基礎資料 (保持不變)
         // 注意：這裡前端需要用到 code，請確保你的 Classroom 查詢有 select 'code'
+        // 只獲取啟用的教室，並且只選取必要的欄位 (id, name, code)
         $buildings = [
-            ['name' => '綜三館 BGC', 'rooms' => Classroom::where('code', 'like', 'BGC%')->get(['id', 'name', 'code'])],
-            ['name' => '跨領域 BCB', 'rooms' => Classroom::where('code', 'like', 'BCB%')->get(['id', 'name', 'code'])],
+            ['name' => '綜三館 BGC', 'rooms' => Classroom::where('code', 'like', 'BGC%')->where('is_active', true)->get(['id', 'name', 'code'])],
+            ['name' => '跨領域 BCB', 'rooms' => Classroom::where('code', 'like', 'BCB%')->where('is_active', true)->get(['id', 'name', 'code'])],
+            ['name' => '科研大樓 BRA', 'rooms' => Classroom::where('code', 'like', 'BRA%')->where('is_active', true)->get(['id', 'name', 'code'])],
         ];
 
         $periods = TimeSlot::orderBy('start_time')->get(['id', 'name as code', 'name as label', 'start_time', 'end_time']);
@@ -85,20 +88,19 @@ class HomeController extends Controller
     {
         $requestData = $request->validate([
             'classroom_id' => 'required|exists:classrooms,id',
-            'classroom_code' => 'required|string', // 新增教室 code 驗證
+            'classroom_code' => 'required|string',
             'date' => 'required|date',
-            'start_slot_id' => 'required|exists:time_slots,id',
-            'end_slot_id' => 'required|exists:time_slots,id',
-            'applicant.name' => 'required|string|max:255',
-            'applicant.identity_code' => 'required|string|max:50', // 必填以確保借用者身份識別
-            'applicant.email' => 'required|email|max:255', // 必填以發送確認郵件
-            'applicant.phone' => 'nullable|string|max:20',
-            'applicant.department' => 'nullable|string|max:255',
-            'applicant.teacher' => 'nullable|string|max:255',
-            'applicant.reason' => 'nullable|string|max:1000',
+            'time_slot_ids' => 'required|array|min:1',
+            'time_slot_ids.*' => 'exists:time_slots,id',
+            'applicant.name' => 'required|string|max:50',
+            'applicant.identity_code' => 'required|string|max:8',
+            'applicant.email' => 'required|email|max:255',
+            'applicant.phone' => 'nullable|string|max:10',
+            'applicant.department' => 'nullable|string|max:50',
+            'applicant.teacher' => 'nullable|string|max:50',
+            'applicant.reason' => 'nullable|string|max:255',
         ]);
 
-        // 使用 identity_code + email 組合查詢借用者，避免身份混淆
         $applicantData = $requestData['applicant'];
         $borrower = Borrower::firstOrCreate(
             [
@@ -111,32 +113,28 @@ class HomeController extends Controller
                 'department' => $applicantData['department'] ?? null,
             ]
         );
-        // 建立預約
+
         $booking = new Booking();
         $booking->classroom_id = $requestData['classroom_id'];
         $booking->borrower_id = $borrower->id;
         $booking->date = $requestData['date'];
-        $booking->start_slot_id = $requestData['start_slot_id'];
-        $booking->end_slot_id = $requestData['end_slot_id'];
         $booking->reason = $applicantData['reason'] ?? null;
         $booking->teacher = $applicantData['teacher'] ?? null;
-        $booking->status = 0; // 預設為待審核
+        $booking->status = 0;
         $booking->save();
 
-        // 轉址回日曆表頁面，帶上教室 code 和日期
+        // 關聯多個時段
+        $booking->timeSlots()->sync($requestData['time_slot_ids']);
+
         $roomCode = $requestData['classroom_code'];
         $date = $requestData['date'];
 
-        // 使用 flash session 傳遞高亮資訊
-        $startSlot = TimeSlot::find($requestData['start_slot_id']);
-        $endSlot = TimeSlot::find($requestData['end_slot_id']);
-        $slots = TimeSlot::whereBetween('start_time', [$startSlot->start_time, $endSlot->start_time])
+        $slots = TimeSlot::whereIn('id', $requestData['time_slot_ids'])
             ->orderBy('start_time')
             ->pluck('name')
             ->toArray();
 
-        // 發送確認郵件給申請人
-        $booking->load(['classroom', 'borrower', 'startSlot', 'endSlot']);
+        $booking->load(['classroom', 'borrower', 'timeSlots']);
         if ($borrower->email) {
             Mail::to($borrower->email)->send(new BookingSubmitted($booking, $slots));
         }
@@ -147,6 +145,89 @@ class HomeController extends Controller
                 'date' => $date,
                 'slots' => $slots
             ]);
-}
+    }
+
+    public function showCancelConfirmation(Request $request, string $booking)
+    {
+        $bookingModel = $this->findBookingForCancellation($booking);
+
+        if (! $bookingModel) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'confirm',
+                'state' => 'missing',
+                'summary' => null,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        return Inertia::render('BookingCancellation', [
+            'mode' => 'confirm',
+            'state' => $bookingModel->status === 0 ? 'confirm' : ($bookingModel->status === 3 ? 'cancelled' : 'locked'),
+            'summary' => $this->formatBookingSummary($bookingModel),
+            'cancelActionUrl' => URL::signedRoute('bookings.cancel.destroy', ['booking' => $bookingModel->id]),
+            'homeUrl' => route('home.index'),
+        ]);
+    }
+
+    public function destroy(Request $request, string $booking)
+    {
+        $bookingModel = $this->findBookingForCancellation($booking);
+
+        if (! $bookingModel) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'result',
+                'state' => 'missing',
+                'summary' => null,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        $summary = $this->formatBookingSummary($bookingModel);
+
+        if ($bookingModel->status !== 0) {
+            return Inertia::render('BookingCancellation', [
+                'mode' => 'result',
+                'state' => $bookingModel->status === 3 ? 'cancelled' : 'locked',
+                'summary' => $summary,
+                'cancelActionUrl' => null,
+                'homeUrl' => route('home.index'),
+            ]);
+        }
+
+        $bookingModel->status = 3;
+        $bookingModel->save();
+
+        return Inertia::render('BookingCancellation', [
+            'mode' => 'result',
+            'state' => 'cancelled',
+            'summary' => $summary,
+            'cancelActionUrl' => null,
+            'homeUrl' => route('home.index'),
+        ]);
+    }
+
+    protected function findBookingForCancellation(string $bookingId): ?Booking
+    {
+        return Booking::with(['classroom', 'borrower', 'timeSlots'])
+            ->find($bookingId);
+    }
+
+    protected function formatBookingSummary(Booking $booking): array
+    {
+        return [
+            'borrower_name' => $booking->borrower?->name ?? '未提供',
+            'classroom_name' => trim(($booking->classroom?->code ?? '') . ' ' . ($booking->classroom?->name ?? '')),
+            'date' => Carbon::parse($booking->date)->format('Y年m月d日'),
+            'teacher' => $booking->teacher ?: '未填寫',
+            'reason' => $booking->reason ?: '未填寫',
+            'time_slots' => $booking->timeSlots
+                ->sortBy('start_time')
+                ->map(fn ($timeSlot) => sprintf('%s (%s-%s)', $timeSlot->name, substr((string) $timeSlot->start_time, 0, 5), substr((string) $timeSlot->end_time, 0, 5)))
+                ->values()
+                ->all(),
+        ];
+    }
 
 }

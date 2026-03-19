@@ -2,8 +2,7 @@
     <BaseModal :show="show" size="md" @close="$emit('close')">
         <!-- Header -->
         <div
-            class="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4"
-        >
+            class="flex items-center justify-between border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4">
             <div class="flex items-center gap-3">
                 <div>
                     <h2 class="text-xl font-bold text-gray-800">
@@ -14,10 +13,8 @@
                     </p>
                 </div>
             </div>
-            <button
-                @click="$emit('close')"
-                class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
+            <button @click="$emit('close')"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
                 ✕
             </button>
         </div>
@@ -44,64 +41,25 @@
             <div class="mb-6">
                 <label class="mb-2 block text-xs font-bold text-gray-500">借用時段</label>
                 <div class="flex flex-wrap gap-2">
-                    <span
-                        v-for="(slot, idx) in selectedSlots"
-                        :key="idx"
-                        class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
-                    >
+                    <span v-for="(slot, idx) in selectedSlots" :key="idx"
+                        class="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
                         {{ slot.label }}
                     </span>
                 </div>
             </div>
 
             <!-- 表單欄位 -->
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <FormInput
-                    v-model="localForm.name"
-                    label="姓名"
-                    placeholder="完整姓名"
-                    required
-                />
-                <FormInput
-                    v-model="localForm.identity_code"
-                    label="學號/員工編號"
-                    placeholder="40123456"
-                    required
-                />
-                <FormInput
-                    v-model="localForm.email"
-                    type="email"
-                    label="Email"
-                    placeholder="請輸入常用郵件"
-                    required
-                />
-                <FormInput
-                    v-model="localForm.phone"
-                    type="tel"
-                    label="電話"
-                    placeholder="請輸入聯絡電話"
-                    required
-                />
-                <FormInput
-                    v-model="localForm.department"
-                    label="科系"
-                    placeholder="請輸入科系"
-                />
-                <FormInput
-                    v-model="localForm.teacher"
-                    label="指導老師"
-                    placeholder="老師姓名"
-                />
+            <div class="grid grid-cols-2 gap-4">
+                <FormInput v-model="localForm.name" label="姓名" placeholder="完整姓名" required />
+                <FormInput v-model="localForm.identity_code" label="學號/員工編號" placeholder="40123456" required />
+                <FormInput v-model="localForm.email" type="email" label="Email" placeholder="請輸入常用郵件" required />
+                <FormInput v-model="localForm.phone" type="tel" label="電話" placeholder="請輸入聯絡電話" required />
+                <FormInput v-model="localForm.department" label="科系" placeholder="請輸入科系" />
+                <FormInput v-model="localForm.teacher" label="指導老師" placeholder="老師姓名" />
             </div>
 
             <div class="mt-4">
-                <FormTextarea
-                    v-model="localForm.reason"
-                    label="借用事由"
-                    placeholder="請填寫詳細事由..."
-                    :rows="3"
-                    required
-                />
+                <FormTextarea v-model="localForm.reason" label="借用事由" placeholder="請填寫詳細事由..." :rows="3" required />
             </div>
         </div>
 
@@ -111,16 +69,12 @@
                 <span class="text-red-500">*</span> 為必填欄位
             </p>
             <div class="flex gap-3">
-                <button
-                    @click="$emit('close')"
-                    class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
-                >
+                <button @click="$emit('close')"
+                    class="rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100">
                     取消
                 </button>
-                <button
-                    @click="handleSubmit"
-                    class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-blue-700"
-                >
+                <button @click="handleSubmit"
+                    class="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition-all hover:bg-blue-700">
                     送出申請
                 </button>
             </div>
@@ -141,8 +95,8 @@
  * @emits submit - 送出表單
  */
 import { BaseModal, FormInput, FormTextarea } from '@/components/ui';
+import { useSyncedApplicantForm } from '@/composables';
 import type { ApplicantForm, Room, SelectedSlot } from '@/types';
-import { reactive, watch } from 'vue';
 
 const props = defineProps<{
     /** 是否顯示彈窗 */
@@ -161,25 +115,33 @@ const emit = defineEmits<{
     (e: 'update:form', value: ApplicantForm): void;
 }>();
 
-const localForm = reactive({ ...props.form });
-
-watch(
-    () => props.form,
-    (newVal) => {
-        Object.assign(localForm, newVal);
-    },
-    { deep: true },
-);
-
-watch(
-    localForm,
-    (newVal) => {
-        emit('update:form', newVal);
-    },
-    { deep: true },
-);
+const { localForm } = useSyncedApplicantForm(props.form, (value) => {
+    emit('update:form', value);
+});
 
 const handleSubmit = () => {
+    // 關閉彈窗並送出表單資料
+    const errors = validate(localForm.identity_code);
+    if (errors) {
+        // 這裡可以加入錯誤提示機制，目前僅簡單阻止提交
+        alert(errors);
+        return;
+    }
+    emit('close');
     emit('submit', localForm);
+};
+
+// 輸入格式檢查
+const validate = (value: string) => {
+    /*
+    檢查所有輸入欄位是否符合基本格式要求，並返回錯誤訊息（如果有的話
+    */
+    let errors: string = '';
+    // 學號/員工編號格式檢查（假設為8位數字）
+    if (!/^\d{8}$/.test(value)) {
+        errors += '學號/員工編號格式錯誤\n';
+    }
+    // 預留
+    return errors;
 };
 </script>

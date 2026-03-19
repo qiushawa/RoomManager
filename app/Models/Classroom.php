@@ -25,6 +25,12 @@ class Classroom extends Model
     public static function activeClassrooms()
     {
         return self::where('is_active', true)->get();
-        }
+    }
+
+    // 此學期被借用次數統計
+    public function currentSemesterBookingCount()
+    {
+        
+    }
 
 }

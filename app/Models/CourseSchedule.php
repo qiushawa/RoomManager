@@ -10,13 +10,27 @@ class CourseSchedule extends Model
     use HasFactory;
 
     protected $fillable = [
+        'semester_id',
         'classroom_id',
         'course_name',
         'teacher_name',
         'day_of_week',
         'start_slot_id',
         'end_slot_id',
+        'borrow_type',
+        'start_date',
+        'end_date',
     ];
+
+    protected $casts = [
+        'start_date' => 'date:Y-m-d',
+        'end_date'   => 'date:Y-m-d',
+    ];
+
+    public function semester()
+    {
+        return $this->belongsTo(Semester::class);
+    }
 
     public function classroom()
     {

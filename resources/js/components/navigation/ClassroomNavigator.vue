@@ -1,57 +1,37 @@
 <template>
-    <SidebarBase
-        width="narrow"
-        visibility="md"
-        :background-image="buildingBg"
-        background-overlay="bg-gradient-to-b from-slate-900/75 via-slate-800/70 to-slate-900/85"
-    >
-        <!-- Header -->
+    <SidebarBase width="narrow" visibility="md" :background-image="buildingBg"
+        background-overlay="bg-gradient-to-b from-slate-900/75 via-slate-800/70 to-slate-900/85">
         <template #header>
             <div class="flex items-center gap-3">
-                <img
-                    :src="logoImg"
-                    alt="Logo"
-                    class="h-10 w-10 rounded-xl object-cover shadow-lg ring-2 ring-white/30"
-                />
-                <h2 class="text-sm font-bold leading-tight text-white lg:text-base">
+                <img :src="logoImg" alt="Logo"
+                    class="h-10 w-10 rounded-xl object-cover shadow-lg ring-2 ring-white/30" />
+                <h2 class="text-base font-bold leading-tight text-white">
                     教室借用系統
                 </h2>
             </div>
         </template>
-
-        <!-- Room list (default slot) -->
-        <div v-for="(building, bIndex) in buildings" :key="bIndex" class="mt-5 first:mt-0 md:mt-7">
-            <h3
-                class="mb-2 border-b border-white/20 pb-1 text-xs font-medium text-white/80 md:mb-3 md:text-sm"
-            >
+        <div v-for="(building, bIndex) in buildings" :key="bIndex" class="mt-5 first:mt-0">
+            <h3 class="mb-3 border-b border-white/20 pb-1 text-sm font-medium text-white/80">
                 {{ building.name }}
             </h3>
-            <!-- Container with spacer and buttons -->
             <div class="flex">
-                <!-- Left spacer with glass divider -->
-                <div class="hidden w-[15%] shrink-0 justify-end pr-3 md:flex">
+                <div class="flex w-[15%] shrink-0 justify-end pr-3">
                     <div class="h-full w-px bg-gradient-to-b from-transparent via-white/30 to-transparent"></div>
                 </div>
-                <!-- Room buttons -->
-                <ul class="flex min-w-0 flex-1 flex-col items-stretch gap-1 md:gap-2">
-                    <li
-                        v-for="room in building.rooms"
-                        :key="room.id"
-                        @click="$emit('select-room', room)"
-                        class="group flex w-full cursor-pointer items-center rounded-md border px-3 py-1.5 text-xs font-bold transition-all duration-200 md:rounded-lg md:px-6 md:py-2.5 md:text-sm"
+                <ul class="flex min-w-0 flex-1 flex-col items-stretch gap-2">
+                    <li v-for="room in building.rooms" :key="room.id" @click="$emit('select-room', room)"
+                        class="group flex w-full cursor-pointer items-center border font-bold transition-all duration-200 rounded-lg px-6 py-2.5 text-sm"
                         :class="[
                             activeRoomCode === room.code
                                 ? 'border-white/40 bg-white text-slate-800 shadow-lg'
                                 : 'border-white/15 bg-white/10 text-white backdrop-blur-md hover:border-white/30 hover:bg-white/20',
-                        ]"
-                    >
+                        ]">
                         <span class="truncate">{{ room.code }}</span>
                     </li>
                 </ul>
             </div>
         </div>
 
-        <!-- Footer -->
         <template #footer>
             <p class="text-center text-[10px] leading-relaxed text-white/40">
                 © 2026 國立虎尾科技大學<br />資訊工程系 系辦公室

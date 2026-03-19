@@ -22,12 +22,11 @@ const DEFAULT_FORM: ApplicantForm = {
 export interface UseBookingFlowOptions {
     getTargetRoom: () => Room | null;
     getSelectedSlots: () => SelectedSlot[];
-    isConsecutive: () => boolean;
     onReset?: () => void;
 }
 
 export function useBookingFlow(options: UseBookingFlowOptions) {
-    const { getTargetRoom, getSelectedSlots, isConsecutive, onReset } = options;
+    const { getTargetRoom, getSelectedSlots, onReset } = options;
 
     // 當前步驟
     const currentStep = ref<Step>(1);
@@ -49,7 +48,8 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         currentStep.value = 1;
         resetForm();
         onReset?.();
-        router.get(API_ENDPOINTS.home, {}, { replace: true });
+        // url
+        router.visit(API_ENDPOINTS.home, { preserveState: true, preserveScroll: true });
     };
 
     // 進入下一步
@@ -62,12 +62,6 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         const uniqueDates = new Set(slots.map((s) => s.date));
         if (uniqueDates.size > 1) {
             alert('不能跨日借用，請重新選擇');
-            return;
-        }
-
-        // 連續性檢查
-        if (!isConsecutive()) {
-            alert('請選擇連續的時段，中間不能有空堂！');
             return;
         }
 
@@ -104,14 +98,12 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         }
 
         const startSlot = slots[0];
-        const endSlot = slots[slots.length - 1];
 
         const payload = {
             classroom_id: targetRoom?.id,
             classroom_code: targetRoom?.code,
             date: startSlot?.date,
-            start_slot_id: startSlot.id,
-            end_slot_id: endSlot.id,
+            time_slot_ids: slots.map(s => s.id),
             applicant: { ...applicantForm },
         };
 

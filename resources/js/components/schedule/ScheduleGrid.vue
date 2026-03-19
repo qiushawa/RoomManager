@@ -29,7 +29,7 @@
                 class="no-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
             >
                 <tr
-                    v-for="period in periods"
+                    v-for="(period, pIndex) in periods"
                     :key="period.code"
                     class="flex min-h-[40px] w-full flex-1 border-b border-gray-300 transition-colors last:border-b-0 hover:bg-blue-50/30"
                 >
@@ -50,26 +50,37 @@
                         <!-- 佔用狀態格子 -->
                         <div
                             v-if="getOccupiedStatus(day.fullDate, period.code)"
-                            class="absolute inset-0 flex items-center justify-center text-xs text-white"
+                            class="group absolute inset-0 flex items-center justify-center text-xs text-white cursor-not-allowed z-10 hover:z-[60]"
                             :class="[
                                 getStatusClass(getOccupiedStatus(day.fullDate, period.code)),
                                 isHighlighted(day.fullDate, period.code) ? 'ring-2 ring-offset-1 ring-orange-500 animate-pulse-once' : ''
                             ]"
                         >
+                            <!-- Hover 資訊預覽元件 -->
+                            <OccupiedTooltip
+                                :item="getOccupiedItem(day.fullDate, period.code)"
+                                :show-below="pIndex < 3"
+                            />
                         </div>
 
                         <!-- 可選格子 -->
                         <label
                             v-else
-                            class="group absolute inset-0 flex cursor-pointer items-center justify-center"
+                            :for="`slot-${day.fullDate}-${period.code}`"
+                            class="group absolute inset-0 flex cursor-pointer items-center justify-center select-none"
+                            @mousedown.prevent="handleMouseDown(day, period)"
+                            @mouseenter="handleMouseEnter(day, period)"
+                            @dragstart="preventDragDefault"
                         >
                             <input
                                 type="checkbox"
+                                :id="`slot-${day.fullDate}-${period.code}`"
                                 :checked="isSelected(day.fullDate, period.code)"
-                                @change="toggleSlotRange(day, period)"
                                 class="sr-only"
+                                tabindex="-1"
+                                aria-hidden="true"
+                                @change.prevent
                             />
-
                             <div
                                 class="flex h-full w-full items-center justify-center transition-all duration-200"
                                 :class="
@@ -102,25 +113,21 @@
  *
  * 顯示一週的時段表格，支援：
  * - 時段佔用狀態顯示（課程、已借出、審核中等）
- * - 可選時段的點擊選取
- * - 範圍選取（自動填充連續時段）
+ * - 多選點擊（多次單選）與拖曳選取
  * - 高亮效果（用於顯示剛提交的時段）
  */
-import { STATUS_COLORS } from '@/constants';
+import { useScheduleStatus } from '@/composables';
 import type { HighlightInfo, OccupiedData, OccupiedStatus, Period, SelectedSlot, WeekDate } from '@/types';
 import { formatHeaderDate, formatPeriodLabel, formatSlotLabel, formatTime } from '@/utils';
+import { onMounted, onUnmounted, ref } from 'vue';
+import OccupiedTooltip from './OccupiedTooltip.vue';
 
 const props = withDefaults(
     defineProps<{
-        /** 一週的日期資訊 */
         weekDates: WeekDate[];
-        /** 時段清單 */
         periods: Period[];
-        /** 佔用資料，格式為 { 日期: { 節次代碼: 狀態 } } */
         occupiedData?: OccupiedData;
-        /** 已選取的時段（v-model） */
         modelValue?: SelectedSlot[];
-        /** 高亮資訊（用於醒目提示剛申請的時段） */
         highlightInfo?: HighlightInfo | null;
     }>(),
     {
@@ -134,95 +141,97 @@ const emit = defineEmits<{
     (e: 'update:modelValue', value: SelectedSlot[]): void;
 }>();
 
-const getOccupiedStatus = (dateStr: string, code: string): OccupiedStatus | null => {
-    return props.occupiedData?.[dateStr]?.[code] ?? null;
-};
+const {
+    getOccupiedItem,
+    getOccupiedStatus,
+    getStatusClassByStatus,
+    isSelected,
+} = useScheduleStatus({
+    occupiedData: () => props.occupiedData,
+    selectedSlots: () => props.modelValue,
+    defaultClass: 'bg-gray-400/90',
+});
 
-const getStatusClass = (status: OccupiedStatus | null): string => {
-    if (!status) return STATUS_COLORS.default;
-    return STATUS_COLORS[status] || STATUS_COLORS.default;
-};
+const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
 
 const isHighlighted = (dateStr: string, code: string): boolean => {
     if (!props.highlightInfo) return false;
     return props.highlightInfo.date === dateStr && props.highlightInfo.slots.includes(code);
 };
 
-const isSelected = (dateStr: string, periodCode: string): boolean => {
-    return props.modelValue.some(
-        (s) => s.date === dateStr && s.period === periodCode,
-    );
-};
+// 狀態管理：拖曳選取
+const isDragging = ref(false);
+const dragMode = ref<'select' | 'deselect'>('select');
+const currentDragDate = ref('');
 
-// 範圍選取
-const toggleSlotRange = (day: WeekDate, period: Period) => {
-    const currentSlots = [...props.modelValue];
+const preventDragDefault = (e: DragEvent) => e.preventDefault();
+
+const handleMouseDown = (day: WeekDate, period: Period) => {
     const targetDate = day.fullDate;
     const targetCode = period.code;
 
-    // 跨日檢查
+    // 清空其他日期的選取 (不允許跨日)
+    let currentSlots = [...props.modelValue];
     if (currentSlots.length > 0 && currentSlots[0].date !== targetDate) {
-        const newSelection: SelectedSlot[] = [
-            {
+        currentSlots = [];
+    }
+
+    isDragging.value = true;
+    currentDragDate.value = targetDate;
+
+    // 判斷當下是要選取還是取消選取
+    const alreadySelected = isSelected(targetDate, targetCode);
+    dragMode.value = alreadySelected ? 'deselect' : 'select';
+
+    applySelection(day, period, currentSlots, dragMode.value);
+};
+
+const handleMouseEnter = (day: WeekDate, period: Period) => {
+    if (!isDragging.value || currentDragDate.value !== day.fullDate) return;
+
+    const  currentSlots = [...props.modelValue];
+    applySelection(day, period, currentSlots, dragMode.value);
+};
+
+const handleMouseUp = () => {
+    isDragging.value = false;
+    currentDragDate.value = '';
+};
+
+// 全域監聽 mouseup 防止拖曳中在外面放開卡住
+onMounted(() => {
+    window.addEventListener('mouseup', handleMouseUp);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('mouseup', handleMouseUp);
+});
+
+const applySelection = (day: WeekDate, period: Period, currentSlots: SelectedSlot[], mode: 'select' | 'deselect') => {
+    const targetDate = day.fullDate;
+    const targetCode = period.code;
+
+    if (mode === 'select') {
+        // 如果還沒選過才加入
+        if (!currentSlots.some(s => s.period === targetCode)) {
+            currentSlots.push({
                 date: targetDate,
                 period: targetCode,
                 id: period.id,
                 label: formatSlotLabel(day.fullDate, day.dayName, period.label),
-            },
-        ];
-        emit('update:modelValue', newSelection);
-        return;
-    }
-
-    // 準備索引
-    const targetIndex = props.periods.findIndex((p) => p.code === targetCode);
-    const currentIndices = currentSlots
-        .map((s) => props.periods.findIndex((p) => p.code === s.period))
-        .sort((a, b) => a - b);
-
-    let newMin = -1;
-    let newMax = -1;
-
-    if (currentIndices.includes(targetIndex)) {
-        if (currentIndices.length === 1) {
-            emit('update:modelValue', []);
-            return;
-        }
-        const minIndex = currentIndices[0];
-        const maxIndex = currentIndices[currentIndices.length - 1];
-
-        if (targetIndex === minIndex || targetIndex === maxIndex) {
-            newMin = targetIndex;
-            newMax = targetIndex;
-        } else {
-            emit('update:modelValue', []);
-            return;
-        }
-    } else {
-        if (currentIndices.length === 0) {
-            newMin = targetIndex;
-            newMax = targetIndex;
-        } else {
-            const minIndex = currentIndices[0];
-            const maxIndex = currentIndices[currentIndices.length - 1];
-            newMin = Math.min(minIndex, targetIndex);
-            newMax = Math.max(maxIndex, targetIndex);
-        }
-    }
-
-    const newSelection: SelectedSlot[] = [];
-    for (let i = newMin; i <= newMax; i++) {
-        const p = props.periods[i];
-        if (!getOccupiedStatus(targetDate, p.code)) {
-            newSelection.push({
-                date: targetDate,
-                period: p.code,
-                id: p.id,
-                label: formatSlotLabel(day.fullDate, day.dayName, p.label),
+            });
+            // 根據節次順序排序 (假設 periods 是照順序來的字串或是可對齊的順序)
+            currentSlots.sort((a, b) => {
+                const idxA = props.periods.findIndex(p => p.code === a.period);
+                const idxB = props.periods.findIndex(p => p.code === b.period);
+                return idxA - idxB;
             });
         }
+    } else {
+        // 移除
+        currentSlots = currentSlots.filter(s => s.period !== targetCode);
     }
 
-    emit('update:modelValue', newSelection);
+    emit('update:modelValue', currentSlots);
 };
 </script>

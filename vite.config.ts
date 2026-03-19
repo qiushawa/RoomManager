@@ -19,4 +19,29 @@ export default defineConfig({
       '@img': path.resolve(__dirname, 'resources/img'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return;
+          }
+
+          if (id.includes('chart.js') || id.includes('vue-chartjs')) {
+            return 'vendor-charts';
+          }
+
+          if (id.includes('@inertiajs') || id.includes('/vue/')) {
+            return 'vendor-app';
+          }
+
+          if (id.includes('@vueuse') || id.includes('lucide-vue-next') || id.includes('reka-ui')) {
+            return 'vendor-ui';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
+  },
 });

@@ -11,6 +11,7 @@
 
 export { default as BookingForm } from './BookingForm.vue';
 export { default as BookingFormModal } from './BookingFormModal.vue';
+export { default as BookingCancellationSummary } from './BookingCancellationSummary.vue';
 export { default as BookingProgressStepper } from './BookingProgressStepper.vue';
 export { default as GuidelinesModal } from './GuidelinesModal.vue';
 export { default as SelectionSummaryPanel } from './SelectionSummaryPanel.vue';

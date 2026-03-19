@@ -12,8 +12,6 @@ class Booking extends Model
     protected $fillable = [
         'borrower_id',
         'classroom_id',
-        'start_slot_id',
-        'end_slot_id',
         'reason',
         'teacher',
         'status',
@@ -30,13 +28,14 @@ class Booking extends Model
         return $this->belongsTo(Borrower::class, 'borrower_id');
     }
 
-    public function startSlot()
+    public function timeSlots()
     {
-        return $this->belongsTo(TimeSlot::class, 'start_slot_id');
+        return $this->belongsToMany(TimeSlot::class, 'booking_time_slot')->orderBy('start_time');
     }
 
-    public function endSlot()
+    // 未處理的預約 靜態
+    public static function pending()
     {
-        return $this->belongsTo(TimeSlot::class, 'end_slot_id');
+        return self::where('status', 0);
     }
 }
