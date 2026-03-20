@@ -885,31 +885,7 @@ class AdminController extends Controller
             return back()->withErrors(['periods' => '存在衝突記錄，請先調整條件至無衝突後再送出。']);
         }
 
-        $strategy = (string) ($validated['conflict_strategy'] ?? 'skip');
         $selectedByDay = $analysis['selected_by_day'];
-        $rowsToDelete = [];
-
-        foreach ($analysis['conflicts'] as $conflict) {
-            $weekday = (int) ($conflict['day_of_week'] ?? 0);
-            $periods = collect($conflict['overlap_periods'] ?? [])->map(fn ($v) => (int) $v)->all();
-            if (!isset($selectedByDay[$weekday])) {
-                continue;
-            }
-
-            if ($conflict['is_protected']) {
-                $selectedByDay[$weekday] = array_values(array_diff($selectedByDay[$weekday], $periods));
-                continue;
-            }
-
-            if ($strategy === 'overwrite') {
-                $rowsToDelete[] = (int) $conflict['id'];
-                continue;
-            }
-
-            $selectedByDay[$weekday] = array_values(array_diff($selectedByDay[$weekday], $periods));
-        }
-
-        $rowsToDelete = collect($rowsToDelete)->unique()->values()->all();
 
         $slotRangesByDay = [];
         foreach ($selectedByDay as $weekday => $periodIndexes) {
@@ -942,17 +918,11 @@ class AdminController extends Controller
             return back()->withErrors(['periods' => '所選節次皆與既有課表衝突，沒有可新增的時段。']);
         }
 
-        DB::transaction(function () use ($rowsToDelete, $rows) {
-            if (!empty($rowsToDelete)) {
-                CourseSchedule::whereIn('id', $rowsToDelete)->delete();
-            }
+        DB::transaction(function () use ($rows) {
             CourseSchedule::insert($rows);
         });
 
         $message = '長期借用記錄已新增，共 ' . count($rows) . ' 筆。';
-        if (!empty($rowsToDelete)) {
-            $message .= ' 已覆蓋 ' . count($rowsToDelete) . ' 筆既有記錄。';
-        }
 
         return back()->with('success', $message);
     }
@@ -973,10 +943,6 @@ class AdminController extends Controller
             'periods'       => ['required', 'array', 'min:1'],
             'periods.*'     => ['integer', 'min:1'],
         ];
-
-        if ($forStore) {
-            $rules['conflict_strategy'] = ['nullable', 'string', 'in:skip,overwrite'];
-        }
 
         return $request->validate($rules);
     }

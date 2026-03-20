@@ -62,10 +62,7 @@ export interface ManualFormData {
     start_date: string;
     end_date: string;
     periods: number[];
-    conflict_strategy?: ManualConflictStrategy;
 }
-
-export type ManualConflictStrategy = 'skip' | 'overwrite';
 
 export interface ManualConflictItem {
     id: number;
