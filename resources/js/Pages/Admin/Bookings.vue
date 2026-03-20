@@ -2,10 +2,10 @@
 
     <Head title="短期借用管理 | Admin" />
     <AdminLayout title="短期借用管理">
-        <div class="flex flex-col gap-6 max-w-[1600px] mx-auto">
+        <div class="admin-page-container">
 
             <!-- 篩選列 -->
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="admin-filter-bar">
                 <AdminSearchBar v-model="searchInput" @enter="applyFilters" />
                 <AdminStatusTabs :tabs="statusTabs" :model-value="filterStatus" @select="setStatusAndApply" />
             </div>

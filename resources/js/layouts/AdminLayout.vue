@@ -9,7 +9,6 @@
             <div
                 class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-slate-700/50 z-10 relative">
                 <span class="text-xl font-bold text-white">RoomManager</span>
-                <span class="text-xs font-semibold px-2 py-1 bg-primary/30 text-white rounded-md">ADMIN</span>
             </div>
 
             <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-1 z-10 relative">

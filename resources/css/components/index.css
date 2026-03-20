@@ -1,5 +1,6 @@
 /**
  * 元件樣式匯出
  */
+@import './admin.css';
 @import './modal.css';
 @import './timetable.css';

@@ -1,6 +1,6 @@
 <template>
     <AdminLayout title="總覽">
-        <div class="flex flex-col gap-6 max-w-[1600px] mx-auto">
+        <div class="admin-page-container">
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <MetricCard title="總預約數" :value="totalBookingsCount" color="primary">

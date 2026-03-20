@@ -2,10 +2,10 @@
 
     <Head title="審核列表 | Admin" />
     <AdminLayout title="審核列表">
-        <div class="flex flex-col gap-6 max-w-[1600px] mx-auto">
+        <div class="admin-page-container">
 
             <!-- 篩選列 -->
-            <div class="flex flex-wrap items-center gap-3">
+            <div class="admin-filter-bar">
                 <AdminSearchBar v-model="searchInput" @enter="applyFilters" />
                 <span class="text-xs text-a-text-muted">共 {{ bookings.total }} 筆待審核</span>
             </div>
