@@ -153,6 +153,7 @@ const props = defineProps<{
     blacklists: PaginatedData<BlacklistListItem>;
     blacklistReasons: BlacklistReasonOption[];
     defaultBannedUntil: string;
+    storeBlacklistUrl: string;
 }>();
 
 const activeView = ref<'manage' | 'records'>('manage');
@@ -184,7 +185,7 @@ const toggleReason = (reasonId: number) => {
 };
 
 const submitBlacklist = () => {
-    form.post('/admin/users/blacklist', {
+    form.post(props.storeBlacklistUrl, {
         preserveScroll: true,
         onSuccess: () => {
             form.reset('identity_code', 'reason_ids');

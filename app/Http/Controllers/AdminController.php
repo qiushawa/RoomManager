@@ -695,6 +695,7 @@ class AdminController extends Controller
                 ->orderBy('id')
                 ->get(['id', 'reason']),
             'defaultBannedUntil' => $this->resolveDefaultBlacklistEndDate(),
+            'storeBlacklistUrl' => route('admin.users.blacklist.store'),
             'filters' => $request->only(['search']),
         ]);
     }
