@@ -41,6 +41,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('/rooms/{classroom}/toggle', [AdminController::class, 'toggleRoom'])->name('rooms.toggle');
         Route::delete('/rooms/{classroom}', [AdminController::class, 'destroyRoom'])->name('rooms.destroy');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::post('/users/blacklist', [AdminController::class, 'storeBlacklist'])->name('users.blacklist.store');
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
         Route::get('/long-term-borrowing', [AdminController::class, 'longTermBorrowing'])->name('longTermBorrowing');
         Route::post('/long-term-borrowing/import', [AdminController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');

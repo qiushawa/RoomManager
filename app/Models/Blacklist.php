@@ -14,6 +14,10 @@ class Blacklist extends Model
         'banned_until',
     ];
 
+    protected $casts = [
+        'banned_until' => 'datetime',
+    ];
+
     public function borrower()
     {
         return $this->belongsTo(Borrower::class, 'borrower_id');

@@ -14,6 +14,7 @@
 // ============================================================
 export {
     BookingCancellationSummary,
+    BookingFeedbackModal,
     BookingForm,
     BookingFormModal,
     BookingProgressStepper,

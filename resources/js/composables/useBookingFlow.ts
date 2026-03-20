@@ -34,6 +34,25 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
     // 模態框狀態
     const showGuidelinesModal = ref(false);
     const showBookingFormModal = ref(false);
+    const showFeedbackModal = ref(false);
+    const feedbackTitle = ref('');
+    const feedbackMessage = ref('');
+    const feedbackType = ref<'success' | 'error' | 'warning'>('success');
+
+    const openFeedbackModal = (
+        title: string,
+        message: string,
+        type: 'success' | 'error' | 'warning' = 'success'
+    ) => {
+        feedbackTitle.value = title;
+        feedbackMessage.value = message;
+        feedbackType.value = type;
+        showFeedbackModal.value = true;
+    };
+
+    const closeFeedbackModal = () => {
+        showFeedbackModal.value = false;
+    };
 
     // 申請表單
     const applicantForm = reactive<ApplicantForm>({ ...DEFAULT_FORM });
@@ -61,7 +80,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         // 跨日檢查
         const uniqueDates = new Set(slots.map((s) => s.date));
         if (uniqueDates.size > 1) {
-            alert('不能跨日借用，請重新選擇');
+            openFeedbackModal('無法送出', '不能跨日借用，請重新選擇。', 'warning');
             return;
         }
 
@@ -93,7 +112,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             !applicantForm.phone ||
             !applicantForm.reason
         ) {
-            alert('請填寫完整資料 (姓名、學號、Email、電話、事由為必填)');
+            openFeedbackModal('資料不完整', '請填寫完整資料（姓名、學號、Email、電話、事由為必填）。', 'warning');
             return;
         }
 
@@ -108,14 +127,22 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         };
 
         router.post(API_ENDPOINTS.bookings, payload, {
-            preserveState: false,
-            preserveScroll: false,
+            preserveState: true,
+            preserveScroll: true,
             onSuccess: () => {
                 showBookingFormModal.value = false;
-                alert('預約申請已送出，請等待審核結果');
             },
-            onError: () => {
-                alert('送出失敗，請稍後再試');
+            onError: (errors) => {
+                const firstError =
+                    errors['applicant.identity_code']
+                    || errors['applicant.name']
+                    || errors['applicant.email']
+                    || errors['applicant.phone']
+                    || errors['applicant.reason']
+                    || errors['date']
+                    || errors['time_slot_ids']
+                    || '送出失敗，請稍後再試';
+                openFeedbackModal('送出失敗', firstError, 'error');
             },
         });
     };
@@ -124,9 +151,15 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         currentStep,
         showGuidelinesModal,
         showBookingFormModal,
+        showFeedbackModal,
+        feedbackTitle,
+        feedbackMessage,
+        feedbackType,
         applicantForm,
         resetForm,
         resetFlow,
+        closeFeedbackModal,
+        openFeedbackModal,
         nextStep,
         prevStep,
         onGuidelinesConfirmed,
