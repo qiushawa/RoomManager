@@ -30,7 +30,8 @@
                     <!-- 左側：ScheduleGrid 區域 -->
                     <div class="flex flex-1 flex-col overflow-hidden bg-gradient-to-br from-white to-slate-50 p-4">
                         <ScheduleGrid class="h-full" :week-dates="weekDates" :periods="periods"
-                            :occupied-data="occupiedData" :highlight-info="highlightInfo" v-model="selectedSlots" />
+                            :occupied-data="occupiedData" :highlight-info="highlightInfo" theme="light"
+                            v-model="selectedSlots" />
                     </div>
                 </div>
 

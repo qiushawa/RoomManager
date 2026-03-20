@@ -22,8 +22,8 @@
                             <span
                                 class="shrink-0 rounded border px-1.5 py-0.5 text-[10px]"
                                 :class="record.borrow_type === 1
-                                    ? 'border-blue-400/30 bg-blue-500/10 text-blue-300'
-                                    : 'border-violet-400/30 bg-violet-500/10 text-violet-300'"
+                                    ? 'border-primary/30 bg-primary/10 text-primary'
+                                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'"
                             >
                                 {{ record.borrow_type === 1 ? '一般' : '課程' }}
                             </span>
@@ -36,6 +36,13 @@
                         </p>
                         <p class="text-xs text-a-text-dim">{{ record.start_slot }} — {{ record.end_slot }}</p>
                     </div>
+                    <button
+                        type="button"
+                        class="shrink-0 rounded-lg border border-red-500/30 px-2.5 py-1 text-[11px] font-medium text-red-400 transition-colors hover:border-red-500/50 hover:bg-red-500/10"
+                        @click="emit('revoke', record)"
+                    >
+                        撤回
+                    </button>
                 </div>
             </li>
         </ul>
@@ -48,5 +55,9 @@ import { weekdayLabel } from '@/utils';
 
 defineProps<{
     manualRecords: ManualRecord[];
+}>();
+
+const emit = defineEmits<{
+    (e: 'revoke', record: ManualRecord): void;
 }>();
 </script>
