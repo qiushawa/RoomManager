@@ -223,19 +223,6 @@
                                             manualConflictSummary.overridable }} 筆</p>
                                     </div>
 
-                                    <div v-if="manualConflictSummary.overridable > 0"
-                                        class="mt-4 flex gap-4 sm:mt-0 rounded-lg border border-a-border-2 bg-a-surface p-2">
-                                        <label class="flex cursor-pointer items-center gap-2 text-sm text-a-text-body">
-                                            <input v-model="manualConflictStrategy" type="radio" value="skip"
-                                                class="h-4 w-4 border-a-border-2 text-primary focus:ring-primary" />
-                                            略過衝突
-                                        </label>
-                                        <label class="flex cursor-pointer items-center gap-2 text-sm text-a-text-body">
-                                            <input v-model="manualConflictStrategy" type="radio" value="overwrite"
-                                                class="h-4 w-4 border-a-border-2 text-primary focus:ring-primary" />
-                                            強制覆蓋
-                                        </label>
-                                    </div>
                                 </div>
 
                                 <div
@@ -370,7 +357,6 @@ import type {
     ClassroomOption,
     ImportConfig,
     ManualConflictItem,
-    ManualConflictStrategy,
     ManualConflictSummary,
     ManualFormData,
     ManualRecord,
@@ -417,7 +403,6 @@ const manualForm = useForm<ManualFormData>({
     start_date: '',
     end_date: '',
     periods: [],
-    conflict_strategy: 'skip',
 });
 
 const WEEKDAY_NAME_MAP: Record<number, string> = {
@@ -435,7 +420,6 @@ const manualConflictLoading = ref(false);
 const manualConflictError = ref('');
 const manualConflicts = ref<ManualConflictItem[]>([]);
 const manualConflictSummary = ref<ManualConflictSummary | null>(null);
-const manualConflictStrategy = ref<ManualConflictStrategy>('skip');
 let manualConflictTimer: ReturnType<typeof setTimeout> | null = null;
 
 const manualGridPeriods = computed<Period[]>(() =>
@@ -629,15 +613,12 @@ function submitManual() {
         return;
     }
 
-    manualForm.conflict_strategy = manualConflictStrategy.value;
     manualForm.post('/admin/long-term-borrowing/manual', {
         preserveScroll: true,
         onSuccess: () => {
             manualForm.reset();
             manualForm.borrow_type = 1;
-            manualForm.conflict_strategy = 'skip';
             manualSelectedSlots.value = [];
-            manualConflictStrategy.value = 'skip';
             resetManualConflictResult();
         },
     });
