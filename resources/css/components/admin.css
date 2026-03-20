@@ -1,0 +1,30 @@
+/**
+ * 後台頁面共用版型與區塊樣式
+ */
+
+.admin-page-container {
+    margin-inline: auto;
+    display: flex;
+    width: 100%;
+    max-width: 90rem;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 2rem;
+}
+
+.admin-panel {
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-a-border-card);
+    background-color: var(--color-a-surface);
+}
+
+.admin-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--color-a-border-card);
+    background-color: var(--color-a-surface);
+    padding: 1rem;
+}

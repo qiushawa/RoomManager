@@ -2,7 +2,7 @@
 
     <Head title="長期借用管理 | Admin" />
     <AdminLayout title="長期借用管理">
-        <div class="mx-auto flex w-full max-w-[1380px] flex-col gap-6 pb-8">
+        <div class="admin-page-container">
 
             <!-- 成功訊息 -->
             <p v-if="$page.props.flash?.success"

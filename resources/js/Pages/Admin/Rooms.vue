@@ -2,10 +2,10 @@
 
     <Head title="教室管理 | Admin" />
     <AdminLayout title="教室管理">
-        <div class="flex flex-col gap-6 max-w-[1200px] mx-auto">
+        <div class="admin-page-container">
 
             <!-- 新增教室表單 -->
-            <div class="bg-a-surface rounded-xl border border-a-border-card p-5">
+            <div class="admin-panel p-5">
                 <h3 class="text-sm font-semibold text-a-text mb-4">新增教室</h3>
                 <form @submit.prevent="addRoom" class="flex flex-wrap items-end gap-3">
                     <div class="flex-1 min-w-[120px] max-w-[180px]">
@@ -14,7 +14,6 @@
                             v-model="form.code"
                             type="text"
                             maxlength="7"
-                            placeholder="如 IB-501"
                             class="w-full rounded-lg border border-a-border-2 bg-a-input px-3 py-2 text-sm text-a-text-body placeholder-a-text-dim outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition"
                         />
                         <p v-if="form.errors.code" class="mt-1 text-xs text-red-400">{{ form.errors.code }}</p>
@@ -25,7 +24,6 @@
                             v-model="form.name"
                             type="text"
                             maxlength="25"
-                            placeholder="如 資訊大樓501教室"
                             class="w-full rounded-lg border border-a-border-2 bg-a-input px-3 py-2 text-sm text-a-text-body placeholder-a-text-dim outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition"
                         />
                         <p v-if="form.errors.name" class="mt-1 text-xs text-red-400">{{ form.errors.name }}</p>
@@ -44,7 +42,7 @@
             </div>
 
             <!-- 教室列表 -->
-            <div class="bg-a-surface rounded-xl border border-a-border-card overflow-hidden">
+            <div class="admin-panel overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead>
@@ -76,13 +74,13 @@
                                         'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium',
                                         room.is_active
                                             ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25'
-                                            : 'bg-slate-500/15 text-slate-400 border border-slate-500/25'
+                                            : 'bg-a-badge text-a-text-muted border border-a-border-2'
                                     ]">
                                         {{ room.is_active ? '啟用中' : '已停用' }}
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <div class="flex items-center justify-center gap-1">
+                                    <div class="flex items-center justify-center">
                                         <button @click="toggleRoom(room)"
                                             :class="[
                                                 'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
@@ -93,18 +91,6 @@
                                         >
                                             {{ room.is_active ? '停用' : '啟用' }}
                                         </button>
-                                        <button @click="confirmDelete(room)"
-                                            :disabled="room.bookings_count > 0"
-                                            :class="[
-                                                'rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
-                                                room.bookings_count > 0
-                                                    ? 'bg-slate-500/10 text-slate-500 border border-slate-500/20 cursor-not-allowed'
-                                                    : 'bg-red-500/15 border border-red-500/25 text-red-400 hover:bg-red-500/25'
-                                            ]"
-                                            :title="room.bookings_count > 0 ? '有借用紀錄，無法刪除' : '刪除教室'"
-                                        >
-                                            刪除
-                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -114,21 +100,12 @@
             </div>
         </div>
 
-        <ConfirmDeleteDialog
-            :open="Boolean(deleteTarget)"
-            :message="deleteMessage"
-            @cancel="cancelDelete"
-            @confirm="doDelete"
-        />
     </AdminLayout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/layouts/AdminLayout.vue';
-import { ConfirmDeleteDialog } from '@/components';
-import { useConfirmDelete } from '@/composables';
 import type { AdminClassroomItem } from '@/types';
 
 defineProps<{
@@ -136,11 +113,6 @@ defineProps<{
 }>();
 
 const form = useForm({ code: '', name: '' });
-const { deleteTarget, confirmDelete, cancelDelete, doDelete: deleteByTarget } = useConfirmDelete<AdminClassroomItem>();
-const deleteMessage = computed(() => {
-    if (!deleteTarget.value) return '';
-    return `確定要刪除教室 ${deleteTarget.value.code}（${deleteTarget.value.name}）嗎？此操作無法復原。`;
-});
 
 function addRoom() {
     form.post('/admin/rooms', {
@@ -151,9 +123,5 @@ function addRoom() {
 
 function toggleRoom(room: AdminClassroomItem) {
     router.patch(`/admin/rooms/${room.id}/toggle`, {}, { preserveScroll: true });
-}
-
-function doDelete() {
-    deleteByTarget((item) => `/admin/rooms/${item.id}`);
 }
 </script>
