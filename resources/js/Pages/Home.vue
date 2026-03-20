@@ -62,12 +62,21 @@
             <BookingFormModal :show="showBookingFormModal" :target-room="targetRoom" :selected-slots="selectedSlots"
                 :form="applicantForm" @close="showBookingFormModal = false"
                 @update:form="Object.assign(applicantForm, $event)" @submit="submitForm" />
+
+            <BookingFeedbackModal
+                :show="showFeedbackModal"
+                :title="feedbackTitle"
+                :message="feedbackMessage"
+                :type="feedbackType"
+                @close="closeFeedbackModal"
+            />
         </template>
     </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
 // --- 佈局元件 ---
 import { AppLayout } from '@/layouts';
@@ -90,6 +99,7 @@ import { findRoomByCode, formatDateStringForDisplay } from '@/utils';
 
 // --- 元件引用 ---
 import {
+    BookingFeedbackModal,
     BookingFormModal,
     BookingProgressStepper,
     ClassroomNavigator,
@@ -102,6 +112,7 @@ import {
 
 // --- Props 定義 ---
 const props = defineProps<HomePageProps>();
+const page = usePage();
 
 // --- 狀態管理：教室選擇 ---
 const targetRoom = ref<Room | null>(
@@ -152,11 +163,26 @@ const {
     currentStep,
     showGuidelinesModal,
     showBookingFormModal,
+    showFeedbackModal,
+    feedbackTitle,
+    feedbackMessage,
+    feedbackType,
     applicantForm,
     nextStep,
+    closeFeedbackModal,
+    openFeedbackModal,
     onGuidelinesConfirmed,
     submitForm,
 } = bookingFlow;
+
+watch(
+    () => page.props.flash?.success,
+    (successMessage) => {
+        if (!successMessage || typeof successMessage !== 'string') return;
+        openFeedbackModal('申請已送出', successMessage, 'success');
+    },
+    { immediate: true },
+);
 
 // --- Composable: 高亮效果 ---
 const { highlightInfo } = useHighlight(props.filters.highlight ?? null);

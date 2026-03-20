@@ -59,6 +59,18 @@
                     </svg>
                     教室管理
                 </Link>
+
+                <Link href="/admin/users" :class="[
+                    'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
+                    isActive('/admin/users') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                ]">
+                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/users') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5V4H2v16h5m10 0v-2a4 4 0 00-4-4H11a4 4 0 00-4 4v2m10 0H7m8-11a3 3 0 11-6 0a3 3 0 016 0z" />
+                    </svg>
+                    黑名單管理
+                </Link>
                 <!-- 長期借用管理 -->
                 <!-- 長期借用管理 -->
                 <Link href="/admin/long-term-borrowing" :class="[

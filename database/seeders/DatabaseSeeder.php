@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
             TimeSlotSeeder::class,
             ClassroomSeeder::class,
             // BorrowerSeeder::class,
-            // BlacklistReasonSeeder::class,
+            BlacklistReasonSeeder::class,
             // BlacklistSeeder::class,
             // CourseScheduleSeeder::class,
             // BookingSeeder::class,
