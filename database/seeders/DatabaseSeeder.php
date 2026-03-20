@@ -21,11 +21,11 @@ class DatabaseSeeder extends Seeder
             SemesterSeeder::class,
             TimeSlotSeeder::class,
             ClassroomSeeder::class,
-            BorrowerSeeder::class,
-            BlacklistReasonSeeder::class,
-            BlacklistSeeder::class,
-            CourseScheduleSeeder::class,
-            BookingSeeder::class,
+            // BorrowerSeeder::class,
+            // BlacklistReasonSeeder::class,
+            // BlacklistSeeder::class,
+            // CourseScheduleSeeder::class,
+            // BookingSeeder::class,
         ]);
     }
 }
