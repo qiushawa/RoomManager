@@ -1,24 +1,34 @@
 <template>
     <div
-        class="animate-fade-in flex w-full flex-col overflow-hidden rounded border border-gray-400 bg-white shadow-sm select-none"
+        class="animate-fade-in flex w-full flex-col overflow-hidden rounded shadow-sm select-none"
+        :class="[
+            isDarkTheme
+                ? 'border-slate-600 bg-slate-900'
+                : 'border-gray-400 bg-white'
+        ]"
     >
         <table class="flex h-full w-full flex-col">
-            <thead class="shrink-0 border-b border-gray-400 bg-gray-50">
+            <thead
+                class="shrink-0 border-b"
+                :class="isDarkTheme ? 'border-slate-600 bg-slate-800' : 'border-gray-400 bg-gray-50'"
+            >
                 <tr class="flex w-full">
                     <th
-                        class="flex w-24 shrink-0 items-center justify-center border-r border-gray-300 py-2 text-xs text-gray-500"
+                        class="flex w-24 shrink-0 items-center justify-center border-r py-2 text-xs"
+                        :class="isDarkTheme ? 'border-slate-600 text-slate-300' : 'border-gray-300 text-gray-500'"
                     >
                         節次
                     </th>
                     <th
                         v-for="(day, index) in weekDates"
                         :key="index"
-                        class="flex flex-1 flex-col items-center justify-center border-r border-gray-300 py-2 last:border-r-0"
+                        class="flex flex-1 flex-col items-center justify-center border-r py-2 last:border-r-0"
+                        :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
-                        <div class="text-sm font-bold text-gray-700">
+                        <div class="text-sm font-bold" :class="isDarkTheme ? 'text-slate-100' : 'text-gray-700'">
                             星期{{ day.dayName }}
                         </div>
-                        <div class="text-[11px] leading-tight text-danger">
+                        <div v-if="showHeaderDate" class="text-[11px] leading-tight text-danger">
                             ({{ formatHeaderDate(day.fullDate) }})
                         </div>
                     </th>
@@ -31,13 +41,15 @@
                 <tr
                     v-for="(period, pIndex) in periods"
                     :key="period.code"
-                    class="flex min-h-[40px] w-full flex-1 border-b border-gray-300 transition-colors last:border-b-0 hover:bg-blue-50/30"
+                    class="flex min-h-[40px] w-full flex-1 border-b transition-colors last:border-b-0"
+                    :class="isDarkTheme ? 'border-slate-600 hover:bg-sky-900/20' : 'border-gray-300 hover:bg-blue-50/30'"
                 >
                     <td
-                        class="flex w-24 shrink-0 flex-col items-center justify-center border-r border-gray-300 bg-gray-50 px-1"
+                        class="flex w-24 shrink-0 flex-col items-center justify-center border-r px-1"
+                        :class="isDarkTheme ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-gray-50'"
                     >
-                        <span class="text-sm font-bold text-gray-700">{{ formatPeriodLabel(period.label) }}</span>
-                        <span v-if="period.start_time && period.end_time" class="text-[10px] text-gray-400">
+                        <span class="text-sm font-bold" :class="isDarkTheme ? 'text-slate-100' : 'text-gray-700'">{{ formatPeriodLabel(period.label) }}</span>
+                        <span v-if="period.start_time && period.end_time" class="text-[10px]" :class="isDarkTheme ? 'text-slate-400' : 'text-gray-400'">
                             {{ formatTime(period.start_time) }}~{{ formatTime(period.end_time) }}
                         </span>
                     </td>
@@ -45,7 +57,8 @@
                     <td
                         v-for="(day, dIndex) in weekDates"
                         :key="dIndex"
-                        class="relative flex-1 border-r border-gray-300 p-0 last:border-r-0"
+                        class="relative flex-1 border-r p-0 last:border-r-0"
+                        :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
                         <!-- 佔用狀態格子 -->
                         <div
@@ -97,7 +110,8 @@
                             </div>
 
                             <div
-                                class="pointer-events-none absolute inset-0 bg-blue-100 opacity-0 transition-opacity group-hover:opacity-30"
+                                class="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-30"
+                                :class="isDarkTheme ? 'bg-sky-700/30' : 'bg-blue-100'"
                             ></div>
                         </label>
                     </td>
@@ -119,7 +133,7 @@
 import { useScheduleStatus } from '@/composables';
 import type { HighlightInfo, OccupiedData, OccupiedStatus, Period, SelectedSlot, WeekDate } from '@/types';
 import { formatHeaderDate, formatPeriodLabel, formatSlotLabel, formatTime } from '@/utils';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import OccupiedTooltip from './OccupiedTooltip.vue';
 
 const props = withDefaults(
@@ -129,11 +143,17 @@ const props = withDefaults(
         occupiedData?: OccupiedData;
         modelValue?: SelectedSlot[];
         highlightInfo?: HighlightInfo | null;
+        showHeaderDate?: boolean;
+        allowCrossDateSelection?: boolean;
+        theme?: 'auto' | 'light' | 'dark';
     }>(),
     {
         occupiedData: () => ({}),
         modelValue: () => [],
         highlightInfo: null,
+        showHeaderDate: true,
+        allowCrossDateSelection: false,
+        theme: 'auto',
     },
 );
 
@@ -150,6 +170,18 @@ const {
     occupiedData: () => props.occupiedData,
     selectedSlots: () => props.modelValue,
     defaultClass: 'bg-gray-400/90',
+});
+
+const prefersDark = ref(false);
+let mediaQuery: MediaQueryList | null = null;
+const handleSchemeChange = (e: MediaQueryListEvent) => {
+    prefersDark.value = e.matches;
+};
+
+const isDarkTheme = computed(() => {
+    if (props.theme === 'dark') return true;
+    if (props.theme === 'light') return false;
+    return prefersDark.value;
 });
 
 const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
@@ -172,7 +204,7 @@ const handleMouseDown = (day: WeekDate, period: Period) => {
 
     // 清空其他日期的選取 (不允許跨日)
     let currentSlots = [...props.modelValue];
-    if (currentSlots.length > 0 && currentSlots[0].date !== targetDate) {
+    if (!props.allowCrossDateSelection && currentSlots.length > 0 && currentSlots[0].date !== targetDate) {
         currentSlots = [];
     }
 
@@ -187,7 +219,8 @@ const handleMouseDown = (day: WeekDate, period: Period) => {
 };
 
 const handleMouseEnter = (day: WeekDate, period: Period) => {
-    if (!isDragging.value || currentDragDate.value !== day.fullDate) return;
+    if (!isDragging.value) return;
+    if (!props.allowCrossDateSelection && currentDragDate.value !== day.fullDate) return;
 
     const  currentSlots = [...props.modelValue];
     applySelection(day, period, currentSlots, dragMode.value);
@@ -200,11 +233,21 @@ const handleMouseUp = () => {
 
 // 全域監聽 mouseup 防止拖曳中在外面放開卡住
 onMounted(() => {
-    window.addEventListener('mouseup', handleMouseUp);
+    if (typeof window !== 'undefined') {
+        window.addEventListener('mouseup', handleMouseUp);
+        mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        prefersDark.value = mediaQuery.matches;
+        mediaQuery.addEventListener('change', handleSchemeChange);
+    }
 });
 
 onUnmounted(() => {
-    window.removeEventListener('mouseup', handleMouseUp);
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('mouseup', handleMouseUp);
+    }
+    if (mediaQuery) {
+        mediaQuery.removeEventListener('change', handleSchemeChange);
+    }
 });
 
 const applySelection = (day: WeekDate, period: Period, currentSlots: SelectedSlot[], mode: 'select' | 'deselect') => {
@@ -213,7 +256,7 @@ const applySelection = (day: WeekDate, period: Period, currentSlots: SelectedSlo
 
     if (mode === 'select') {
         // 如果還沒選過才加入
-        if (!currentSlots.some(s => s.period === targetCode)) {
+        if (!currentSlots.some(s => s.date === targetDate && s.period === targetCode)) {
             currentSlots.push({
                 date: targetDate,
                 period: targetCode,
@@ -229,7 +272,7 @@ const applySelection = (day: WeekDate, period: Period, currentSlots: SelectedSlo
         }
     } else {
         // 移除
-        currentSlots = currentSlots.filter(s => s.period !== targetCode);
+        currentSlots = currentSlots.filter(s => !(s.date === targetDate && s.period === targetCode));
     }
 
     emit('update:modelValue', currentSlots);
