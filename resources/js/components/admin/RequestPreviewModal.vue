@@ -10,6 +10,7 @@
         >
             <div
                 v-if="open"
+                :data-admin-theme="theme"
                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                 @click="handleClose"
             >
@@ -153,6 +154,7 @@
 
 <script setup lang="ts">
 import { PreviewScheduleGrid } from '@/components/admin';
+import { useAdminTheme } from '@/composables';
 import { formatPeriodLabel } from '@/utils';
 import type {
     AdminBookingItem,
@@ -181,6 +183,8 @@ const emit = defineEmits<{
     (e: 'approve', id: number): void;
     (e: 'reject', id: number): void;
 }>();
+
+const { theme } = useAdminTheme();
 
 const handleClose = () => emit('close');
 

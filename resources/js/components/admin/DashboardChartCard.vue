@@ -1,5 +1,5 @@
 <template>
-    <div class="flex h-80 flex-col gap-4 rounded-xl border border-a-border-card bg-a-surface p-5">
+    <div class="admin-panel flex h-80 flex-col gap-4 p-5">
         <div class="flex shrink-0 items-center justify-between">
             <div class="flex items-center gap-2">
                 <div class="h-4 w-1 rounded-full" :class="accentClass"></div>

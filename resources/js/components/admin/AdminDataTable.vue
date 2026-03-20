@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-a-surface rounded-xl border border-a-border-card overflow-hidden">
+    <div class="admin-panel overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>

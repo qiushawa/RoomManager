@@ -10,6 +10,8 @@ use Illuminate\Support\Str;
 
 use App\Models\Classroom;
 use App\Models\Booking;
+use App\Models\Blacklist;
+use App\Models\Borrower;
 use App\Models\CourseSchedule;
 use App\Models\Semester;
 use App\Models\Setting;
@@ -312,6 +314,7 @@ class AdminController extends Controller
             'classrooms'   => $classrooms,
             'timeSlots'    => $timeSlots,
             'manualRecords' => $manualRecords,
+            'semesterEndDate' => $currentSemester?->end_date?->format('Y-m-d'),
             'importConfig' => [
                 'year'     => (int) Setting::get('course_import_year', (string) ($currentSemester?->academic_year ?? 114)),
                 'seme'     => (int) Setting::get('course_import_seme', (string) ($currentSemester?->semester ?? 2)),
@@ -652,9 +655,87 @@ class AdminController extends Controller
     /**
      * 顯示用戶管理
      */
-    public function users()
+    public function users(Request $request)
     {
-        return Inertia::render('Admin/Users');
+        $query = Blacklist::with([
+            'borrower:id,identity_code,name,department',
+            'blacklistDetails.reason:id,reason',
+        ]);
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->input('search'));
+            $query->whereHas('borrower', function ($q) use ($search) {
+                $q->where('identity_code', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        $blacklists = $query
+            ->orderByDesc('created_at')
+            ->paginate(15)
+            ->withQueryString()
+            ->through(function ($blacklist) {
+                return [
+                    'id' => $blacklist->id,
+                    'borrower_identity_code' => $blacklist->borrower?->identity_code,
+                    'borrower_name' => $blacklist->borrower?->name,
+                    'borrower_department' => $blacklist->borrower?->department,
+                    'banned_until' => $blacklist->banned_until?->format('Y-m-d'),
+                    'reasons' => $blacklist->blacklistDetails
+                        ->map(fn ($detail) => $detail->reason?->reason)
+                        ->filter()
+                        ->values()
+                        ->all(),
+                ];
+            });
+
+        return Inertia::render('Admin/Blacklist', [
+            'blacklists' => $blacklists,
+            'blacklistReasons' => BlacklistReason::query()
+                ->orderBy('id')
+                ->get(['id', 'reason']),
+            'defaultBannedUntil' => $this->resolveDefaultBlacklistEndDate(),
+            'storeBlacklistUrl' => route('admin.users.blacklist.store'),
+            'filters' => $request->only(['search']),
+        ]);
+    }
+
+    /**
+     * 新增或更新黑名單
+     */
+    public function storeBlacklist(Request $request)
+    {
+        $validated = $request->validate([
+            'identity_code' => ['required', 'string', 'exists:borrowers,identity_code'],
+            'reason_ids' => ['required', 'array', 'min:1'],
+            'reason_ids.*' => ['integer', 'distinct', 'exists:blacklist_reasons,id'],
+            'banned_until' => ['nullable', 'date'],
+        ]);
+
+        $borrower = Borrower::query()
+            ->where('identity_code', $validated['identity_code'])
+            ->firstOrFail();
+
+        $bannedUntilDate = (string) ($validated['banned_until'] ?? $this->resolveDefaultBlacklistEndDate());
+        $reasonIds = collect($validated['reason_ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        DB::transaction(function () use ($borrower, $bannedUntilDate, $reasonIds) {
+            $blacklist = Blacklist::updateOrCreate(
+                ['borrower_id' => $borrower->id],
+                ['banned_until' => $bannedUntilDate . ' 23:59:59']
+            );
+
+            $blacklist->blacklistDetails()->delete();
+
+            $blacklist->blacklistDetails()->createMany(
+                $reasonIds->map(fn ($reasonId) => ['reason_id' => $reasonId])->all()
+            );
+        });
+
+        return back()->with('success', '黑名單已更新。');
     }
 
     /**
@@ -663,6 +744,20 @@ class AdminController extends Controller
     public function settings()
     {
         return Inertia::render('Admin/Settings');
+    }
+
+    /**
+     * 預設停權結束日：目前學期結束日，找不到則使用今天
+     */
+    private function resolveDefaultBlacklistEndDate(): string
+    {
+        $semester = Semester::findByDate(now())
+            ?? Semester::query()
+                ->whereDate('end_date', '>=', now()->toDateString())
+                ->orderBy('end_date')
+                ->first();
+
+        return $semester?->end_date?->format('Y-m-d') ?? now()->toDateString();
     }
 
     /**
@@ -834,20 +929,43 @@ class AdminController extends Controller
     /**
      * 手動新增長期借用記錄
      */
+    public function previewManualLongTermBorrowingConflicts(Request $request)
+    {
+        $validated = $this->validateManualLongTermBorrowingPayload($request, false);
+
+        $currentSemester = Semester::findByDate(now());
+        if (!$currentSemester) {
+            return response()->json([
+                'message' => '目前沒有設定中的學期，請先建立學期資料。',
+                'conflicts' => [],
+                'summary' => [
+                    'total' => 0,
+                    'protected' => 0,
+                    'overridable' => 0,
+                ],
+            ], 422);
+        }
+
+        $periodToSlotId = $this->buildPeriodToSlotIdMap();
+        $analysis = $this->analyzeManualConflicts($validated, $currentSemester, $periodToSlotId);
+
+        return response()->json([
+            'message' => '衝突分析完成。',
+            'conflicts' => $analysis['conflicts'],
+            'summary' => [
+                'total' => count($analysis['conflicts']),
+                'protected' => $analysis['protected_count'],
+                'overridable' => $analysis['overridable_count'],
+            ],
+        ]);
+    }
+
+    /**
+     * 手動新增長期借用記錄
+     */
     public function storeManualLongTermBorrowing(Request $request)
     {
-        $validated = $request->validate([
-            'borrow_type'   => ['required', 'integer', 'in:1,2'],
-            'classroom_id'  => ['required', 'integer', 'exists:classrooms,id'],
-            'teacher_name'  => ['required', 'string', 'max:50'],
-            'course_name'   => ['nullable', 'string', 'max:100'],
-            'day_of_week'   => ['required', 'array', 'min:1'],
-            'day_of_week.*' => ['integer', 'between:1,7'],
-            'start_date'    => ['required', 'date'],
-            'end_date'      => ['required', 'date', 'after_or_equal:start_date'],
-            'periods'       => ['required', 'array', 'min:1'],
-            'periods.*'     => ['integer', 'min:1'],
-        ]);
+        $validated = $this->validateManualLongTermBorrowingPayload($request, true);
 
         $currentSemester = Semester::findByDate(now());
         if (!$currentSemester) {
@@ -855,39 +973,265 @@ class AdminController extends Controller
         }
 
         $periodToSlotId = $this->buildPeriodToSlotIdMap();
-        $periods = collect($validated['periods'])->unique()->sort()->values();
+        $analysis = $this->analyzeManualConflicts($validated, $currentSemester, $periodToSlotId);
 
-        $startSlotId = $periodToSlotId[$periods->min()] ?? null;
-        $endSlotId   = $periodToSlotId[$periods->max()] ?? null;
-
-        if (!$startSlotId || !$endSlotId) {
-            return back()->withErrors(['periods' => '節次對應的時段不存在，請確認時段設定。']);
+        if (count($analysis['conflicts']) > 0) {
+            return back()->withErrors(['periods' => '存在衝突記錄，請先調整條件至無衝突後再送出。']);
         }
 
-        $daysOfWeek = collect($validated['day_of_week'])->unique()->sort()->values();
+        $selectedByDay = $analysis['selected_by_day'];
+
+        $slotRangesByDay = [];
+        foreach ($selectedByDay as $weekday => $periodIndexes) {
+            $slotRangesByDay[$weekday] = $this->buildSlotRangesFromPeriods($periodIndexes, $periodToSlotId);
+        }
+
         $rows = [];
         $now  = now();
 
-        foreach ($daysOfWeek as $day) {
-            $rows[] = [
-                'semester_id'  => $currentSemester->id,
-                'classroom_id' => (int) $validated['classroom_id'],
-                'borrow_type'  => (int) $validated['borrow_type'],
-                'teacher_name' => $validated['teacher_name'],
-                'course_name'  => $validated['course_name'] ?? '',
-                'day_of_week'  => (int) $day,
-                'start_slot_id' => $startSlotId,
-                'end_slot_id'   => $endSlotId,
-                'start_date'   => $validated['start_date'],
-                'end_date'     => $validated['end_date'],
-                'created_at'   => $now,
-                'updated_at'   => $now,
+        foreach ($slotRangesByDay as $weekday => $ranges) {
+            foreach ($ranges as $range) {
+                $rows[] = [
+                    'semester_id'  => $currentSemester->id,
+                    'classroom_id' => (int) $validated['classroom_id'],
+                    'borrow_type'  => (int) $validated['borrow_type'],
+                    'teacher_name' => $validated['teacher_name'],
+                    'course_name'  => $validated['course_name'] ?? '',
+                    'day_of_week'  => (int) $weekday,
+                    'start_slot_id' => $range['start_slot_id'],
+                    'end_slot_id'   => $range['end_slot_id'],
+                    'start_date'   => $validated['start_date'],
+                    'end_date'     => $validated['end_date'],
+                    'created_at'   => $now,
+                    'updated_at'   => $now,
+                ];
+            }
+        }
+
+        if (empty($rows)) {
+            return back()->withErrors(['periods' => '所選節次皆與既有課表衝突，沒有可新增的時段。']);
+        }
+
+        DB::transaction(function () use ($rows) {
+            CourseSchedule::insert($rows);
+        });
+
+        $message = '長期借用記錄已新增，共 ' . count($rows) . ' 筆。';
+
+        return back()->with('success', $message);
+    }
+
+    private function validateManualLongTermBorrowingPayload(Request $request, bool $forStore): array
+    {
+        $rules = [
+            'borrow_type'   => ['required', 'integer', 'in:1,2'],
+            'classroom_id'  => ['required', 'integer', 'exists:classrooms,id'],
+            'teacher_name'  => $forStore
+                ? ['required', 'string', 'max:50']
+                : ['nullable', 'string', 'max:50'],
+            'course_name'   => ['nullable', 'string', 'max:100'],
+            'day_of_week'   => ['required', 'array', 'min:1'],
+            'day_of_week.*' => ['integer', 'between:1,7'],
+            'start_date'    => ['required', 'date'],
+            'end_date'      => ['required', 'date', 'after_or_equal:start_date'],
+            'periods'       => ['required', 'array', 'min:1'],
+            'periods.*'     => ['integer', 'min:1'],
+        ];
+
+        return $request->validate($rules);
+    }
+
+    private function analyzeManualConflicts(array $validated, Semester $semester, array $periodToSlotId): array
+    {
+        $dayOfWeeks = collect($validated['day_of_week'])->map(fn ($d) => (int) $d)->unique()->sort()->values()->all();
+        $selectedPeriods = collect($validated['periods'])->map(fn ($p) => (int) $p)->unique()->sort()->values()->all();
+
+        $selectedByDay = [];
+        foreach ($dayOfWeeks as $weekday) {
+            $selectedByDay[(int) $weekday] = $selectedPeriods;
+        }
+
+        $selectedSlotIds = collect($selectedPeriods)
+            ->map(fn ($period) => $periodToSlotId[$period] ?? null)
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($selectedSlotIds)) {
+            return [
+                'conflicts' => [],
+                'protected_count' => 0,
+                'overridable_count' => 0,
+                'selected_by_day' => $selectedByDay,
             ];
         }
 
-        CourseSchedule::insert($rows);
+        $slotIdToPeriod = [];
+        foreach ($periodToSlotId as $period => $slotId) {
+            $slotIdToPeriod[(int) $slotId] = (int) $period;
+        }
 
-        return back()->with('success', '長期借用記錄已新增，共 ' . count($rows) . ' 筆。');
+        $semesterStart = $semester->start_date?->format('Y-m-d');
+        $semesterEnd = $semester->end_date?->format('Y-m-d');
+        $semesterOverlapsRequest = $semesterStart
+            && $semesterEnd
+            && $semesterStart <= $validated['end_date']
+            && $semesterEnd >= $validated['start_date'];
+
+        $rows = CourseSchedule::with(['semester', 'startSlot', 'endSlot'])
+            ->where('semester_id', (int) $semester->id)
+            ->where('classroom_id', (int) $validated['classroom_id'])
+            ->whereIn('day_of_week', $dayOfWeeks)
+            ->where(function ($query) use ($validated, $semesterOverlapsRequest) {
+                $query
+                    ->where(function ($manual) use ($validated) {
+                        $manual
+                            ->whereNotNull('start_date')
+                            ->whereNotNull('end_date')
+                            ->whereDate('start_date', '<=', $validated['end_date'])
+                            ->whereDate('end_date', '>=', $validated['start_date']);
+                    });
+
+                if ($semesterOverlapsRequest) {
+                    $query->orWhere(function ($imported) {
+                        $imported
+                            ->whereNull('start_date')
+                            ->whereNull('end_date');
+                    });
+                }
+            })
+            ->get();
+
+        $conflicts = [];
+        $protectedCount = 0;
+        $overridableCount = 0;
+
+        foreach ($rows as $row) {
+            $weekday = (int) $row->day_of_week;
+            $existingSlotIds = $this->buildSlotIdsInRange((int) $row->start_slot_id, (int) $row->end_slot_id);
+            if (empty($existingSlotIds)) {
+                continue;
+            }
+
+            $overlapSlotIds = array_values(array_intersect($selectedSlotIds, $existingSlotIds));
+            if (empty($overlapSlotIds)) {
+                continue;
+            }
+
+            $overlapPeriods = collect($overlapSlotIds)
+                ->map(fn ($slotId) => $slotIdToPeriod[(int) $slotId] ?? null)
+                ->filter()
+                ->map(fn ($period) => (int) $period)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            if (empty($overlapPeriods)) {
+                continue;
+            }
+
+            $isProtected = is_null($row->borrow_type) || (int) $row->borrow_type === 2;
+            if ($isProtected) {
+                $protectedCount++;
+            } else {
+                $overridableCount++;
+            }
+
+            $conflicts[] = [
+                'id' => (int) $row->id,
+                'day_of_week' => $weekday,
+                'start_slot' => (string) ($row->startSlot?->name ?? ''),
+                'end_slot' => (string) ($row->endSlot?->name ?? ''),
+                'start_date' => $row->start_date?->format('Y-m-d') ?? $semester->start_date?->format('Y-m-d'),
+                'end_date' => $row->end_date?->format('Y-m-d') ?? $semester->end_date?->format('Y-m-d'),
+                'borrow_type' => is_null($row->borrow_type) ? null : (int) $row->borrow_type,
+                'source_label' => $this->manualConflictSourceLabel($row->borrow_type),
+                'course_name' => (string) ($row->course_name ?? ''),
+                'teacher_name' => (string) ($row->teacher_name ?? ''),
+                'is_protected' => $isProtected,
+                'overlap_periods' => $overlapPeriods,
+            ];
+        }
+
+        return [
+            'conflicts' => $conflicts,
+            'protected_count' => $protectedCount,
+            'overridable_count' => $overridableCount,
+            'selected_by_day' => $selectedByDay,
+        ];
+    }
+
+    private function manualConflictSourceLabel(?int $borrowType): string
+    {
+        if (is_null($borrowType)) {
+            return '課表匯入';
+        }
+
+        return match ((int) $borrowType) {
+            2 => '課程使用',
+            1 => '一般借用',
+            default => '既有記錄',
+        };
+    }
+
+    private function buildSlotIdsInRange(int $startSlotId, int $endSlotId): array
+    {
+        $ids = TimeSlot::orderBy('start_time')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        $startIndex = array_search($startSlotId, $ids, true);
+        $endIndex = array_search($endSlotId, $ids, true);
+
+        if ($startIndex === false || $endIndex === false) {
+            return [];
+        }
+
+        $from = min($startIndex, $endIndex);
+        $to = max($startIndex, $endIndex);
+
+        return array_slice($ids, $from, $to - $from + 1);
+    }
+
+    private function buildSlotRangesFromPeriods(array $periods, array $periodToSlotId): array
+    {
+        $indexes = collect($periods)
+            ->map(fn ($v) => (int) $v)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if (empty($indexes)) {
+            return [];
+        }
+
+        $ranges = [];
+        $chunkStart = $indexes[0];
+        $prev = $indexes[0];
+
+        for ($i = 1; $i < count($indexes); $i++) {
+            $current = $indexes[$i];
+            if ($current !== $prev + 1) {
+                if (isset($periodToSlotId[$chunkStart], $periodToSlotId[$prev])) {
+                    $ranges[] = [
+                        'start_slot_id' => (int) $periodToSlotId[$chunkStart],
+                        'end_slot_id' => (int) $periodToSlotId[$prev],
+                    ];
+                }
+                $chunkStart = $current;
+            }
+            $prev = $current;
+        }
+
+        if (isset($periodToSlotId[$chunkStart], $periodToSlotId[$prev])) {
+            $ranges[] = [
+                'start_slot_id' => (int) $periodToSlotId[$chunkStart],
+                'end_slot_id' => (int) $periodToSlotId[$prev],
+            ];
+        }
+
+        return $ranges;
     }
 
     /**
@@ -906,5 +1250,21 @@ class AdminController extends Controller
             ->delete();
 
         return back()->with('success', "已撤回 {$classroom->code} 的課表匯入，共刪除 {$deleted} 筆。");
+    }
+
+    public function revokeManualLongTermBorrowing(CourseSchedule $schedule)
+    {
+        $currentSemester = Semester::findByDate(now());
+        if (!$currentSemester) {
+            return back()->withErrors(['revoke' => '目前沒有設定中的學期。']);
+        }
+
+        if ((int) $schedule->semester_id !== (int) $currentSemester->id || is_null($schedule->borrow_type)) {
+            return back()->withErrors(['revoke' => '僅能撤回本學期手動新增的長期借用記錄。']);
+        }
+
+        $schedule->delete();
+
+        return back()->with('success', '已撤回一筆手動長期借用記錄。');
     }
 }

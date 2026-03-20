@@ -63,3 +63,24 @@ export interface ManualFormData {
     end_date: string;
     periods: number[];
 }
+
+export interface ManualConflictItem {
+    id: number;
+    day_of_week: number;
+    start_slot: string;
+    end_slot: string;
+    start_date: string | null;
+    end_date: string | null;
+    borrow_type: number | null;
+    source_label: string;
+    course_name: string;
+    teacher_name: string;
+    is_protected: boolean;
+    overlap_periods: number[];
+}
+
+export interface ManualConflictSummary {
+    total: number;
+    protected: number;
+    overridable: number;
+}

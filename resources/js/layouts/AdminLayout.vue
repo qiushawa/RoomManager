@@ -9,7 +9,6 @@
             <div
                 class="flex h-16 shrink-0 items-center justify-between px-6 border-b border-slate-700/50 z-10 relative">
                 <span class="text-xl font-bold text-white">RoomManager</span>
-                <span class="text-xs font-semibold px-2 py-1 bg-primary/30 text-white rounded-md">ADMIN</span>
             </div>
 
             <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-1 z-10 relative">
@@ -59,6 +58,18 @@
                             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" />
                     </svg>
                     教室管理
+                </Link>
+
+                <Link href="/admin/users" :class="[
+                    'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
+                    isActive('/admin/users') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                ]">
+                    <svg :class="['mr-3 h-5 w-5 flex-shrink-0', isActive('/admin/users') ? 'text-white' : 'text-slate-400 group-hover:text-white']"
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 20h5V4H2v16h5m10 0v-2a4 4 0 00-4-4H11a4 4 0 00-4 4v2m10 0H7m8-11a3 3 0 11-6 0a3 3 0 016 0z" />
+                    </svg>
+                    黑名單管理
                 </Link>
                 <!-- 長期借用管理 -->
                 <!-- 長期借用管理 -->

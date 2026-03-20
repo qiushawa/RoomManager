@@ -6,6 +6,7 @@ use App\Models\Classroom;
 use App\Models\TimeSlot;
 use App\Models\Booking;
 use App\Models\Borrower;
+use App\Models\Blacklist;
 use App\Services\RoomAvailabilityService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
@@ -102,6 +103,15 @@ class HomeController extends Controller
         ]);
 
         $applicantData = $requestData['applicant'];
+
+        $activeBlacklist = Blacklist::findActiveByIdentityCode($applicantData['identity_code']);
+
+        if ($activeBlacklist) {
+            return back()->withErrors([
+                'applicant.identity_code' => '此學號目前停權中，停權至 ' . $activeBlacklist->banned_until->format('Y-m-d') . '。',
+            ]);
+        }
+
         $borrower = Borrower::firstOrCreate(
             [
                 'identity_code' => $applicantData['identity_code'],

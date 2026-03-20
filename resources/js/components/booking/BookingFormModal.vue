@@ -58,6 +58,8 @@
                 <FormInput v-model="localForm.teacher" label="指導老師" placeholder="老師姓名" />
             </div>
 
+            <p v-if="validationError" class="mt-3 text-sm text-red-500">{{ validationError }}</p>
+
             <div class="mt-4">
                 <FormTextarea v-model="localForm.reason" label="借用事由" placeholder="請填寫詳細事由..." :rows="3" required />
             </div>
@@ -97,6 +99,7 @@
 import { BaseModal, FormInput, FormTextarea } from '@/components/ui';
 import { useSyncedApplicantForm } from '@/composables';
 import type { ApplicantForm, Room, SelectedSlot } from '@/types';
+import { ref } from 'vue';
 
 const props = defineProps<{
     /** 是否顯示彈窗 */
@@ -119,14 +122,16 @@ const { localForm } = useSyncedApplicantForm(props.form, (value) => {
     emit('update:form', value);
 });
 
+const validationError = ref('');
+
 const handleSubmit = () => {
     // 關閉彈窗並送出表單資料
     const errors = validate(localForm.identity_code);
     if (errors) {
-        // 這裡可以加入錯誤提示機制，目前僅簡單阻止提交
-        alert(errors);
+        validationError.value = errors;
         return;
     }
+    validationError.value = '';
     emit('close');
     emit('submit', localForm);
 };

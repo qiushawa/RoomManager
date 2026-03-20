@@ -2,12 +2,12 @@
 
     <Head title="管理員登入 | RoomManager" />
 
-    <div class="min-h-screen flex items-center justify-center bg-slate-50 px-6">
-        <div class="w-full max-w-md bg-white border border-gray-100 shadow-xl rounded-xl p-8">
+    <div class="min-h-screen flex items-center justify-center bg-a-bg px-6">
+        <div class="w-full max-w-md rounded-xl border border-a-border-card bg-a-surface p-8 shadow-xl">
 
             <!-- Header -->
             <div class="mb-8">
-                <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+                <h1 class="text-2xl font-bold text-a-text tracking-tight">
                     管理員登入
                 </h1>
 
@@ -18,22 +18,22 @@
 
                 <!-- Username -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-a-text-body mb-2">
                         帳號
                     </label>
                     <input v-model="form.username" type="text" required
-                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
+                        class="w-full rounded-lg border border-a-border-2 bg-a-input px-3 py-2 text-a-text-body focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
                         placeholder="admin" />
                     <div v-if="form.errors.username" class="mt-1 text-sm text-red-500">{{ form.errors.username }}</div>
                 </div>
 
                 <!-- Password -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-sm font-medium text-a-text-body mb-2">
                         密碼
                     </label>
                     <input v-model="form.password" :type="showPassword ? 'text' : 'password'" required
-                        class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
+                        class="w-full rounded-lg border border-a-border-2 bg-a-input px-3 py-2 text-a-text-body focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition"
                         placeholder="••••••••" />
                     <div v-if="form.errors.password" class="mt-1 text-sm text-red-500">{{ form.errors.password }}</div>
                 </div>
@@ -55,7 +55,7 @@
 
                 <!-- Back -->
                 <div class="text-center pt-4">
-                    <a href="/Home" class="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                    <a href="/Home" class="text-sm font-medium text-a-text-muted hover:text-a-text-body transition-colors">
                         返回首頁
                     </a>
                 </div>

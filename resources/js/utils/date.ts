@@ -61,14 +61,16 @@ export interface WeekDateInfo {
 export const getWeekDates = (baseDate: Date): WeekDateInfo[] => {
     const dates: WeekDateInfo[] = [];
     const startOfWeek = new Date(baseDate);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    const dayOfWeek = startOfWeek.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    startOfWeek.setDate(startOfWeek.getDate() + mondayOffset);
 
     for (let i = 0; i < 7; i++) {
         const d = new Date(startOfWeek);
         d.setDate(d.getDate() + i);
         dates.push({
             date: String(d.getDate()).padStart(2, '0'),
-            dayName: DAYS_LOOKUP[i],
+            dayName: DAYS_LOOKUP[d.getDay()],
             fullDate: formatDateToYYYYMMDD(d),
         });
     }
