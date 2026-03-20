@@ -104,13 +104,7 @@ class HomeController extends Controller
 
         $applicantData = $requestData['applicant'];
 
-        $activeBlacklist = Blacklist::query()
-            ->whereHas('borrower', function ($query) use ($applicantData) {
-                $query->where('identity_code', $applicantData['identity_code']);
-            })
-            ->where('banned_until', '>=', now())
-            ->latest('banned_until')
-            ->first();
+        $activeBlacklist = Blacklist::findActiveByIdentityCode($applicantData['identity_code']);
 
         if ($activeBlacklist) {
             return back()->withErrors([
