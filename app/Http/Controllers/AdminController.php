@@ -1021,6 +1021,7 @@ class AdminController extends Controller
             && $semesterEnd >= $validated['start_date'];
 
         $rows = CourseSchedule::with(['semester', 'startSlot', 'endSlot'])
+            ->where('semester_id', (int) $semester->id)
             ->where('classroom_id', (int) $validated['classroom_id'])
             ->whereIn('day_of_week', $dayOfWeeks)
             ->where(function ($query) use ($validated, $semesterOverlapsRequest) {
