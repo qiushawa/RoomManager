@@ -1,61 +1,102 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# RoomManager 教室借用系統
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+RoomManager 是一套以 Laravel + Inertia + Vue 3 建置的教室借用管理系統，提供前台借用申請與後台審核管理流程。
+
+- 後端：Laravel 12（PHP 8.2+）
+- 前端：Vue 3 + Inertia.js + Vite
+- 樣式：Tailwind CSS
+- 測試：PHPUnit / Pest
+- 資料庫：MySQL（或其他 Laravel 支援）
+
+
+## 功能概覽
+
+### 前台功能
+- 教室借用申請與時段選擇
+- 借用申請取消（簽章連結）
+- 借用紀錄查詢
+
+### 後台管理
+- 管理員登入與權限控管
+- 借用申請審核
+- 教室管理
+- 使用者管理
+- 長期借用與課表匯入
+
+## 安裝與執行
+
+### 環境需求
+
+- PHP 8.2 以上
+- Composer
+- Node.js 18 以上（含 npm）
+- MySQL 或其他資料庫
+
+
+### 1. 取得專案
+
+```bash
+git clone https://github.com/qiushawa/RoomManager.git
+cd RoomManager
+````
+
+
+### 2. 安裝相依套件
+
+```bash id="clean002"
+composer install
+npm install
+```
+
+
+### 3. 環境設定
+
+```bash id="clean003"
+cp .env.example .env
+```
+
+需設定：
+
+* 資料庫（DB_*）
+* 郵件（MAIL_*）
+
+
+### 4. 初始化 Laravel
+
+```bash id="clean004"
+php artisan key:generate
+php artisan migrate --seed
+```
+
+
+
+### 5. 啟動服務
+
+```bash id="clean005"
+php artisan serve
+npm run dev
+```
+
+
+
+## 系統規則
+
+### 學期資料檢查
+
+當目前日期不屬於任何學期時：
+
+* 系統將禁止後台操作
+* 管理員需先建立學期資料
+
+
+## 操作教學
+
+<p>
+  <a href="./docs/user-guide.md">
+    <img src="https://img.shields.io/badge/使用者操作-借用流程-green?style=for-the-badge&logo=bookstack" />
+  </a>
+  <a href="./docs/admin-guide.md">
+    <img src="https://img.shields.io/badge/管理員操作-後台管理-blue?style=for-the-badge&logo=readthedocs" />
+  </a>  
+
 </p>
-
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
