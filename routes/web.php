@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\AdminController;
+use App\Http\Middleware\EnsureCurrentSemesterConfigured;
 use Inertia\Inertia;
 
 // 1. 首頁導向改為 /Home
@@ -30,25 +31,29 @@ Route::prefix('admin')->name('admin.')->group(function () {
     // 需要管理員權限
     Route::middleware('auth:admin')->group(function () {
         Route::post('/logout', [AdminController::class, 'logout'])->name('logout');
-        Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
-        Route::get('/bookings', [AdminController::class, 'bookings'])->name('bookings');
-        Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
-        Route::get('/borrowing-records', [AdminController::class, 'borrowingRecords'])->name('borrowingRecords');
-        Route::patch('/bookings/{booking}/status', [AdminController::class, 'updateBookingStatus'])->name('bookings.updateStatus');
-        Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
-        Route::get('/rooms', [AdminController::class, 'rooms'])->name('rooms');
-        Route::post('/rooms', [AdminController::class, 'storeRoom'])->name('rooms.store');
-        Route::patch('/rooms/{classroom}/toggle', [AdminController::class, 'toggleRoom'])->name('rooms.toggle');
-        Route::delete('/rooms/{classroom}', [AdminController::class, 'destroyRoom'])->name('rooms.destroy');
-        Route::get('/users', [AdminController::class, 'users'])->name('users');
-        Route::post('/users/blacklist', [AdminController::class, 'storeBlacklist'])->name('users.blacklist.store');
         Route::get('/settings', [AdminController::class, 'settings'])->name('settings');
-        Route::get('/long-term-borrowing', [AdminController::class, 'longTermBorrowing'])->name('longTermBorrowing');
-        Route::post('/long-term-borrowing/import', [AdminController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');
-        Route::post('/long-term-borrowing/preview', [AdminController::class, 'previewCourseSchedules'])->name('longTermBorrowing.preview');
-        Route::post('/long-term-borrowing/manual/conflicts', [AdminController::class, 'previewManualLongTermBorrowingConflicts'])->name('longTermBorrowing.manual.conflicts');
-        Route::post('/long-term-borrowing/manual', [AdminController::class, 'storeManualLongTermBorrowing'])->name('longTermBorrowing.manual');
-        Route::delete('/long-term-borrowing/manual/{schedule}', [AdminController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
-        Route::delete('/long-term-borrowing/import/{classroom}', [AdminController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');
+        Route::post('/settings/semesters', [AdminController::class, 'storeSemester'])->name('settings.semesters.store');
+
+        Route::middleware(EnsureCurrentSemesterConfigured::class)->group(function () {
+            Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+            Route::get('/bookings', [AdminController::class, 'bookings'])->name('bookings');
+            Route::get('/reviews', [AdminController::class, 'reviews'])->name('reviews');
+            Route::get('/borrowing-records', [AdminController::class, 'borrowingRecords'])->name('borrowingRecords');
+            Route::patch('/bookings/{booking}/status', [AdminController::class, 'updateBookingStatus'])->name('bookings.updateStatus');
+            Route::get('/notifications', [AdminController::class, 'notifications'])->name('notifications');
+            Route::get('/rooms', [AdminController::class, 'rooms'])->name('rooms');
+            Route::post('/rooms', [AdminController::class, 'storeRoom'])->name('rooms.store');
+            Route::patch('/rooms/{classroom}/toggle', [AdminController::class, 'toggleRoom'])->name('rooms.toggle');
+            Route::delete('/rooms/{classroom}', [AdminController::class, 'destroyRoom'])->name('rooms.destroy');
+            Route::get('/users', [AdminController::class, 'users'])->name('users');
+            Route::post('/users/blacklist', [AdminController::class, 'storeBlacklist'])->name('users.blacklist.store');
+            Route::get('/long-term-borrowing', [AdminController::class, 'longTermBorrowing'])->name('longTermBorrowing');
+            Route::post('/long-term-borrowing/import', [AdminController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');
+            Route::post('/long-term-borrowing/preview', [AdminController::class, 'previewCourseSchedules'])->name('longTermBorrowing.preview');
+            Route::post('/long-term-borrowing/manual/conflicts', [AdminController::class, 'previewManualLongTermBorrowingConflicts'])->name('longTermBorrowing.manual.conflicts');
+            Route::post('/long-term-borrowing/manual', [AdminController::class, 'storeManualLongTermBorrowing'])->name('longTermBorrowing.manual');
+            Route::delete('/long-term-borrowing/manual/{schedule}', [AdminController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
+            Route::delete('/long-term-borrowing/import/{classroom}', [AdminController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');
+        });
     });
 });
