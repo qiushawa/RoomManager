@@ -126,7 +126,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BaseModal } from '@/components';
 import AdminLayout from '@/layouts/AdminLayout.vue';
@@ -138,7 +138,7 @@ interface SemesterItem {
     end_date: string;
 }
 
-const props = defineProps<{
+defineProps<{
     currentSemester: string | null;
     semesters: SemesterItem[];
 }>();
@@ -147,8 +147,17 @@ const page = usePage();
 const showRedirectNotice = ref(false);
 const redirectNoticeMessage = ref('');
 
+const flashError = computed(() => {
+    const pageProps = page.props as {
+        value?: { flash?: { error?: unknown } };
+        flash?: { error?: unknown };
+    };
+
+    return pageProps.value?.flash?.error ?? pageProps.flash?.error;
+});
+
 watch(
-    () => page.props.flash?.error,
+    flashError,
     (errorMessage) => {
         if (!errorMessage || typeof errorMessage !== 'string') return;
         redirectNoticeMessage.value = errorMessage;
