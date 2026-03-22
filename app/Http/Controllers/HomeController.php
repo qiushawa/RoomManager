@@ -44,7 +44,7 @@ class HomeController extends Controller
         $highlight = session('highlight');
 
         $baseDate = Carbon::parse($dateParam);
-        $startDate = $baseDate->copy()->startOfWeek(CarbonInterface::SUNDAY);
+        $startDate = $baseDate->copy()->startOfWeek(CarbonInterface::MONDAY);
         $endDate = $startDate->copy()->addDays(6);
 
         // 3. 批次查詢所有教室的佔用狀況
