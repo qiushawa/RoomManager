@@ -62,6 +62,7 @@ export const getWeekDates = (baseDate: Date): WeekDateInfo[] => {
     const dates: WeekDateInfo[] = [];
     const startOfWeek = new Date(baseDate);
     const dayOfWeek = startOfWeek.getDay();
+    // 以週一為一週起始 (週日需回推 6 天)
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     startOfWeek.setDate(startOfWeek.getDate() + mondayOffset);
 
