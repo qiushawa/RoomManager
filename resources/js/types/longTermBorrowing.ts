@@ -42,6 +42,11 @@ export interface PreviewSchedule {
     course_name: string;
 }
 
+export interface BorrowTypeOption {
+    value: number;
+    label: string;
+}
+
 export interface WeekdayOption {
     value: number;
     label: string;
@@ -49,6 +54,7 @@ export interface WeekdayOption {
 
 export interface ManualFormData {
     semester?: string;
+    borrow_type: number;
     classroom_id: number | '';
     teacher_name: string;
     course_name: string;

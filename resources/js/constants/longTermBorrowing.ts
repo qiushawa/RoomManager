@@ -1,4 +1,4 @@
-import type { BuildingCode, WeekdayOption } from '@/types';
+import type { BorrowTypeOption, BuildingCode, WeekdayOption } from '@/types';
 
 export const LONG_TERM_BUILDING_ORDER: BuildingCode[] = ['CB', 'GC', 'RA'];
 
@@ -7,6 +7,11 @@ export const LONG_TERM_BUILDING_LABELS: Record<BuildingCode, string> = {
     GC: '綜三館',
     RA: '科研大樓',
 };
+
+export const LONG_TERM_BORROW_TYPE_OPTIONS: BorrowTypeOption[] = [
+    { value: 1, label: '一般借用' },
+    { value: 2, label: '課程使用' },
+];
 
 export const LONG_TERM_WEEKDAY_OPTIONS: WeekdayOption[] = [
     { value: 1, label: '週一' },

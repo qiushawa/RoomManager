@@ -57,6 +57,23 @@
                             </h4>
 
                             <div class="space-y-6 pl-8">
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-a-text-body">借用類型</label>
+                                    <div class="flex flex-wrap gap-3">
+                                        <label v-for="opt in borrowTypeOptions" :key="opt.value"
+                                            class="relative flex cursor-pointer items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition-all"
+                                            :class="manualForm.borrow_type === opt.value
+                                                ? 'border-primary bg-primary/5 text-primary shadow-sm ring-1 ring-primary/20'
+                                                : 'border-a-border-2 bg-a-surface text-a-text-muted hover:border-a-border-card hover:bg-a-surface-hover'">
+                                            <input type="radio" :value="opt.value" v-model="manualForm.borrow_type"
+                                                class="sr-only" />
+                                            <span>{{ opt.label }}</span>
+                                        </label>
+                                    </div>
+                                    <p v-if="manualForm.errors.borrow_type" class="mt-2 text-xs text-red-400">{{
+                                        manualForm.errors.borrow_type }}</p>
+                                </div>
+
                                 <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     <div>
                                         <label class="mb-2 block text-sm font-medium text-a-text-body">指導老師</label>
@@ -66,7 +83,7 @@
                                             manualForm.errors.teacher_name }}</p>
                                     </div>
 
-                                    <div>
+                                    <div v-if="manualForm.borrow_type === 2">
                                         <label class="mb-2 block text-sm font-medium text-a-text-body">課程名稱</label>
                                         <input v-model.trim="manualForm.course_name" type="text" placeholder="如：資料結構"
                                             class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
@@ -329,6 +346,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ScheduleGrid } from '@/components';
 import { useAdminTheme } from '@/composables';
 import {
+    LONG_TERM_BORROW_TYPE_OPTIONS,
     LONG_TERM_BUILDING_LABELS,
     LONG_TERM_BUILDING_ORDER,
     LONG_TERM_WEEKDAY_OPTIONS,
@@ -364,6 +382,7 @@ const adminScheduleGridTheme = computed<'light' | 'dark'>(() => (isDark.value ? 
 // ── 常數 ──────────────────────────────────────────────
 const buildingOrder = LONG_TERM_BUILDING_ORDER;
 const buildingLabels = LONG_TERM_BUILDING_LABELS;
+const borrowTypeOptions = LONG_TERM_BORROW_TYPE_OPTIONS;
 const weekdayOptions = LONG_TERM_WEEKDAY_OPTIONS;
 
 // ── 狀態 ──────────────────────────────────────────────
@@ -376,6 +395,7 @@ const previewSchedules = ref<PreviewSchedule[]>([]);
 
 // ── 手動表單 ──────────────────────────────────────────
 const manualForm = useForm<ManualFormData>({
+    borrow_type: 1,
     classroom_id: '',
     teacher_name: '',
     course_name: '',
@@ -445,20 +465,6 @@ function applyQuickDateRange() {
 
 const selectedManualWeekDateSet = computed(() => new Set(manualWeekDates.value.map((day) => day.fullDate)));
 
-const manualDateToWeekdayMap = computed<Record<string, number>>(() => {
-    const selectedDays = [...manualForm.day_of_week].sort((a, b) => a - b);
-    const mapping: Record<string, number> = {};
-
-    manualWeekDates.value.forEach((day, index) => {
-        const weekday = selectedDays[index];
-        if (weekday) {
-            mapping[day.fullDate] = weekday;
-        }
-    });
-
-    return mapping;
-});
-
 const canPreviewManualConflicts = computed(() => (
     !!manualForm.classroom_id
     && manualForm.day_of_week.length > 0
@@ -491,32 +497,6 @@ function resetManualConflictResult() {
     manualConflictSummary.value = null;
 }
 
-function buildManualPeriodsByDay(): Record<string, number[]> {
-    const grouped: Record<number, Set<number>> = {};
-    const dateToWeekday = manualDateToWeekdayMap.value;
-
-    manualSelectedSlots.value.forEach((slot) => {
-        const weekday = dateToWeekday[slot.date];
-        const period = Number(slot.period);
-        if (!weekday || !Number.isFinite(period) || period <= 0) {
-            return;
-        }
-
-        if (!grouped[weekday]) {
-            grouped[weekday] = new Set<number>();
-        }
-
-        grouped[weekday].add(period);
-    });
-
-    const result: Record<string, number[]> = {};
-    Object.entries(grouped).forEach(([weekday, periodSet]) => {
-        result[weekday] = Array.from(periodSet).sort((a, b) => a - b);
-    });
-
-    return result;
-}
-
 async function previewManualConflicts() {
     if (!canPreviewManualConflicts.value) {
         manualConflictError.value = '請先完成教室、星期、節次與日期範圍設定。';
@@ -528,6 +508,7 @@ async function previewManualConflicts() {
 
     try {
         const payload = {
+            borrow_type: Number(manualForm.borrow_type),
             classroom_id: Number(manualForm.classroom_id),
             teacher_name: manualForm.teacher_name,
             course_name: manualForm.course_name,
@@ -535,7 +516,6 @@ async function previewManualConflicts() {
             start_date: manualForm.start_date,
             end_date: manualForm.end_date,
             periods: [...manualForm.periods],
-            periods_by_day: buildManualPeriodsByDay(),
         };
 
         const response = await window.axios.post('/admin/long-term-borrowing/manual/conflicts', payload);
@@ -594,6 +574,7 @@ watch(
         manualForm.classroom_id,
         manualForm.start_date,
         manualForm.end_date,
+        manualForm.borrow_type,
         manualForm.teacher_name,
         manualForm.course_name,
         manualForm.day_of_week.join(','),
@@ -632,13 +613,11 @@ function submitManual() {
         return;
     }
 
-    manualForm.transform((data) => ({
-        ...data,
-        periods_by_day: buildManualPeriodsByDay(),
-    })).post('/admin/long-term-borrowing/manual', {
+    manualForm.post('/admin/long-term-borrowing/manual', {
         preserveScroll: true,
         onSuccess: () => {
             manualForm.reset();
+            manualForm.borrow_type = 1;
             manualSelectedSlots.value = [];
             resetManualConflictResult();
         },

@@ -51,7 +51,7 @@
             <!-- 表單欄位 -->
             <div class="grid grid-cols-2 gap-4">
                 <FormInput v-model="localForm.name" label="姓名" placeholder="完整姓名" required />
-                <FormInput v-model="localForm.identity_code" label="學號/員工編號" placeholder="A0123456" required />
+                <FormInput v-model="localForm.identity_code" label="學號/員工編號" placeholder="40123456" required />
                 <FormInput v-model="localForm.email" type="email" label="Email" placeholder="請輸入常用郵件" required />
                 <FormInput v-model="localForm.phone" type="tel" label="電話" placeholder="請輸入聯絡電話" required />
                 <FormInput v-model="localForm.department" label="科系" placeholder="請輸入科系" />
@@ -142,9 +142,9 @@ const validate = (value: string) => {
     檢查所有輸入欄位是否符合基本格式要求，並返回錯誤訊息（如果有的話
     */
     let errors: string = '';
-    // 學號/員工編號格式檢查（英文+數字，最多 8 碼）
-    if (!/^[A-Za-z0-9]{1,8}$/.test(value)) {
-        errors += '學號/員工編號僅可輸入英文與數字，且最多 8 碼\n';
+    // 學號/員工編號格式檢查（假設為8位數字）
+    if (!/^\d{8}$/.test(value)) {
+        errors += '學號/員工編號格式錯誤\n';
     }
     // 預留
     return errors;

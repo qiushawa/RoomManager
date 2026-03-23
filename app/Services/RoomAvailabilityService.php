@@ -93,17 +93,7 @@ class RoomAvailabilityService
                 $dayOfWeek = $currentDate->dayOfWeekIso;
                 $courses = $room->courseSchedules
                     ->where('semester_id', $currentSemester->id)
-                    ->where('day_of_week', $dayOfWeek)
-                    ->filter(function ($course) use ($currentDate, $currentSemester) {
-                        $effectiveStart = $course->start_date
-                            ? Carbon::parse($course->start_date)
-                            : Carbon::parse($currentSemester->start_date);
-                        $effectiveEnd = $course->end_date
-                            ? Carbon::parse($course->end_date)
-                            : Carbon::parse($currentSemester->end_date);
-
-                        return $currentDate->between($effectiveStart, $effectiveEnd);
-                    });
+                    ->where('day_of_week', $dayOfWeek);
                 foreach ($courses as $course) {
                     $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
                     foreach ($slots as $slot) {

@@ -18,7 +18,6 @@ class CourseSchedule extends Model
         'start_slot_id',
         'end_slot_id',
         'borrow_type',
-        'source',
         'start_date',
         'end_date',
     ];
