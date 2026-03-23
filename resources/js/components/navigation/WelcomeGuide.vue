@@ -7,14 +7,24 @@
                 <span class="text-xs tracking-wider uppercase text-gray-400">Welcome</span>
                 <h2 class="text-2xl font-bold text-primary">教室借用系統</h2>
             </div>
-            <a href="/admin/login"
-                class="flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-gray-500 transition-all hover:bg-gray-50 hover:text-primary">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                管理員登入
-            </a>
+            <div class="flex items-center gap-2">
+                <a href="https://qiushawa.github.io/RoomManager/" target="_blank" rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-gray-500 transition-all hover:bg-gray-50 hover:text-primary">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                    </svg>
+                    使用導覽
+                </a>
+                <a href="/admin/login"
+                    class="flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-gray-500 transition-all hover:bg-gray-50 hover:text-primary">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    管理員登入
+                </a>
+            </div>
         </header>
 
         <!-- 主要內容 -->
