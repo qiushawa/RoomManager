@@ -94,12 +94,14 @@ class HomeController extends Controller
             'time_slot_ids' => 'required|array|min:1',
             'time_slot_ids.*' => 'exists:time_slots,id',
             'applicant.name' => 'required|string|max:50',
-            'applicant.identity_code' => 'required|string|max:8',
+            'applicant.identity_code' => ['required', 'string', 'max:8', 'regex:/^[A-Za-z0-9]+$/'],
             'applicant.email' => 'required|email|max:255',
             'applicant.phone' => 'nullable|string|max:10',
             'applicant.department' => 'nullable|string|max:50',
             'applicant.teacher' => 'nullable|string|max:50',
             'applicant.reason' => 'nullable|string|max:255',
+        ], [
+            'applicant.identity_code.regex' => '學號/員工編號僅可輸入英文與數字。',
         ]);
 
         $applicantData = $requestData['applicant'];
