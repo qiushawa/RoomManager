@@ -31,26 +31,72 @@ return new class extends Migration
         });
 
         // 將既有單日資料回填至新結構，確保新舊邏輯可共存。
-        $legacyRows = DB::table('bookings')->select(['id', 'date'])->orderBy('id')->get();
-        foreach ($legacyRows as $row) {
-            $bookingDateId = DB::table('booking_dates')->insertGetId([
-                'booking_id' => $row->id,
-                'date' => $row->date,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        // 使用 chunkById 降低記憶體與鎖定壓力，並以冪等方式避免重複寫入。
+        DB::table('bookings')
+            ->select(['id', 'date'])
+            ->orderBy('id')
+            ->chunkById(500, function ($legacyRows) {
+                $bookingIds = $legacyRows->pluck('id')->all();
 
-            $timeSlotIds = DB::table('booking_time_slot')
-                ->where('booking_id', $row->id)
-                ->pluck('time_slot_id');
+                $timeSlotsByBooking = DB::table('booking_time_slot')
+                    ->whereIn('booking_id', $bookingIds)
+                    ->select(['booking_id', 'time_slot_id'])
+                    ->get()
+                    ->groupBy('booking_id');
 
-            foreach ($timeSlotIds as $timeSlotId) {
-                DB::table('booking_date_time_slot')->insert([
-                    'booking_date_id' => $bookingDateId,
-                    'time_slot_id' => $timeSlotId,
-                ]);
-            }
-        }
+                DB::transaction(function () use ($legacyRows, $timeSlotsByBooking) {
+                    $now = now();
+
+                    foreach ($legacyRows as $row) {
+                        if (empty($row->date)) {
+                            continue;
+                        }
+
+                        $bookingDateId = DB::table('booking_dates')
+                            ->where('booking_id', $row->id)
+                            ->where('date', $row->date)
+                            ->value('id');
+
+                        if (!$bookingDateId) {
+                            $bookingDateId = DB::table('booking_dates')->insertGetId([
+                                'booking_id' => $row->id,
+                                'date' => $row->date,
+                                'created_at' => $now,
+                                'updated_at' => $now,
+                            ]);
+                        }
+
+                        $timeSlotIds = collect($timeSlotsByBooking->get($row->id, collect()))
+                            ->pluck('time_slot_id')
+                            ->map(fn ($id) => (int) $id)
+                            ->filter(fn ($id) => $id > 0)
+                            ->unique()
+                            ->values();
+
+                        if ($timeSlotIds->isEmpty()) {
+                            continue;
+                        }
+
+                        $existingTimeSlotIds = DB::table('booking_date_time_slot')
+                            ->where('booking_date_id', $bookingDateId)
+                            ->whereIn('time_slot_id', $timeSlotIds)
+                            ->pluck('time_slot_id');
+
+                        $rowsToInsert = $timeSlotIds
+                            ->diff($existingTimeSlotIds)
+                            ->map(fn ($timeSlotId) => [
+                                'booking_date_id' => $bookingDateId,
+                                'time_slot_id' => $timeSlotId,
+                            ])
+                            ->values()
+                            ->all();
+
+                        if (!empty($rowsToInsert)) {
+                            DB::table('booking_date_time_slot')->insert($rowsToInsert);
+                        }
+                    }
+                });
+            });
     }
 
     /**

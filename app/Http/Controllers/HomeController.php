@@ -310,29 +310,7 @@ class HomeController extends Controller
     protected function formatBookingSummary(Booking $booking): array
     {
         $booking->loadMissing(['bookingDates.timeSlots']);
-
-        $dateSummary = Carbon::parse($booking->date)->format('Y年m月d日');
-        if ($booking->bookingDates->isNotEmpty()) {
-            $sortedDates = $booking->bookingDates
-                ->pluck('date')
-                ->map(fn ($date) => Carbon::parse($date))
-                ->sortBy(fn ($date) => $date->timestamp)
-                ->values();
-
-            $firstDate = $sortedDates->first();
-            $lastDate = $sortedDates->last();
-
-            if ($firstDate && $lastDate && !$firstDate->isSameDay($lastDate)) {
-                $dateSummary = sprintf(
-                    '%s ~ %s（共 %d 天）',
-                    $firstDate->format('Y年m月d日'),
-                    $lastDate->format('Y年m月d日'),
-                    $sortedDates->count()
-                );
-            } elseif ($firstDate) {
-                $dateSummary = $firstDate->format('Y年m月d日');
-            }
-        }
+        $dateSummary = $booking->getDateSummaryData('Y年m月d日', true)['summary'];
 
         return [
             'borrower_name' => $booking->borrower?->name ?? '未提供',
