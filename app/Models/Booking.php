@@ -33,6 +33,11 @@ class Booking extends Model
         return $this->belongsToMany(TimeSlot::class, 'booking_time_slot')->orderBy('start_time');
     }
 
+    public function bookingDates()
+    {
+        return $this->hasMany(BookingDate::class)->orderBy('date');
+    }
+
     // 未處理的預約 靜態
     public static function pending()
     {

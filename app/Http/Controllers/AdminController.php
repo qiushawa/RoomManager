@@ -157,7 +157,7 @@ class AdminController extends Controller
      */
     public function bookings(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots']);
+        $query = Booking::with(['borrower', 'classroom', 'timeSlots', 'bookingDates.timeSlots']);
 
         // 篩選狀態
         if ($request->filled('status') && $request->input('status') !== 'all') {
@@ -195,7 +195,7 @@ class AdminController extends Controller
      */
     public function reviews(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
+        $query = Booking::with(['borrower', 'classroom', 'timeSlots', 'bookingDates.timeSlots'])
             ->where('status', 0);
 
         if ($request->filled('search')) {
@@ -226,7 +226,7 @@ class AdminController extends Controller
      */
     public function borrowingRecords(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
+        $query = Booking::with(['borrower', 'classroom', 'timeSlots', 'bookingDates.timeSlots'])
             ->where('status', '!=', 0);
 
         if ($request->filled('status') && $request->input('status') !== 'all') {
@@ -540,9 +540,29 @@ class AdminController extends Controller
      */
     private function formatBooking(Booking $booking): array
     {
+        $bookingDateItems = $booking->bookingDates
+            ->map(function ($bookingDate) {
+                return [
+                    'date' => $bookingDate->date?->format('Y-m-d') ?? null,
+                    'time_slots' => $bookingDate->timeSlots->pluck('name')->values()->all(),
+                ];
+            })
+            ->filter(fn ($item) => !empty($item['date']))
+            ->values();
+
+        $isMultiDay = $bookingDateItems->count() > 1;
+        $dateSummary = $booking->date;
+        if ($isMultiDay) {
+            $firstDate = $bookingDateItems->first()['date'] ?? $booking->date;
+            $lastDate = $bookingDateItems->last()['date'] ?? $booking->date;
+            $dateSummary = sprintf('%s ~ %s', $firstDate, $lastDate);
+        }
+
         return [
             'id' => $booking->id,
             'date' => $booking->date,
+            'date_summary' => $dateSummary,
+            'is_multi_day' => $isMultiDay,
             'status' => $booking->status,
             'reason' => $booking->reason,
             'teacher' => $booking->teacher,
@@ -559,6 +579,7 @@ class AdminController extends Controller
                 'name' => $booking->classroom->name,
             ] : null,
             'time_slots' => $booking->timeSlots->pluck('name')->toArray(),
+            'booking_dates' => $bookingDateItems->all(),
         ];
     }
 
@@ -581,19 +602,41 @@ class AdminController extends Controller
      */
     public function notifications()
     {
-        $pending = Booking::with(['borrower', 'classroom', 'timeSlots'])
+        $pending = Booking::with(['borrower', 'classroom', 'timeSlots', 'bookingDates.timeSlots'])
             ->where('status', 0)
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn ($b) => [
-                'id' => $b->id,
-                'date' => $b->date,
-                'created_at' => $b->created_at->diffForHumans(),
-                'borrower_name' => $b->borrower?->name,
-                'classroom_code' => $b->classroom?->code,
-                'time_slots' => $b->timeSlots->pluck('name')->toArray(),
-            ]);
+            ->map(function ($b) {
+                $bookingDates = $b->bookingDates
+                    ->pluck('date')
+                    ->map(fn ($date) => optional($date)->format('Y-m-d'))
+                    ->filter()
+                    ->values();
+
+                if ($bookingDates->isNotEmpty()) {
+                    $firstDate = $bookingDates->first();
+                    $lastDate = $bookingDates->last();
+                    $isMultiDay = $bookingDates->count() > 1;
+                    $dateSummary = $isMultiDay ? "{$firstDate} ~ {$lastDate}" : $firstDate;
+                } else {
+                    $firstDate = $b->date;
+                    $lastDate = $b->date;
+                    $isMultiDay = false;
+                    $dateSummary = $b->date;
+                }
+
+                return [
+                    'id' => $b->id,
+                    'date' => $firstDate,
+                    'date_summary' => $dateSummary,
+                    'is_multi_day' => $isMultiDay,
+                    'created_at' => $b->created_at->diffForHumans(),
+                    'borrower_name' => $b->borrower?->name,
+                    'classroom_code' => $b->classroom?->code,
+                    'time_slots' => $b->timeSlots->pluck('name')->toArray(),
+                ];
+            });
 
         return response()->json([
             'count' => Booking::where('status', 0)->count(),

@@ -60,6 +60,7 @@ class RoomAvailabilityService
 
         $room->loadMissing([
             'bookings.timeSlots', // 預載多對多時段
+            'bookings.bookingDates.timeSlots',
             'courseSchedules.semester'
         ]);
 
@@ -117,11 +118,36 @@ class RoomAvailabilityService
                 }
             }
 
-            // 檢查單次預約
-            $bookings = $room->bookings->where('date', $dateStr)->whereNotIn('status', [2, 3]);
+            // 檢查短期預約（新結構：booking_dates + booking_date_time_slot）
+            $bookings = $room->bookings->whereNotIn('status', [2, 3]);
             foreach ($bookings as $booking) {
-                $slots = $booking->timeSlots->pluck('name')->toArray();
                 $status = $booking->status == 0 ? 'pending' : 'approved';
+                $matchedBookingDates = $booking->bookingDates
+                    ->filter(fn ($bookingDate) => $bookingDate->date?->format('Y-m-d') === $dateStr)
+                    ->values();
+
+                if ($matchedBookingDates->isNotEmpty()) {
+                    foreach ($matchedBookingDates as $bookingDate) {
+                        $slots = $bookingDate->timeSlots->pluck('name')->toArray();
+                        foreach ($slots as $slot) {
+                            $occupiedSlots->push([
+                                'slot' => $slot,
+                                'status' => $status,
+                                'title' => $booking->reason,
+                                'applicant' => $booking->borrower ? $booking->borrower->name : null,
+                                'instructor' => $booking->teacher
+                            ]);
+                        }
+                    }
+                    continue;
+                }
+
+                // 舊資料相容：沒有 booking_dates 時沿用 bookings.date + booking_time_slot
+                if ($booking->date !== $dateStr) {
+                    continue;
+                }
+
+                $slots = $booking->timeSlots->pluck('name')->toArray();
                 foreach ($slots as $slot) {
                     $occupiedSlots->push([
                         'slot' => $slot,

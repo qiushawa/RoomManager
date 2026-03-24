@@ -31,6 +31,7 @@
                     <div class="flex flex-1 flex-col overflow-hidden bg-gradient-to-br from-white to-slate-50 p-4">
                         <ScheduleGrid class="h-full" :week-dates="weekDates" :periods="periods"
                             :occupied-data="occupiedData" :highlight-info="highlightInfo" theme="light"
+                            :allow-cross-date-selection="true"
                             v-model="selectedSlots" />
                     </div>
                 </div>
