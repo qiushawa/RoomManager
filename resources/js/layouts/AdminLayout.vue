@@ -190,7 +190,8 @@
                                                 <span class="font-medium text-blue-400">{{ item.classroom_code }}</span>
                                             </p>
                                             <p class="text-xs text-a-text-muted mt-0.5">
-                                                {{ item.date }} ・ {{ item.time_slots.join(', ') }}
+                                                {{ item.date_summary || item.date }}
+                                                <span v-if="item.is_multi_day" class="ml-1 text-primary">（跨日）</span>
                                             </p>
                                             <p class="text-xs text-a-text-dim mt-0.5">{{ item.created_at }}</p>
                                         </div>
@@ -238,6 +239,8 @@ const isActive = (path: string) => {
 interface NotifItem {
     id: number;
     date: string;
+    date_summary?: string;
+    is_multi_day?: boolean;
     created_at: string;
     borrower_name: string;
     classroom_code: string;

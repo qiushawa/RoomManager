@@ -445,12 +445,30 @@ function applyQuickDateRange() {
 
 const selectedManualWeekDateSet = computed(() => new Set(manualWeekDates.value.map((day) => day.fullDate)));
 
+function isoWeekdayFromDateString(dateString: string): number | null {
+    const [yearText, monthText, dayText] = dateString.split('-');
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+        return null;
+    }
+
+    const date = new Date(year, month - 1, day);
+    if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    const jsWeekday = date.getDay();
+    return jsWeekday === 0 ? 7 : jsWeekday;
+}
+
 const manualDateToWeekdayMap = computed<Record<string, number>>(() => {
-    const selectedDays = [...manualForm.day_of_week].sort((a, b) => a - b);
     const mapping: Record<string, number> = {};
 
-    manualWeekDates.value.forEach((day, index) => {
-        const weekday = selectedDays[index];
+    manualWeekDates.value.forEach((day) => {
+        const weekday = isoWeekdayFromDateString(day.fullDate);
         if (weekday) {
             mapping[day.fullDate] = weekday;
         }

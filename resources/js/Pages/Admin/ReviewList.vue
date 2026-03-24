@@ -13,7 +13,7 @@
             <AdminDataTable
                 :headers="tableHeaders"
                 :is-empty="bookings.data.length === 0"
-                :col-span="6"
+                :col-span="5"
                 empty-text="目前沒有待審核的申請"
             >
                 <template #rows>
@@ -23,8 +23,6 @@
                         :booking="booking"
                         mode="reviews"
                         @open-preview="openPreview"
-                        @approve="(id) => updateStatus(id, 1)"
-                        @reject="(id) => updateStatus(id, 2)"
                     />
                 </template>
 
@@ -66,7 +64,7 @@ const props = defineProps<{
     periods: Period[];
 }>();
 
-const tableHeaders = REVIEW_TABLE_HEADERS;
+const tableHeaders = REVIEW_TABLE_HEADERS.filter((header) => header.label !== '操作');
 
 const { searchInput, applyFilters } = useTableFilters({
     route: '/admin/reviews',

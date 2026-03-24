@@ -21,9 +21,16 @@ export interface AdminBookingClassroom {
     name: string;
 }
 
+export interface AdminBookingDateItem {
+    date: string;
+    time_slots: string[];
+}
+
 export interface AdminBookingItem {
     id: number;
     date: string;
+    date_summary?: string;
+    is_multi_day?: boolean;
     status: number;
     reason: string | null;
     teacher: string | null;
@@ -31,6 +38,7 @@ export interface AdminBookingItem {
     borrower: AdminBookingBorrower | null;
     classroom: AdminBookingClassroom | null;
     time_slots: string[];
+    booking_dates?: AdminBookingDateItem[];
 }
 
 export interface AdminClassroomItem {

@@ -10,6 +10,7 @@ use App\Models\Blacklist;
 use App\Services\RoomAvailabilityService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
@@ -61,8 +62,15 @@ class HomeController extends Controller
         // 注意：這裡 $allClassrooms 裡的項目是 Model 實例，可以直接 load
         $allClassrooms->load([
             'bookings' => function ($query) use ($startDate, $endDate) {
-                $query->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                    ->whereNotIn('status', [2, 3]);
+                $query
+                    ->whereNotIn('status', [2, 3])
+                    ->where(function ($bookingQuery) use ($startDate, $endDate) {
+                        $bookingQuery
+                            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
+                            ->orWhereHas('bookingDates', function ($dateQuery) use ($startDate, $endDate) {
+                                $dateQuery->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+                            });
+                    });
             },
             'courseSchedules'
         ]);
@@ -90,9 +98,13 @@ class HomeController extends Controller
         $requestData = $request->validate([
             'classroom_id' => 'required|exists:classrooms,id',
             'classroom_code' => 'required|string',
-            'date' => 'required|date',
-            'time_slot_ids' => 'required|array|min:1',
+            'date' => 'nullable|date|required_without:selections',
+            'time_slot_ids' => 'nullable|array|min:1|required_with:date',
             'time_slot_ids.*' => 'exists:time_slots,id',
+            'selections' => 'nullable|array|min:1|required_without:date',
+            'selections.*.date' => 'required|date',
+            'selections.*.time_slot_ids' => 'required|array|min:1',
+            'selections.*.time_slot_ids.*' => 'exists:time_slots,id',
             'applicant.name' => 'required|string|max:50',
             'applicant.identity_code' => ['required', 'string', 'max:8', 'regex:/^[A-Za-z0-9]+$/'],
             'applicant.email' => 'required|email|max:255',
@@ -126,36 +138,105 @@ class HomeController extends Controller
             ]
         );
 
-        $booking = new Booking();
-        $booking->classroom_id = $requestData['classroom_id'];
-        $booking->borrower_id = $borrower->id;
-        $booking->date = $requestData['date'];
-        $booking->reason = $applicantData['reason'] ?? null;
-        $booking->teacher = $applicantData['teacher'] ?? null;
-        $booking->status = 0;
-        $booking->save();
+        $selectionRows = collect($requestData['selections'] ?? [
+            [
+                'date' => $requestData['date'] ?? null,
+                'time_slot_ids' => $requestData['time_slot_ids'] ?? [],
+            ],
+        ])
+            ->filter(fn ($item) => is_array($item) && !empty($item['date']) && !empty($item['time_slot_ids']))
+            ->map(function ($item) {
+                $slotIds = collect($item['time_slot_ids'])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
 
-        // 關聯多個時段
-        $booking->timeSlots()->sync($requestData['time_slot_ids']);
+                return [
+                    'date' => (string) $item['date'],
+                    'time_slot_ids' => $slotIds,
+                ];
+            })
+            ->filter(fn ($item) => !empty($item['time_slot_ids']))
+            ->groupBy('date')
+            ->map(function ($items, $date) {
+                $mergedSlotIds = collect($items)
+                    ->flatMap(fn ($item) => $item['time_slot_ids'])
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
+
+                return [
+                    'date' => (string) $date,
+                    'time_slot_ids' => $mergedSlotIds,
+                ];
+            })
+            ->values();
+
+        if ($selectionRows->isEmpty()) {
+            return back()->withErrors([
+                'selections' => '請至少選擇一筆借用日期與時段。',
+            ]);
+        }
+
+        $firstSelection = $selectionRows->first();
+
+        $booking = DB::transaction(function () use ($requestData, $borrower, $applicantData, $selectionRows, $firstSelection) {
+            $booking = new Booking();
+            $booking->classroom_id = $requestData['classroom_id'];
+            $booking->borrower_id = $borrower->id;
+            // 保留主表 date 供舊流程與報表相容，值為最早借用日
+            $booking->date = $firstSelection['date'];
+            $booking->reason = $applicantData['reason'] ?? null;
+            $booking->teacher = $applicantData['teacher'] ?? null;
+            $booking->status = 0;
+            $booking->save();
+
+            foreach ($selectionRows as $selection) {
+                $bookingDate = $booking->bookingDates()->create([
+                    'date' => $selection['date'],
+                ]);
+                $bookingDate->timeSlots()->sync($selection['time_slot_ids']);
+            }
+
+            // 保留既有 booking_time_slot 關聯，使用首日時段以維持既有摘要/通知格式。
+            $booking->timeSlots()->sync($firstSelection['time_slot_ids']);
+            $booking->load(['classroom', 'borrower', 'timeSlots', 'bookingDates.timeSlots']);
+
+            return $booking;
+        });
 
         $roomCode = $requestData['classroom_code'];
-        $date = $requestData['date'];
+        $date = $firstSelection['date'];
 
-        $slots = TimeSlot::whereIn('id', $requestData['time_slot_ids'])
+        if ($borrower->email) {
+            $slots = TimeSlot::whereIn('id', $firstSelection['time_slot_ids'])
+                ->orderBy('start_time')
+                ->pluck('name')
+                ->toArray();
+
+            Mail::to($borrower->email)->send(new BookingSubmitted($booking, $slots));
+        }
+
+        $selectionCount = $selectionRows->count();
+        $successMessage = $selectionCount > 1
+            ? "預約已成功提交！共 {$selectionCount} 天（單一申請）。"
+            : '預約已成功提交！';
+
+        $highlightSlots = TimeSlot::whereIn('id', $firstSelection['time_slot_ids'])
             ->orderBy('start_time')
             ->pluck('name')
             ->toArray();
 
-        $booking->load(['classroom', 'borrower', 'timeSlots']);
-        if ($borrower->email) {
-            Mail::to($borrower->email)->send(new BookingSubmitted($booking, $slots));
-        }
-
         return redirect("/Home?date=" . $date . "&room_code=" . $roomCode)
-            ->with('success', '預約已成功提交！')
+            ->with('success', $successMessage)
             ->with('highlight', [
                 'date' => $date,
-                'slots' => $slots
+                'slots' => $highlightSlots
             ]);
     }
 
@@ -228,10 +309,35 @@ class HomeController extends Controller
 
     protected function formatBookingSummary(Booking $booking): array
     {
+        $booking->loadMissing(['bookingDates.timeSlots']);
+
+        $dateSummary = Carbon::parse($booking->date)->format('Y年m月d日');
+        if ($booking->bookingDates->isNotEmpty()) {
+            $sortedDates = $booking->bookingDates
+                ->pluck('date')
+                ->map(fn ($date) => Carbon::parse($date))
+                ->sortBy(fn ($date) => $date->timestamp)
+                ->values();
+
+            $firstDate = $sortedDates->first();
+            $lastDate = $sortedDates->last();
+
+            if ($firstDate && $lastDate && !$firstDate->isSameDay($lastDate)) {
+                $dateSummary = sprintf(
+                    '%s ~ %s（共 %d 天）',
+                    $firstDate->format('Y年m月d日'),
+                    $lastDate->format('Y年m月d日'),
+                    $sortedDates->count()
+                );
+            } elseif ($firstDate) {
+                $dateSummary = $firstDate->format('Y年m月d日');
+            }
+        }
+
         return [
             'borrower_name' => $booking->borrower?->name ?? '未提供',
             'classroom_name' => trim(($booking->classroom?->code ?? '') . ' ' . ($booking->classroom?->name ?? '')),
-            'date' => Carbon::parse($booking->date)->format('Y年m月d日'),
+            'date' => $dateSummary,
             'teacher' => $booking->teacher ?: '未填寫',
             'reason' => $booking->reason ?: '未填寫',
             'time_slots' => $booking->timeSlots
