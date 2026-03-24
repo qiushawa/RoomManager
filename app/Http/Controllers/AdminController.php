@@ -540,6 +540,7 @@ class AdminController extends Controller
      */
     private function formatBooking(Booking $booking): array
     {
+        $summary = $booking->getDateSummaryData('Y-m-d');
         $bookingDateItems = $booking->bookingDates
             ->map(function ($bookingDate) {
                 return [
@@ -550,19 +551,11 @@ class AdminController extends Controller
             ->filter(fn ($item) => !empty($item['date']))
             ->values();
 
-        $isMultiDay = $bookingDateItems->count() > 1;
-        $dateSummary = $booking->date;
-        if ($isMultiDay) {
-            $firstDate = $bookingDateItems->first()['date'] ?? $booking->date;
-            $lastDate = $bookingDateItems->last()['date'] ?? $booking->date;
-            $dateSummary = sprintf('%s ~ %s', $firstDate, $lastDate);
-        }
-
         return [
             'id' => $booking->id,
             'date' => $booking->date,
-            'date_summary' => $dateSummary,
-            'is_multi_day' => $isMultiDay,
+            'date_summary' => $summary['summary'],
+            'is_multi_day' => $summary['is_multi_day'],
             'status' => $booking->status,
             'reason' => $booking->reason,
             'teacher' => $booking->teacher,
@@ -608,29 +601,13 @@ class AdminController extends Controller
             ->limit(10)
             ->get()
             ->map(function ($b) {
-                $bookingDates = $b->bookingDates
-                    ->pluck('date')
-                    ->map(fn ($date) => optional($date)->format('Y-m-d'))
-                    ->filter()
-                    ->values();
-
-                if ($bookingDates->isNotEmpty()) {
-                    $firstDate = $bookingDates->first();
-                    $lastDate = $bookingDates->last();
-                    $isMultiDay = $bookingDates->count() > 1;
-                    $dateSummary = $isMultiDay ? "{$firstDate} ~ {$lastDate}" : $firstDate;
-                } else {
-                    $firstDate = $b->date;
-                    $lastDate = $b->date;
-                    $isMultiDay = false;
-                    $dateSummary = $b->date;
-                }
+                $summary = $b->getDateSummaryData('Y-m-d');
 
                 return [
                     'id' => $b->id,
-                    'date' => $firstDate,
-                    'date_summary' => $dateSummary,
-                    'is_multi_day' => $isMultiDay,
+                    'date' => $summary['first_date'] ?? $b->date,
+                    'date_summary' => $summary['summary'] ?: $b->date,
+                    'is_multi_day' => $summary['is_multi_day'],
                     'created_at' => $b->created_at->diffForHumans(),
                     'borrower_name' => $b->borrower?->name,
                     'classroom_code' => $b->classroom?->code,

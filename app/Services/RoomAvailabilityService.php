@@ -67,6 +67,52 @@ class RoomAvailabilityService
         // 取得與日期範圍重疊的學期
         $semesters = Semester::overlapping($startDate, $endDate);
 
+        // 先將短期借用依日期索引，避免每一天都重新掃描所有 booking。
+        $bookingsByDate = [];
+        $activeBookings = $room->bookings->whereNotIn('status', [2, 3]);
+        foreach ($activeBookings as $booking) {
+            $status = $booking->status == 0 ? 'pending' : 'approved';
+            $basePayload = [
+                'status' => $status,
+                'title' => $booking->reason,
+                'applicant' => $booking->borrower ? $booking->borrower->name : null,
+                'instructor' => $booking->teacher,
+            ];
+
+            $bookingDates = $booking->bookingDates
+                ->filter(fn ($bookingDate) => !empty($bookingDate->date))
+                ->values();
+
+            if ($bookingDates->isNotEmpty()) {
+                foreach ($bookingDates as $bookingDate) {
+                    $dateKey = $bookingDate->date?->format('Y-m-d');
+                    if (empty($dateKey)) {
+                        continue;
+                    }
+
+                    $slots = $bookingDate->timeSlots->pluck('name')->values()->all();
+                    if (empty($slots)) {
+                        continue;
+                    }
+
+                    $bookingsByDate[$dateKey][] = $basePayload + ['slots' => $slots];
+                }
+                continue;
+            }
+
+            // 舊資料相容：沒有 booking_dates 時沿用 bookings.date + booking_time_slot
+            if (empty($booking->date)) {
+                continue;
+            }
+
+            $legacySlots = $booking->timeSlots->pluck('name')->values()->all();
+            if (empty($legacySlots)) {
+                continue;
+            }
+
+            $bookingsByDate[$booking->date][] = $basePayload + ['slots' => $legacySlots];
+        }
+
         $occupiedData = [];
         $currentDate = $startDate->copy();
 
@@ -118,43 +164,15 @@ class RoomAvailabilityService
                 }
             }
 
-            // 檢查短期預約（新結構：booking_dates + booking_date_time_slot）
-            $bookings = $room->bookings->whereNotIn('status', [2, 3]);
-            foreach ($bookings as $booking) {
-                $status = $booking->status == 0 ? 'pending' : 'approved';
-                $matchedBookingDates = $booking->bookingDates
-                    ->filter(fn ($bookingDate) => $bookingDate->date?->format('Y-m-d') === $dateStr)
-                    ->values();
-
-                if ($matchedBookingDates->isNotEmpty()) {
-                    foreach ($matchedBookingDates as $bookingDate) {
-                        $slots = $bookingDate->timeSlots->pluck('name')->toArray();
-                        foreach ($slots as $slot) {
-                            $occupiedSlots->push([
-                                'slot' => $slot,
-                                'status' => $status,
-                                'title' => $booking->reason,
-                                'applicant' => $booking->borrower ? $booking->borrower->name : null,
-                                'instructor' => $booking->teacher
-                            ]);
-                        }
-                    }
-                    continue;
-                }
-
-                // 舊資料相容：沒有 booking_dates 時沿用 bookings.date + booking_time_slot
-                if ($booking->date !== $dateStr) {
-                    continue;
-                }
-
-                $slots = $booking->timeSlots->pluck('name')->toArray();
-                foreach ($slots as $slot) {
+            // 檢查短期預約（新結構優先，舊資料相容）
+            foreach ($bookingsByDate[$dateStr] ?? [] as $bookingData) {
+                foreach ($bookingData['slots'] as $slot) {
                     $occupiedSlots->push([
                         'slot' => $slot,
-                        'status' => $status,
-                        'title' => $booking->reason,
-                        'applicant' => $booking->borrower ? $booking->borrower->name : null,
-                        'instructor' => $booking->teacher
+                        'status' => $bookingData['status'],
+                        'title' => $bookingData['title'],
+                        'applicant' => $bookingData['applicant'],
+                        'instructor' => $bookingData['instructor']
                     ]);
                 }
             }
