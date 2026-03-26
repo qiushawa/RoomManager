@@ -66,7 +66,7 @@ class HomeController extends Controller
         $allClassrooms->load([
             'bookings' => function ($query) use ($startDate, $endDate) {
                 $query
-                    ->whereIn('status_enum', ['pending', 'approved'])
+                    ->whereIn('status_enum', Booking::activeStatusEnums())
                     ->whereHas('bookingDates', function ($dateQuery) use ($startDate, $endDate) {
                         $dateQuery->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
                     });
@@ -366,46 +366,68 @@ class HomeController extends Controller
 
     private function findSelectionConflict(int $classroomId, array $selectionRows, bool $forUpdate = false): ?array
     {
-        foreach ($selectionRows as $selection) {
-            $date = (string) ($selection['date'] ?? '');
-            $slotIds = collect($selection['time_slot_ids'] ?? [])
-                ->map(fn ($id) => (int) $id)
-                ->filter(fn ($id) => $id > 0)
-                ->unique()
-                ->values();
+        $pairs = collect($selectionRows)
+            ->flatMap(function ($selection) {
+                $date = (string) ($selection['date'] ?? '');
+                $slotIds = collect($selection['time_slot_ids'] ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values();
 
-            if ($date === '' || $slotIds->isEmpty()) {
-                continue;
-            }
+                if ($date === '' || $slotIds->isEmpty()) {
+                    return [];
+                }
 
-            $query = \App\Models\BookingDate::query()
-                ->whereDate('date', $date)
-                ->whereHas('booking', function ($bookingQuery) use ($classroomId) {
-                    $bookingQuery
-                        ->where('classroom_id', $classroomId)
-                        ->whereIn('status_enum', ['pending', 'approved']);
-                })
-                ->whereHas('timeSlots', function ($slotQuery) use ($slotIds) {
-                    $slotQuery->whereIn('time_slots.id', $slotIds->all());
-                })
-                ->with(['timeSlots' => function ($slotQuery) use ($slotIds) {
-                    $slotQuery->whereIn('time_slots.id', $slotIds->all())->orderBy('start_time');
-                }]);
-
-            if ($forUpdate) {
-                $query->lockForUpdate();
-            }
-
-            $conflict = $query->first();
-            if ($conflict) {
-                return [
+                return $slotIds->map(fn ($slotId) => [
                     'date' => $date,
-                    'slot_names' => $conflict->timeSlots->pluck('name')->values()->all(),
-                ];
-            }
+                    'time_slot_id' => (int) $slotId,
+                ])->all();
+            })
+            ->unique(fn ($pair) => $pair['date'].'#'.$pair['time_slot_id'])
+            ->values();
+
+        if ($pairs->isEmpty()) {
+            return null;
         }
 
-        return null;
+        $query = DB::table('booking_slot_locks as bsl')
+            ->join('time_slots as ts', 'ts.id', '=', 'bsl.time_slot_id')
+            ->select(['bsl.date', 'bsl.time_slot_id', 'ts.name as slot_name', 'ts.start_time'])
+            ->where('bsl.classroom_id', $classroomId)
+            ->where(function ($outer) use ($pairs) {
+                foreach ($pairs as $pair) {
+                    $outer->orWhere(function ($inner) use ($pair) {
+                        $inner->whereDate('bsl.date', $pair['date'])
+                            ->where('bsl.time_slot_id', $pair['time_slot_id']);
+                    });
+                }
+            });
+
+        if ($forUpdate) {
+            $query->lockForUpdate();
+        }
+
+        $conflicts = $query
+            ->orderBy('bsl.date')
+            ->orderBy('ts.start_time')
+            ->get();
+
+        if ($conflicts->isEmpty()) {
+            return null;
+        }
+
+        $firstDate = (string) $conflicts->first()->date;
+
+        return [
+            'date' => $firstDate,
+            'slot_names' => $conflicts
+                ->where('date', $firstDate)
+                ->pluck('slot_name')
+                ->unique()
+                ->values()
+                ->all(),
+        ];
     }
 
 }
