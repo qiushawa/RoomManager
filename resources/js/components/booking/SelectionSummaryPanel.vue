@@ -5,6 +5,8 @@
             已選取時段
         </h4>
 
+        <p class="mb-3 text-xs text-gray-500">目前教室：{{ roomLabel }}</p>
+
         <div v-if="selectedSlots.length === 0" class="py-8 text-center">
             <p class="text-sm text-gray-400">尚未選取任何時段</p>
             <p class="mt-1 text-xs text-gray-300">點擊左側表格選取</p>
@@ -61,13 +63,16 @@
  */
 import { PanelBase } from '@/layouts';
 import type { Room, SelectedSlot } from '@/types';
+import { computed } from 'vue';
 
-defineProps<{
+const props = defineProps<{
     /** 目前選中的教室資料（總覽初始可為空） */
     room: Room | null;
     /** 已選取的時段清單 */
     selectedSlots: SelectedSlot[];
 }>();
+
+const roomLabel = computed(() => props.room?.name ?? props.room?.code ?? '未選擇教室');
 
 defineEmits<{
     (e: 'next-step'): void;

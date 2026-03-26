@@ -55,48 +55,53 @@
                         class="relative flex-1 border-r p-0 last:border-r-0"
                         :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
-                        <div
-                            v-if="getOccupiedStatus(room.code, period.code)"
-                            class="group absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center text-xs text-white hover:z-[60]"
-                            :class="getStatusClass(getOccupiedStatus(room.code, period.code))"
+                        <template
+                            v-for="cell in [getCellOccupancy(room.code, period.code)]"
+                            :key="`${room.id}-${period.code}-state`"
                         >
-                            <OccupiedTooltip
-                                :item="getOccupiedItem(room.code, period.code)"
-                                :show-below="pIndex < 3"
-                            />
-                        </div>
-
-                        <label
-                            v-else
-                            :for="`overview-slot-${room.code}-${period.code}`"
-                            class="group absolute inset-0 flex cursor-pointer items-center justify-center select-none"
-                            @mousedown.prevent="handleMouseDown(room, period)"
-                            @mouseenter="handleMouseEnter(room, period)"
-                            @dragstart="preventDragDefault"
-                        >
-                            <input
-                                type="checkbox"
-                                :id="`overview-slot-${room.code}-${period.code}`"
-                                :checked="isSelectedRoomPeriod(room.code, period.code)"
-                                class="sr-only"
-                                tabindex="-1"
-                                aria-hidden="true"
-                                @change.prevent
-                            />
                             <div
-                                class="flex h-full w-full items-center justify-center transition-all duration-200"
-                                :class="isSelectedRoomPeriod(room.code, period.code) ? 'bg-opacity-80 bg-success shadow-inner' : ''"
+                                v-if="cell.status"
+                                class="group absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center text-xs text-white hover:z-[60]"
+                                :class="getStatusClass(cell.status)"
                             >
-                                <span
-                                    v-if="isSelectedRoomPeriod(room.code, period.code)"
-                                    class="text-lg font-bold text-white"
-                                >✓</span>
+                                <OccupiedTooltip
+                                    :item="cell.item"
+                                    :show-below="pIndex < 3"
+                                />
                             </div>
-                            <span
-                                class="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-30"
-                                :class="isDarkTheme ? 'bg-sky-700/30' : 'bg-blue-100'"
-                            ></span>
-                        </label>
+
+                            <label
+                                v-else
+                                :for="`overview-slot-${room.code}-${period.code}`"
+                                class="group absolute inset-0 flex cursor-pointer items-center justify-center select-none"
+                                @mousedown.prevent="handleMouseDown(room, period)"
+                                @mouseenter="handleMouseEnter(room, period)"
+                                @dragstart="preventDragDefault"
+                            >
+                                <input
+                                    type="checkbox"
+                                    :id="`overview-slot-${room.code}-${period.code}`"
+                                    :checked="isSelectedRoomPeriod(room.code, period.code)"
+                                    class="sr-only"
+                                    tabindex="-1"
+                                    aria-hidden="true"
+                                    @change.prevent
+                                />
+                                <div
+                                    class="flex h-full w-full items-center justify-center transition-all duration-200"
+                                    :class="isSelectedRoomPeriod(room.code, period.code) ? 'bg-opacity-80 bg-success shadow-inner' : ''"
+                                >
+                                    <span
+                                        v-if="isSelectedRoomPeriod(room.code, period.code)"
+                                        class="text-lg font-bold text-white"
+                                    >✓</span>
+                                </div>
+                                <span
+                                    class="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-30"
+                                    :class="isDarkTheme ? 'bg-sky-700/30' : 'bg-blue-100'"
+                                ></span>
+                            </label>
+                        </template>
                     </td>
                 </tr>
             </tbody>
@@ -106,7 +111,7 @@
 
 <script setup lang="ts">
 import { useScheduleStatus } from '@/composables';
-import type { OccupiedData, Period, Room, SelectedSlot } from '@/types';
+import type { OccupiedData, OccupiedStatus, Period, Room, SelectedSlot } from '@/types';
 import { formatPeriodLabel, formatSlotLabel, formatTime } from '@/utils';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import OccupiedTooltip from './OccupiedTooltip.vue';
@@ -157,6 +162,20 @@ const isDarkTheme = computed(() => {
 });
 
 const getStatusClass = (status: ReturnType<typeof getOccupiedStatus>): string => getStatusClassByStatus(status);
+
+const getCellOccupancy = (roomCode: string, periodCode: string) => {
+    const item = getOccupiedItem(roomCode, periodCode);
+    if (!item) {
+        return { item: null, status: null };
+    }
+
+    const status =
+        typeof item === 'string'
+            ? (item as OccupiedStatus)
+            : (item.status as OccupiedStatus);
+
+    return { item, status };
+};
 
 const isSelectedRoomPeriod = (roomCode: string, periodCode: string): boolean => {
     if (props.selectedRoomCode !== roomCode) return false;
