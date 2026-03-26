@@ -15,8 +15,8 @@ class TimeSlot extends Model
         'end_time'
     ];
 
-    public function bookings()
+    public function courseSchedules()
     {
-        return $this->belongsToMany(Booking::class, 'booking_time_slot');
+        return $this->belongsToMany(CourseSchedule::class, 'course_schedule_time_slots');
     }
 }

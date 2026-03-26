@@ -5,19 +5,23 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class Booking extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'borrower_id',
         'classroom_id',
         'reason',
         'teacher',
-        'status',
-        'date'
+        'status_enum',
+        'approved_by',
+        'rejected_by',
+        'approved_at',
+        'rejected_at',
     ];
 
     public function classroom()
@@ -28,11 +32,6 @@ class Booking extends Model
     public function borrower()
     {
         return $this->belongsTo(Borrower::class, 'borrower_id');
-    }
-
-    public function timeSlots()
-    {
-        return $this->belongsToMany(TimeSlot::class, 'booking_time_slot')->orderBy('start_time');
     }
 
     public function bookingDates()
@@ -50,10 +49,6 @@ class Booking extends Model
             ->map(fn ($date) => $date instanceof Carbon ? $date->copy() : Carbon::parse($date))
             ->sortBy(fn (Carbon $date) => $date->timestamp)
             ->values();
-
-        if ($dates->isEmpty() && !empty($this->date)) {
-            $dates = collect([Carbon::parse($this->date)]);
-        }
 
         return $dates;
     }
@@ -99,6 +94,6 @@ class Booking extends Model
     // 未處理的預約 靜態
     public static function pending()
     {
-        return self::where('status', 0);
+        return self::where('status_enum', 'pending');
     }
 }

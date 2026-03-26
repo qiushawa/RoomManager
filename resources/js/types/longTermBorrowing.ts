@@ -1,4 +1,5 @@
 export type BuildingCode = 'CB' | 'GC' | 'RA';
+export type LongTermScheduleType = 'course' | 'manual' | 'borrowed';
 
 export interface ImportConfig {
     year: number;
@@ -24,7 +25,7 @@ export interface ManualRecord {
     id: number;
     classroom_code: string;
     classroom_name: string;
-    borrow_type: number;
+    type: LongTermScheduleType;
     teacher_name: string;
     course_name: string;
     day_of_week: number;
@@ -36,8 +37,7 @@ export interface ManualRecord {
 
 export interface PreviewSchedule {
     classroom_id: number;
-    start_slot_id: number;
-    end_slot_id: number;
+    time_slot_ids: number[];
     day_of_week: number;
     course_name: string;
 }
@@ -65,7 +65,7 @@ export interface ManualConflictItem {
     end_slot: string;
     start_date: string | null;
     end_date: string | null;
-    borrow_type: number | null;
+    type: LongTermScheduleType;
     source_label: string;
     course_name: string;
     teacher_name: string;

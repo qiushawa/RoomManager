@@ -24,8 +24,23 @@ class CourseScheduleFactory extends Factory
             'course_name' => $this->faker->jobTitle() . '課程',
             'teacher_name' => $this->faker->name(),
             'day_of_week' => $this->faker->numberBetween(1, 7),
-            'start_slot_id' => TimeSlot::factory(),
-            'end_slot_id' => TimeSlot::factory(),
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (\App\Models\CourseSchedule $schedule) {
+            $slotIds = TimeSlot::query()
+                ->where('name', '!=', '午休')
+                ->inRandomOrder()
+                ->limit(1)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            if (!empty($slotIds)) {
+                $schedule->timeSlots()->sync($slotIds);
+            }
+        });
     }
 }
