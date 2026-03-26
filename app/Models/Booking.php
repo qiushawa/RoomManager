@@ -12,6 +12,32 @@ class Booking extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const STATUS_PENDING = 'pending';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_CANCELLED = 'cancelled';
+
+    public const STATUS_ENUMS = [
+        self::STATUS_PENDING,
+        self::STATUS_APPROVED,
+        self::STATUS_REJECTED,
+        self::STATUS_CANCELLED,
+    ];
+
+    public const STATUS_INT_TO_ENUM = [
+        0 => self::STATUS_PENDING,
+        1 => self::STATUS_APPROVED,
+        2 => self::STATUS_REJECTED,
+        3 => self::STATUS_CANCELLED,
+    ];
+
+    public const STATUS_ENUM_TO_INT = [
+        self::STATUS_PENDING => 0,
+        self::STATUS_APPROVED => 1,
+        self::STATUS_REJECTED => 2,
+        self::STATUS_CANCELLED => 3,
+    ];
+
     protected $fillable = [
         'borrower_id',
         'classroom_id',
@@ -94,6 +120,45 @@ class Booking extends Model
     // 未處理的預約 靜態
     public static function pending()
     {
-        return self::where('status_enum', 'pending');
+        return self::where('status_enum', self::STATUS_PENDING);
+    }
+
+    public static function activeStatusEnums(): array
+    {
+        return [self::STATUS_PENDING, self::STATUS_APPROVED];
+    }
+
+    public static function enumFromLegacyStatus(int|string|null $status): string
+    {
+        $statusInt = is_numeric($status) ? (int) $status : 0;
+        return self::STATUS_INT_TO_ENUM[$statusInt] ?? self::STATUS_PENDING;
+    }
+
+    public static function intFromStatusEnum(?string $statusEnum): int
+    {
+        $status = is_string($statusEnum) ? $statusEnum : self::STATUS_PENDING;
+        return self::STATUS_ENUM_TO_INT[$status] ?? 0;
+    }
+
+    public static function enumFromFilterValue(mixed $rawStatus): ?string
+    {
+        if ($rawStatus === null) {
+            return null;
+        }
+
+        $value = (string) $rawStatus;
+        if ($value === '' || $value === 'all') {
+            return null;
+        }
+
+        if (in_array($value, self::STATUS_ENUMS, true)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return self::enumFromLegacyStatus((int) $value);
+        }
+
+        return null;
     }
 }

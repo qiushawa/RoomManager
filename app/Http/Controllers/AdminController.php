@@ -86,7 +86,7 @@ class AdminController extends Controller
                     $currentSemester->start_date->format('Y-m-d'),
                     $currentSemester->end_date->format('Y-m-d'),
                 ])
-                ->whereIn('bookings.status_enum', ['pending', 'approved'])
+                ->whereIn('bookings.status_enum', Booking::activeStatusEnums())
                 ->selectRaw('bookings.classroom_id, count(DISTINCT bookings.id) as count')
                 ->groupBy('bookings.classroom_id')
                 ->pluck('count', 'bookings.classroom_id');
@@ -136,7 +136,7 @@ class AdminController extends Controller
                     $currentSemester->start_date->format('Y-m-d'),
                     $currentSemester->end_date->format('Y-m-d'),
                 ])
-                ->whereIn('bookings.status_enum', ['pending', 'approved'])
+                ->whereIn('bookings.status_enum', Booking::activeStatusEnums())
                 ->selectRaw('booking_date_time_slot.time_slot_id, count(*) as count')
                 ->groupBy('booking_date_time_slot.time_slot_id')
                 ->pluck('count', 'booking_date_time_slot.time_slot_id');
@@ -580,12 +580,7 @@ class AdminController extends Controller
             'date' => $summary['first_date'],
             'date_summary' => $summary['summary'],
             'is_multi_day' => $summary['is_multi_day'],
-            'status' => match ($booking->status_enum) {
-                'approved' => 1,
-                'rejected' => 2,
-                'cancelled' => 3,
-                default => 0,
-            },
+            'status' => Booking::intFromStatusEnum($booking->status_enum),
             'status_enum' => $booking->status_enum,
             'reason' => $booking->reason,
             'teacher' => $booking->teacher,
@@ -623,28 +618,23 @@ class AdminController extends Controller
 
         $nextStatus = (int) $request->input('status');
         $managerId = auth()->guard('admin')->id();
-        $nextStatusEnum = match ($nextStatus) {
-            1 => 'approved',
-            2 => 'rejected',
-            3 => 'cancelled',
-            default => 'pending',
-        };
+        $nextStatusEnum = Booking::enumFromLegacyStatus($nextStatus);
 
         $payload = [
             'status_enum' => $nextStatusEnum,
         ];
 
-        if ($nextStatusEnum === 'approved') {
+        if ($nextStatusEnum === Booking::STATUS_APPROVED) {
             $payload['approved_by'] = $managerId;
             $payload['approved_at'] = now();
             $payload['rejected_by'] = null;
             $payload['rejected_at'] = null;
-        } elseif ($nextStatusEnum === 'rejected') {
+        } elseif ($nextStatusEnum === Booking::STATUS_REJECTED) {
             $payload['rejected_by'] = $managerId;
             $payload['rejected_at'] = now();
             $payload['approved_by'] = null;
             $payload['approved_at'] = null;
-        } elseif ($nextStatusEnum === 'cancelled') {
+        } elseif ($nextStatusEnum === Booking::STATUS_CANCELLED) {
             $payload['approved_by'] = null;
             $payload['approved_at'] = null;
             $payload['rejected_by'] = null;
@@ -692,20 +682,14 @@ class AdminController extends Controller
             });
 
         return response()->json([
-            'count' => Booking::where('status_enum', 'pending')->count(),
+            'count' => Booking::where('status_enum', Booking::STATUS_PENDING)->count(),
             'items' => $pending,
         ]);
     }
 
     private function resolveStatusEnumFromFilter(mixed $rawStatus): ?string
     {
-        return match ((string) $rawStatus) {
-            '0' => 'pending',
-            '1' => 'approved',
-            '2' => 'rejected',
-            '3' => 'cancelled',
-            default => null,
-        };
+        return Booking::enumFromFilterValue($rawStatus);
     }
 
     /**
