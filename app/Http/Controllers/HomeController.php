@@ -391,18 +391,19 @@ class HomeController extends Controller
             return null;
         }
 
+        $pairKeys = $pairs
+            ->map(fn ($pair) => $pair['date'].'#'.$pair['time_slot_id'])
+            ->values()
+            ->all();
+
         $query = DB::table('booking_slot_locks as bsl')
             ->join('time_slots as ts', 'ts.id', '=', 'bsl.time_slot_id')
             ->select(['bsl.date', 'bsl.time_slot_id', 'ts.name as slot_name', 'ts.start_time'])
             ->where('bsl.classroom_id', $classroomId)
-            ->where(function ($outer) use ($pairs) {
-                foreach ($pairs as $pair) {
-                    $outer->orWhere(function ($inner) use ($pair) {
-                        $inner->whereDate('bsl.date', $pair['date'])
-                            ->where('bsl.time_slot_id', $pair['time_slot_id']);
-                    });
-                }
-            });
+            ->whereIn(
+                DB::raw("CONCAT(DATE_FORMAT(bsl.date, '%Y-%m-%d'), '#', bsl.time_slot_id)"),
+                $pairKeys
+            );
 
         if ($forUpdate) {
             $query->lockForUpdate();
