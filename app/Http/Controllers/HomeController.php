@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\Borrower;
 use App\Models\Blacklist;
 use App\Services\RoomAvailabilityService;
+use App\Services\BookingSlotLockService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,10 +20,12 @@ use Carbon\CarbonInterface;
 class HomeController extends Controller
 {
     protected $availabilityService;
+    protected $bookingSlotLockService;
 
-    public function __construct(RoomAvailabilityService $availabilityService)
+    public function __construct(RoomAvailabilityService $availabilityService, BookingSlotLockService $bookingSlotLockService)
     {
         $this->availabilityService = $availabilityService;
+        $this->bookingSlotLockService = $bookingSlotLockService;
     }
     public function index(Request $request)
     {
@@ -63,13 +66,9 @@ class HomeController extends Controller
         $allClassrooms->load([
             'bookings' => function ($query) use ($startDate, $endDate) {
                 $query
-                    ->whereNotIn('status', [2, 3])
-                    ->where(function ($bookingQuery) use ($startDate, $endDate) {
-                        $bookingQuery
-                            ->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])
-                            ->orWhereHas('bookingDates', function ($dateQuery) use ($startDate, $endDate) {
-                                $dateQuery->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
-                            });
+                    ->whereIn('status_enum', ['pending', 'approved'])
+                    ->whereHas('bookingDates', function ($dateQuery) use ($startDate, $endDate) {
+                        $dateQuery->whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
                     });
             },
             'courseSchedules'
@@ -183,17 +182,43 @@ class HomeController extends Controller
             ]);
         }
 
+        $selectionConflict = $this->findSelectionConflict(
+            (int) $requestData['classroom_id'],
+            $selectionRows->all()
+        );
+
+        if ($selectionConflict) {
+            return back()->withErrors([
+                'selections' => sprintf(
+                    '時段衝突：%s 第 %s 節已被預約。',
+                    $selectionConflict['date'],
+                    implode('、', $selectionConflict['slot_names'])
+                ),
+            ]);
+        }
+
         $firstSelection = $selectionRows->first();
 
-        $booking = DB::transaction(function () use ($requestData, $borrower, $applicantData, $selectionRows, $firstSelection) {
+        try {
+            $booking = DB::transaction(function () use ($requestData, $borrower, $applicantData, $selectionRows, $firstSelection) {
+            $conflictInTx = $this->findSelectionConflict(
+                (int) $requestData['classroom_id'],
+                $selectionRows->all(),
+                true
+            );
+
+            if ($conflictInTx) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'selections' => '所選時段已有其他申請，請重新整理後再試。',
+                ]);
+            }
+
             $booking = new Booking();
             $booking->classroom_id = $requestData['classroom_id'];
             $booking->borrower_id = $borrower->id;
-            // 保留主表 date 供舊流程與報表相容，值為最早借用日
-            $booking->date = $firstSelection['date'];
             $booking->reason = $applicantData['reason'] ?? null;
             $booking->teacher = $applicantData['teacher'] ?? null;
-            $booking->status = 0;
+            $booking->status_enum = 'pending';
             $booking->save();
 
             foreach ($selectionRows as $selection) {
@@ -203,12 +228,22 @@ class HomeController extends Controller
                 $bookingDate->timeSlots()->sync($selection['time_slot_ids']);
             }
 
-            // 保留既有 booking_time_slot 關聯，使用首日時段以維持既有摘要/通知格式。
-            $booking->timeSlots()->sync($firstSelection['time_slot_ids']);
-            $booking->load(['classroom', 'borrower', 'timeSlots', 'bookingDates.timeSlots']);
+            $this->bookingSlotLockService->syncForBooking($booking);
+
+            $booking->load(['classroom', 'borrower', 'bookingDates.timeSlots']);
 
             return $booking;
-        });
+            });
+        } catch (\Illuminate\Database\QueryException $e) {
+            $sqlState = (string) ($e->errorInfo[0] ?? '');
+            if ($sqlState === '23000') {
+                return back()->withErrors([
+                    'selections' => '所選時段已被其他申請占用，請重新整理後再試。',
+                ]);
+            }
+
+            throw $e;
+        }
 
         $roomCode = $requestData['classroom_code'];
         $date = $firstSelection['date'];
@@ -256,7 +291,7 @@ class HomeController extends Controller
 
         return Inertia::render('BookingCancellation', [
             'mode' => 'confirm',
-            'state' => $bookingModel->status === 0 ? 'confirm' : ($bookingModel->status === 3 ? 'cancelled' : 'locked'),
+            'state' => $bookingModel->status_enum === 'pending' ? 'confirm' : ($bookingModel->status_enum === 'cancelled' ? 'cancelled' : 'locked'),
             'summary' => $this->formatBookingSummary($bookingModel),
             'cancelActionUrl' => URL::signedRoute('bookings.cancel.destroy', ['booking' => $bookingModel->id]),
             'homeUrl' => route('home.index'),
@@ -279,18 +314,19 @@ class HomeController extends Controller
 
         $summary = $this->formatBookingSummary($bookingModel);
 
-        if ($bookingModel->status !== 0) {
+        if ($bookingModel->status_enum !== 'pending') {
             return Inertia::render('BookingCancellation', [
                 'mode' => 'result',
-                'state' => $bookingModel->status === 3 ? 'cancelled' : 'locked',
+                'state' => $bookingModel->status_enum === 'cancelled' ? 'cancelled' : 'locked',
                 'summary' => $summary,
                 'cancelActionUrl' => null,
                 'homeUrl' => route('home.index'),
             ]);
         }
 
-        $bookingModel->status = 3;
+        $bookingModel->status_enum = 'cancelled';
         $bookingModel->save();
+        $this->bookingSlotLockService->syncForBooking($bookingModel);
 
         return Inertia::render('BookingCancellation', [
             'mode' => 'result',
@@ -303,7 +339,7 @@ class HomeController extends Controller
 
     protected function findBookingForCancellation(string $bookingId): ?Booking
     {
-        return Booking::with(['classroom', 'borrower', 'timeSlots'])
+        return Booking::with(['classroom', 'borrower', 'bookingDates.timeSlots'])
             ->find($bookingId);
     }
 
@@ -318,12 +354,58 @@ class HomeController extends Controller
             'date' => $dateSummary,
             'teacher' => $booking->teacher ?: '未填寫',
             'reason' => $booking->reason ?: '未填寫',
-            'time_slots' => $booking->timeSlots
+            'time_slots' => $booking->bookingDates
+                ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
+                ->unique('id')
                 ->sortBy('start_time')
                 ->map(fn ($timeSlot) => sprintf('%s (%s-%s)', $timeSlot->name, substr((string) $timeSlot->start_time, 0, 5), substr((string) $timeSlot->end_time, 0, 5)))
                 ->values()
                 ->all(),
         ];
+    }
+
+    private function findSelectionConflict(int $classroomId, array $selectionRows, bool $forUpdate = false): ?array
+    {
+        foreach ($selectionRows as $selection) {
+            $date = (string) ($selection['date'] ?? '');
+            $slotIds = collect($selection['time_slot_ids'] ?? [])
+                ->map(fn ($id) => (int) $id)
+                ->filter(fn ($id) => $id > 0)
+                ->unique()
+                ->values();
+
+            if ($date === '' || $slotIds->isEmpty()) {
+                continue;
+            }
+
+            $query = \App\Models\BookingDate::query()
+                ->whereDate('date', $date)
+                ->whereHas('booking', function ($bookingQuery) use ($classroomId) {
+                    $bookingQuery
+                        ->where('classroom_id', $classroomId)
+                        ->whereIn('status_enum', ['pending', 'approved']);
+                })
+                ->whereHas('timeSlots', function ($slotQuery) use ($slotIds) {
+                    $slotQuery->whereIn('time_slots.id', $slotIds->all());
+                })
+                ->with(['timeSlots' => function ($slotQuery) use ($slotIds) {
+                    $slotQuery->whereIn('time_slots.id', $slotIds->all())->orderBy('start_time');
+                }]);
+
+            if ($forUpdate) {
+                $query->lockForUpdate();
+            }
+
+            $conflict = $query->first();
+            if ($conflict) {
+                return [
+                    'date' => $date,
+                    'slot_names' => $conflict->timeSlots->pluck('name')->values()->all(),
+                ];
+            }
+        }
+
+        return null;
     }
 
 }

@@ -59,9 +59,9 @@ class RoomAvailabilityService
         }
 
         $room->loadMissing([
-            'bookings.timeSlots', // 預載多對多時段
             'bookings.bookingDates.timeSlots',
-            'courseSchedules.semester'
+            'courseSchedules.semester',
+            'courseSchedules.timeSlots',
         ]);
 
         // 取得與日期範圍重疊的學期
@@ -69,9 +69,9 @@ class RoomAvailabilityService
 
         // 先將短期借用依日期索引，避免每一天都重新掃描所有 booking。
         $bookingsByDate = [];
-        $activeBookings = $room->bookings->whereNotIn('status', [2, 3]);
+        $activeBookings = $room->bookings->whereIn('status_enum', ['pending', 'approved']);
         foreach ($activeBookings as $booking) {
-            $status = $booking->status == 0 ? 'pending' : 'approved';
+            $status = $booking->status_enum === 'pending' ? 'pending' : 'approved';
             $basePayload = [
                 'status' => $status,
                 'title' => $booking->reason,
@@ -97,20 +97,7 @@ class RoomAvailabilityService
 
                     $bookingsByDate[$dateKey][] = $basePayload + ['slots' => $slots];
                 }
-                continue;
             }
-
-            // 舊資料相容：沒有 booking_dates 時沿用 bookings.date + booking_time_slot
-            if (empty($booking->date)) {
-                continue;
-            }
-
-            $legacySlots = $booking->timeSlots->pluck('name')->values()->all();
-            if (empty($legacySlots)) {
-                continue;
-            }
-
-            $bookingsByDate[$booking->date][] = $basePayload + ['slots' => $legacySlots];
         }
 
         $occupiedData = [];
@@ -152,7 +139,7 @@ class RoomAvailabilityService
                         return $currentDate->between($effectiveStart, $effectiveEnd);
                     });
                 foreach ($courses as $course) {
-                    $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
+                    $slots = $course->timeSlots->pluck('name')->values()->all();
                     foreach ($slots as $slot) {
                         $occupiedSlots->push([
                             'slot' => $slot,
@@ -193,25 +180,4 @@ class RoomAvailabilityService
         return $occupiedData;
     }
 
-    // --- 輔助函式 ---
-
-    /**
-     * 計算開始與結束 ID 之間的所有時段代號
-     */
-    private function getSlotsInRange(int $startId, int $endId): array
-    {
-        // 在已排序的集合中尋找索引位置
-        $startIndex = $this->timeSlots->search(fn($t) => $t->id == $startId);
-        $endIndex = $this->timeSlots->search(fn($t) => $t->id == $endId);
-
-        if ($startIndex === false || $endIndex === false) {
-            return [];
-        }
-
-        // 計算切片範圍
-        $start = min($startIndex, $endIndex);
-        $length = abs($endIndex - $startIndex) + 1;
-
-        return $this->timeSlots->slice($start, $length)->pluck('name')->toArray();
-    }
 }
