@@ -1,7 +1,7 @@
 # 後端專案架構說明
 
 > 教室借用系統後端專案文件  
-> 最後更新：2026-03-11
+> 最後更新：2026-03-26
 
 ## 目錄結構總覽
 
@@ -16,11 +16,12 @@ app/
 │       └── HandleInertiaRequests.php  # Inertia.js 中介層
 ├── Mail/
 │   └── BookingSubmitted.php          # 借用申請通知信
-├── Models/                           # Eloquent 模型 (12 個)
+├── Models/                           # Eloquent 模型
 │   ├── Manager.php                   # 系統管理員
 │   ├── Borrower.php                  # 借用人
 │   ├── Classroom.php                 # 教室
 │   ├── Booking.php                   # 借用紀錄
+│   ├── BookingDate.php               # 借用日期（多日借用）
 │   ├── TimeSlot.php                  # 時段
 │   ├── CourseSchedule.php            # 課程排程
 │   ├── Semester.php                  # 學期
@@ -48,8 +49,9 @@ Semester ──1:N──→ CourseSchedule
 Classroom ──1:N──→ Booking
 Classroom ──1:N──→ CourseSchedule
 Borrower ──1:N──→ Booking
-Borrower ──1:1──→ Blacklist ──1:N──→ BlacklistDetail ──N:1──→ BlacklistReason
-Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
+Borrower ──1:N──→ Blacklist ──1:N──→ BlacklistDetail ──N:1──→ BlacklistReason
+Booking ──1:N──→ BookingDate ──N:M──→ TimeSlot
+CourseSchedule ──N:M──→ TimeSlot（透過 course_schedule_time_slots）
 ```
 
 ### 模型欄位與說明
@@ -113,27 +115,45 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 | `classroom_id` | 教室 FK |
 | `reason` | 借用原因 |
 | `teacher` | 指導老師 |
-| `status` | 狀態碼 |
-| `date` | 借用日期 |
+| `status_enum` | 狀態（`pending/approved/rejected/cancelled`） |
+| `approved_by` | 核准管理員 FK |
+| `rejected_by` | 駁回管理員 FK |
+| `approved_at` | 核准時間 |
+| `rejected_at` | 駁回時間 |
+| `deleted_at` | 軟刪除時間 |
 
-**狀態碼定義：**
+**狀態定義（`status_enum`）：**
 
 | 值 | 意義 |
 |----|------|
-| `0` | 待審核（pending） |
-| `1` | 已核准（approved） |
-| `2` | 已駁回（rejected） |
-| `3` | 已取消（cancelled） |
+| `pending` | 待審核 |
+| `approved` | 已核准 |
+| `rejected` | 已駁回 |
+| `cancelled` | 已取消 |
 
 | 關聯 | 類型 | 目標 |
 |------|------|------|
 | `classroom` | `belongsTo` | `Classroom` |
 | `borrower` | `belongsTo` | `Borrower` |
-| `timeSlots` | `belongsToMany` | `TimeSlot`（樞紐表 `booking_time_slot`） |
+| `bookingDates` | `hasMany` | `BookingDate` |
 
 | 方法 | 說明 |
 |------|------|
-| `pending()` | 靜態查詢 Scope，篩選 `status=0` |
+| `pending()` | 靜態查詢 Scope，篩選 `status_enum='pending'` |
+
+---
+
+#### BookingDate（借用日期）
+
+| 欄位 | 說明 |
+|------|------|
+| `booking_id` | 借用紀錄 FK |
+| `date` | 借用日期 |
+
+| 關聯 | 類型 | 目標 |
+|------|------|------|
+| `booking` | `belongsTo` | `Booking` |
+| `timeSlots` | `belongsToMany` | `TimeSlot`（樞紐表 `booking_date_time_slot`） |
 
 ---
 
@@ -147,7 +167,7 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 
 | 關聯 | 類型 | 目標 |
 |------|------|------|
-| `bookings` | `belongsToMany` | `Booking` |
+| `courseSchedules` | `belongsToMany` | `CourseSchedule` |
 
 ---
 
@@ -160,15 +180,15 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 | `course_name` | 課程名稱 |
 | `teacher_name` | 授課教師 |
 | `day_of_week` | 星期幾（1=週一） |
-| `start_slot_id` | 起始時段 FK |
-| `end_slot_id` | 結束時段 FK |
+| `type` | 類型（`course/manual/borrowed`） |
+| `start_date` | 生效開始日（可空） |
+| `end_date` | 生效結束日（可空） |
 
 | 關聯 | 類型 | 目標 |
 |------|------|------|
 | `semester` | `belongsTo` | `Semester` |
 | `classroom` | `belongsTo` | `Classroom` |
-| `startSlot` | `belongsTo` | `TimeSlot` |
-| `endSlot` | `belongsTo` | `TimeSlot` |
+| `timeSlots` | `belongsToMany` | `TimeSlot`（樞紐表 `course_schedule_time_slots`） |
 
 ---
 
@@ -235,13 +255,14 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 | 欄位 | 說明 |
 |------|------|
 | `key` | 設定鍵名 |
+| `group` | 設定分組（預設 `system`） |
 | `value` | 設定值 |
 | `description` | 說明 |
 
 | 方法 | 說明 |
 |------|------|
-| `get($key, $default)` | 靜態讀取設定值 |
-| `set($key, $value, $desc)` | 靜態寫入設定值（updateOrCreate） |
+| `get($key, $default, $group='system')` | 靜態讀取設定值 |
+| `set($key, $value, $desc, $group='system')` | 靜態寫入設定值（updateOrCreate） |
 
 ---
 
@@ -249,12 +270,12 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 
 ### HomeController（前台）
 
-注入 `RoomAvailabilityService` 服務。
+注入 `RoomAvailabilityService` 與 `BookingSlotLockService`。
 
 | 方法 | 路由 | 說明 |
 |------|------|------|
 | `index` | `GET /Home` | 主頁面：載入教室列表、時段、週課表可用性資料，回傳 Inertia `Home` 頁面 |
-| `store` | `POST /bookings` | 借用申請：驗證表單 → 建立或取得 Borrower → 建立 Booking（status=0）→ 關聯 TimeSlots → 寄送通知信 → 重導回首頁 |
+| `store` | `POST /bookings` | 借用申請：驗證表單（支援多日期 `selections`）→ 建立或取得 Borrower → 建立 Booking（`status_enum=pending`）→ 建立 `booking_dates` + 時段關聯 → 同步 `booking_slot_locks` → 寄送通知信 → 重導回首頁 |
 
 **`index` 查詢參數：**
 
@@ -264,7 +285,7 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 | `room_code` | — | 教室代碼篩選 |
 
 **`store` 驗證欄位：**
-`classroom_id`、`date`、`time_slot_ids`（陣列）、`name`、`identity_code`、`email`、`phone`、`department`、`teacher`、`reason`
+`classroom_id`、`classroom_code`、`selections[].date`、`selections[].time_slot_ids[]`、`applicant.name`、`applicant.identity_code`、`applicant.email`、`applicant.phone`、`applicant.department`、`applicant.teacher`、`applicant.reason`
 
 ---
 
@@ -306,7 +327,7 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 
 1. **假日判斷**：若 `is_release_slot=false` → 全部時段標記 `holiday`
 2. **課程排程**：比對星期與學期，標記對應時段為 `course`
-3. **借用紀錄**：排除 `rejected`(2) 與 `cancelled`(3)，依狀態標記 `pending` / `approved`
+3. **借用紀錄**：以 `status_enum in (pending, approved)` 作為佔用來源
 
 #### 回傳資料結構
 
@@ -326,7 +347,7 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 #### 效能設計
 
 - 批次方法共用一次假日查詢
-- 需預載入 `bookings.timeSlots` 與 `courseSchedules.semester` 關聯以避免 N+1
+- 需預載入 `bookings.bookingDates.timeSlots` 與 `courseSchedules.semester/timeSlots` 關聯以避免 N+1
 
 ---
 
@@ -388,14 +409,11 @@ Booking ──N:M──→ TimeSlot（透過 booking_time_slot 樞紐表）
 
 ## 資料庫
 
-### 遷移執行順序
+### 遷移策略
 
-1. `cache`、`jobs`（Laravel 框架）
-2. `managers` → `borrowers` → `classrooms` → `time_slots`
-3. `blacklist_reasons` → `holidays` → `course_schedules` → `bookings`
-4. `blacklists` → `blacklist_details`
-5. `booking_time_slot`（樞紐表）、`settings`
-6. `semesters` → `add semester_id to course_schedules`
+* 目前採 migration-first：以 `database/migrations` 為唯一結構來源。
+* 不依賴 `database/schema/mysql-schema.sql`。
+* 重建資料庫時請使用 `php artisan migrate:fresh --seed`。
 
 ### Seeder 執行順序
 
@@ -415,8 +433,9 @@ BlacklistSeeder → CourseScheduleSeeder → BookingSeeder
 
 ```
 使用者填寫表單 → POST /bookings → 驗證資料 →
-  firstOrCreate Borrower → 建立 Booking (status=0) →
-  attach TimeSlots → 寄送確認信 → 重導首頁（含高亮資訊）
+  firstOrCreate Borrower → 建立 Booking (status_enum=pending) →
+  建立 booking_dates 與 booking_date_time_slot →
+  同步 booking_slot_locks → 寄送確認信 → 重導首頁（含高亮資訊）
 ```
 
 ### 2. 可用性計算流程
@@ -444,7 +463,7 @@ BlacklistSeeder → CourseScheduleSeeder → BookingSeeder
 |------|----------|
 | 管理員認證 | `config/auth.php`（guards / providers）|
 | 學期日期設定 | `config/school.php` 或 `.env` |
-| 借用狀態碼定義 | `Booking` 模型 / `AdminController` |
+| 借用狀態定義（status_enum） | `Booking` 模型 / `AdminController` |
 | 可用性計算邏輯 | `RoomAvailabilityService` |
 | 通知信模板 | `resources/views/emails/booking/submitted.blade.php` |
 | HTTPS 強制 | `AppServiceProvider@boot` |
