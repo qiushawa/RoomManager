@@ -12,11 +12,12 @@ import { computed, ref, watch } from 'vue';
 export interface UseDateSelectionOptions {
     initialDate: string;
     targetRoomCode: () => string | null;
+    navigationMode?: () => 'week' | 'day';
     onDateChange?: () => void;
 }
 
 export function useDateSelection(options: UseDateSelectionOptions) {
-    const { initialDate, targetRoomCode, onDateChange } = options;
+    const { initialDate, targetRoomCode, navigationMode, onDateChange } = options;
 
     // 基準日期
     const baseDate = ref<Date>(new Date(initialDate));
@@ -50,7 +51,8 @@ export function useDateSelection(options: UseDateSelectionOptions) {
     // 切換週
     const changeWeek = (offset: number) => {
         const newDate = new Date(baseDate.value);
-        newDate.setDate(newDate.getDate() + offset * 7);
+        const step = navigationMode?.() === 'day' ? 1 : 7;
+        newDate.setDate(newDate.getDate() + offset * step);
         baseDate.value = newDate;
         fetchData();
     };
@@ -72,16 +74,22 @@ export function useDateSelection(options: UseDateSelectionOptions) {
     // 向後端請求資料
     const fetchData = () => {
         const roomCode = targetRoomCode();
-        if (!roomCode) return;
-
         const dateStr = formatDateToYYYYMMDD(baseDate.value);
+
+        const query: {
+            date: string;
+            room_code?: string;
+        } = {
+            date: dateStr,
+        };
+
+        if (roomCode) {
+            query.room_code = roomCode;
+        }
 
         router.get(
             API_ENDPOINTS.home,
-            {
-                room_code: roomCode,
-                date: dateStr,
-            },
+            query,
             {
                 preserveState: true,
                 preserveScroll: true,

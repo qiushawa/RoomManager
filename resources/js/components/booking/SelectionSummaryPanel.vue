@@ -63,8 +63,8 @@ import { PanelBase } from '@/layouts';
 import type { Room, SelectedSlot } from '@/types';
 
 defineProps<{
-    /** 目前選中的教室資料 */
-    room: Room;
+    /** 目前選中的教室資料（總覽初始可為空） */
+    room: Room | null;
     /** 已選取的時段清單 */
     selectedSlots: SelectedSlot[];
 }>();
