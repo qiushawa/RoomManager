@@ -55,53 +55,48 @@
                         class="relative flex-1 border-r p-0 last:border-r-0"
                         :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
-                        <template
-                            v-for="cell in [getCellOccupancy(room.code, period.code)]"
-                            :key="`${room.id}-${period.code}-state`"
+                        <div
+                            v-if="getCellOccupancy(room.code, period.code).status"
+                            class="group absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center text-xs text-white hover:z-[60]"
+                            :class="getStatusClass(getCellOccupancy(room.code, period.code).status)"
                         >
-                            <div
-                                v-if="cell.status"
-                                class="group absolute inset-0 z-10 flex cursor-not-allowed items-center justify-center text-xs text-white hover:z-[60]"
-                                :class="getStatusClass(cell.status)"
-                            >
-                                <OccupiedTooltip
-                                    :item="cell.item"
-                                    :show-below="pIndex < 3"
-                                />
-                            </div>
+                            <OccupiedTooltip
+                                :item="getCellOccupancy(room.code, period.code).item"
+                                :show-below="pIndex < 3"
+                            />
+                        </div>
 
-                            <label
-                                v-else
-                                :for="`overview-slot-${room.code}-${period.code}`"
-                                class="group absolute inset-0 flex cursor-pointer items-center justify-center select-none"
-                                @mousedown.prevent="handleMouseDown(room, period)"
-                                @mouseenter="handleMouseEnter(room, period)"
-                                @dragstart="preventDragDefault"
+                        <label
+                            v-else
+                            :for="`overview-slot-${room.code}-${period.code}`"
+                            class="group absolute inset-0 flex cursor-pointer items-center justify-center select-none"
+                            @mousedown.prevent="handleMouseDown(room, period)"
+                            @mouseenter="handleMouseEnter(room, period)"
+                            @dragstart="preventDragDefault"
+                        >
+                            <input
+                                type="checkbox"
+                                :id="`overview-slot-${room.code}-${period.code}`"
+                                :checked="isSelectedRoomPeriod(room.code, period.code)"
+                                class="sr-only"
+                                tabindex="-1"
+                                aria-hidden="true"
+                                @change.prevent
+                            />
+                            <div
+                                class="flex h-full w-full items-center justify-center transition-all duration-200"
+                                :class="isSelectedRoomPeriod(room.code, period.code) ? 'bg-opacity-80 bg-success shadow-inner' : ''"
                             >
-                                <input
-                                    type="checkbox"
-                                    :id="`overview-slot-${room.code}-${period.code}`"
-                                    :checked="isSelectedRoomPeriod(room.code, period.code)"
-                                    class="sr-only"
-                                    tabindex="-1"
-                                    aria-hidden="true"
-                                    @change.prevent
-                                />
-                                <div
-                                    class="flex h-full w-full items-center justify-center transition-all duration-200"
-                                    :class="isSelectedRoomPeriod(room.code, period.code) ? 'bg-opacity-80 bg-success shadow-inner' : ''"
-                                >
-                                    <span
-                                        v-if="isSelectedRoomPeriod(room.code, period.code)"
-                                        class="text-lg font-bold text-white"
-                                    >✓</span>
-                                </div>
                                 <span
-                                    class="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-30"
-                                    :class="isDarkTheme ? 'bg-sky-700/30' : 'bg-blue-100'"
-                                ></span>
-                            </label>
-                        </template>
+                                    v-if="isSelectedRoomPeriod(room.code, period.code)"
+                                    class="text-lg font-bold text-white"
+                                >✓</span>
+                            </div>
+                            <span
+                                class="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-30"
+                                :class="isDarkTheme ? 'bg-sky-700/30' : 'bg-blue-100'"
+                            ></span>
+                        </label>
                     </td>
                 </tr>
             </tbody>
@@ -142,7 +137,6 @@ const emit = defineEmits<{
 
 const {
     getOccupiedItem,
-    getOccupiedStatus,
     getStatusClassByStatus,
 } = useScheduleStatus({
     occupiedData: () => props.occupiedData,
@@ -161,20 +155,41 @@ const isDarkTheme = computed(() => {
     return prefersDark.value;
 });
 
-const getStatusClass = (status: ReturnType<typeof getOccupiedStatus>): string => getStatusClassByStatus(status);
+const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
 
-const getCellOccupancy = (roomCode: string, periodCode: string) => {
-    const item = getOccupiedItem(roomCode, periodCode);
-    if (!item) {
-        return { item: null, status: null };
+type CellOccupancy = {
+    item: ReturnType<typeof getOccupiedItem>;
+    status: OccupiedStatus | null;
+};
+
+const EMPTY_CELL_OCCUPANCY: CellOccupancy = {
+    item: null,
+    status: null,
+};
+
+const cellOccupancyMap = computed<Record<string, CellOccupancy>>(() => {
+    const map: Record<string, CellOccupancy> = {};
+
+    for (const room of props.rooms) {
+        for (const period of props.periods) {
+            const key = `${room.code}-${period.code}`;
+            const item = getOccupiedItem(room.code, period.code);
+            const status = !item
+                ? null
+                : typeof item === 'string'
+                    ? (item as OccupiedStatus)
+                    : (item.status as OccupiedStatus);
+
+            map[key] = { item, status };
+        }
     }
 
-    const status =
-        typeof item === 'string'
-            ? (item as OccupiedStatus)
-            : (item.status as OccupiedStatus);
+    return map;
+});
 
-    return { item, status };
+const getCellOccupancy = (roomCode: string, periodCode: string) => {
+    const key = `${roomCode}-${periodCode}`;
+    return cellOccupancyMap.value[key] ?? EMPTY_CELL_OCCUPANCY;
 };
 
 const isSelectedRoomPeriod = (roomCode: string, periodCode: string): boolean => {
