@@ -23,10 +23,11 @@ export interface UseBookingFlowOptions {
     getTargetRoom: () => Room | null;
     getSelectedSlots: () => SelectedSlot[];
     onReset?: () => void;
+    onSubmitSuccess?: () => void;
 }
 
 export function useBookingFlow(options: UseBookingFlowOptions) {
-    const { getTargetRoom, getSelectedSlots, onReset } = options;
+    const { getTargetRoom, getSelectedSlots, onReset, onSubmitSuccess } = options;
 
     // 當前步驟
     const currentStep = ref<Step>(1);
@@ -77,13 +78,6 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
 
         if (slots.length === 0) return;
 
-        // 跨日檢查
-        const uniqueDates = new Set(slots.map((s) => s.date));
-        if (uniqueDates.size > 1) {
-            openFeedbackModal('無法送出', '不能跨日借用，請重新選擇。', 'warning');
-            return;
-        }
-
         // 顯示借用須知
         showGuidelinesModal.value = true;
     };
@@ -104,6 +98,16 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         const targetRoom = getTargetRoom();
         const slots = getSelectedSlots();
 
+        if (!targetRoom) {
+            openFeedbackModal('資料不完整', '請先選擇教室後再送出。', 'warning');
+            return;
+        }
+
+        if (slots.length === 0) {
+            openFeedbackModal('資料不完整', '請先選擇至少一個時段。', 'warning');
+            return;
+        }
+
         // 驗證必填欄位
         if (
             !applicantForm.name ||
@@ -116,13 +120,43 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             return;
         }
 
-        const startSlot = slots[0];
+        const slotsByDate = new Map<string, Set<number>>();
+        slots.forEach((slot) => {
+            const date = slot.date;
+            const slotId = Number(slot.id);
+            if (!date || !Number.isFinite(slotId) || slotId <= 0) {
+                return;
+            }
+
+            if (!slotsByDate.has(date)) {
+                slotsByDate.set(date, new Set<number>());
+            }
+
+            slotsByDate.get(date)?.add(slotId);
+        });
+
+        const selections = Array.from(slotsByDate.entries())
+            .map(([date, idSet]) => ({
+                date,
+                time_slot_ids: Array.from(idSet).sort((a, b) => a - b),
+            }))
+            .sort((a, b) => a.date.localeCompare(b.date));
+
+        if (selections.length === 0) {
+            openFeedbackModal('資料不完整', '請先選擇有效的借用時段。', 'warning');
+            return;
+        }
+
+        const firstSelection = selections[0];
 
         const payload = {
-            classroom_id: targetRoom?.id,
-            classroom_code: targetRoom?.code,
-            date: startSlot?.date,
-            time_slot_ids: slots.map(s => s.id),
+            classroom_id: targetRoom.id,
+            classroom_code: targetRoom.code,
+            // Backward compatible fields
+            date: firstSelection.date,
+            time_slot_ids: firstSelection.time_slot_ids,
+            // New multi-date payload
+            selections,
             applicant: { ...applicantForm },
         };
 
@@ -131,6 +165,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             preserveScroll: true,
             onSuccess: () => {
                 showBookingFormModal.value = false;
+                onSubmitSuccess?.();
             },
             onError: (errors) => {
                 const firstError =
@@ -141,6 +176,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
                     || errors['applicant.reason']
                     || errors['date']
                     || errors['time_slot_ids']
+                    || errors['selections']
                     || '送出失敗，請稍後再試';
                 openFeedbackModal('送出失敗', firstError, 'error');
             },

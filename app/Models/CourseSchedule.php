@@ -15,9 +15,7 @@ class CourseSchedule extends Model
         'course_name',
         'teacher_name',
         'day_of_week',
-        'start_slot_id',
-        'end_slot_id',
-        'borrow_type',
+        'type',
         'start_date',
         'end_date',
     ];
@@ -37,13 +35,8 @@ class CourseSchedule extends Model
         return $this->belongsTo(Classroom::class, 'classroom_id');
     }
 
-    public function startSlot()
+    public function timeSlots()
     {
-        return $this->belongsTo(TimeSlot::class, 'start_slot_id');
-    }
-
-    public function endSlot()
-    {
-        return $this->belongsTo(TimeSlot::class, 'end_slot_id');
+        return $this->belongsToMany(TimeSlot::class, 'course_schedule_time_slots')->orderBy('start_time');
     }
 }

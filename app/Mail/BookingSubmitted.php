@@ -45,7 +45,9 @@ class BookingSubmitted extends Mailable implements ShouldQueue
         $this->cancelUrl = $booking->exists
             ? URL::temporarySignedRoute('bookings.cancel.confirm', now()->addDays(7), ['booking' => $booking->getKey()])
             : null;
-        $this->timeSlotDetails = $booking->timeSlots
+        $this->timeSlotDetails = $booking->bookingDates
+            ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
+            ->unique('id')
             ->sortBy('start_time')
             ->values()
             ->map(function ($timeSlot, int $index) {

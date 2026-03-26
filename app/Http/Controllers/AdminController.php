@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 
 use App\Models\Classroom;
 use App\Models\Booking;
+use App\Models\BookingDate;
 use App\Models\Blacklist;
 use App\Models\Borrower;
 use App\Models\CourseSchedule;
@@ -18,6 +19,7 @@ use App\Models\Setting;
 use App\Models\BlacklistDetail;
 use App\Models\BlacklistReason;
 use App\Models\TimeSlot;
+use App\Services\BookingSlotLockService;
 
 use Inertia\Inertia;
 
@@ -78,14 +80,16 @@ class AdminController extends Controller
         // --- 圖表 1: 各教室借用次數 (本學期) ---
         $bookingsPerRoom = collect();
         if ($currentSemester) {
-            $bookingsPerRoom = Booking::whereBetween('date', [
+            $bookingsPerRoom = DB::table('booking_dates')
+                ->join('bookings', 'booking_dates.booking_id', '=', 'bookings.id')
+                ->whereBetween('booking_dates.date', [
                     $currentSemester->start_date->format('Y-m-d'),
                     $currentSemester->end_date->format('Y-m-d'),
                 ])
-                ->selectRaw('classroom_id, count(*) as count')
-                ->groupBy('classroom_id')
-                ->get()
-                ->mapWithKeys(fn ($row) => [$row->classroom_id => $row->count]);
+                ->whereIn('bookings.status_enum', Booking::activeStatusEnums())
+                ->selectRaw('bookings.classroom_id, count(DISTINCT bookings.id) as count')
+                ->groupBy('bookings.classroom_id')
+                ->pluck('count', 'bookings.classroom_id');
         }
         $classrooms = Classroom::activeClassrooms();
         $bookingsPerRoomChart = [
@@ -105,9 +109,10 @@ class AdminController extends Controller
         if ($currentSemester) {
             $problemsPerRoomData = BlacklistDetail::join('blacklists', 'blacklist_details.blacklist_id', '=', 'blacklists.id')
                 ->join('borrowers', 'blacklists.borrower_id', '=', 'borrowers.id')
-                ->join('bookings', function ($join) use ($currentSemester) {
-                    $join->on('bookings.borrower_id', '=', 'borrowers.id')
-                        ->whereBetween('bookings.date', [
+                ->join('bookings', 'bookings.borrower_id', '=', 'borrowers.id')
+                ->join('booking_dates', function ($join) use ($currentSemester) {
+                    $join->on('booking_dates.booking_id', '=', 'bookings.id')
+                        ->whereBetween('booking_dates.date', [
                             $currentSemester->start_date->format('Y-m-d'),
                             $currentSemester->end_date->format('Y-m-d'),
                         ]);
@@ -124,15 +129,17 @@ class AdminController extends Controller
         // --- 圖表 4: 各時段借用熱度 (本學期) ---
         $slotPopularity = collect();
         if ($currentSemester) {
-            $slotPopularity = DB::table('booking_time_slot')
-                ->join('bookings', 'booking_time_slot.booking_id', '=', 'bookings.id')
-                ->whereBetween('bookings.date', [
+            $slotPopularity = DB::table('booking_date_time_slot')
+                ->join('booking_dates', 'booking_date_time_slot.booking_date_id', '=', 'booking_dates.id')
+                ->join('bookings', 'booking_dates.booking_id', '=', 'bookings.id')
+                ->whereBetween('booking_dates.date', [
                     $currentSemester->start_date->format('Y-m-d'),
                     $currentSemester->end_date->format('Y-m-d'),
                 ])
-                ->selectRaw('booking_time_slot.time_slot_id, count(*) as count')
-                ->groupBy('booking_time_slot.time_slot_id')
-                ->pluck('count', 'booking_time_slot.time_slot_id');
+                ->whereIn('bookings.status_enum', Booking::activeStatusEnums())
+                ->selectRaw('booking_date_time_slot.time_slot_id, count(*) as count')
+                ->groupBy('booking_date_time_slot.time_slot_id')
+                ->pluck('count', 'booking_date_time_slot.time_slot_id');
         }
         $timeSlots = TimeSlot::orderBy('start_time')->get();
         $slotPopularityChart = [
@@ -157,11 +164,21 @@ class AdminController extends Controller
      */
     public function bookings(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots']);
+        $query = Booking::with(['borrower', 'classroom', 'bookingDates.timeSlots'])
+            ->addSelect([
+                'first_booking_date' => BookingDate::query()
+                    ->select('date')
+                    ->whereColumn('booking_id', 'bookings.id')
+                    ->orderBy('date')
+                    ->limit(1),
+            ]);
 
         // 篩選狀態
         if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', (int) $request->input('status'));
+            $statusEnum = $this->resolveStatusEnumFromFilter($request->input('status'));
+            if ($statusEnum) {
+                $query->where('status_enum', $statusEnum);
+            }
         }
 
         // 搜尋 (教室代碼、借用人姓名、事由)
@@ -174,8 +191,8 @@ class AdminController extends Controller
             });
         }
 
-        $bookings = $query->orderByRaw('CASE WHEN status = 0 THEN 0 ELSE 1 END')
-            ->orderBy('date', 'desc')
+        $bookings = $query->orderByRaw("CASE WHEN status_enum = 'pending' THEN 0 ELSE 1 END")
+            ->orderBy('first_booking_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString()
@@ -195,8 +212,8 @@ class AdminController extends Controller
      */
     public function reviews(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
-            ->where('status', 0);
+        $query = Booking::with(['borrower', 'classroom', 'bookingDates.timeSlots'])
+            ->where('status_enum', 'pending');
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -226,11 +243,21 @@ class AdminController extends Controller
      */
     public function borrowingRecords(Request $request)
     {
-        $query = Booking::with(['borrower', 'classroom', 'timeSlots'])
-            ->where('status', '!=', 0);
+        $query = Booking::with(['borrower', 'classroom', 'bookingDates.timeSlots'])
+            ->where('status_enum', '!=', 'pending')
+            ->addSelect([
+                'first_booking_date' => BookingDate::query()
+                    ->select('date')
+                    ->whereColumn('booking_id', 'bookings.id')
+                    ->orderBy('date')
+                    ->limit(1),
+            ]);
 
         if ($request->filled('status') && $request->input('status') !== 'all') {
-            $query->where('status', (int) $request->input('status'));
+            $statusEnum = $this->resolveStatusEnumFromFilter($request->input('status'));
+            if ($statusEnum) {
+                $query->where('status_enum', $statusEnum);
+            }
         }
 
         if ($request->filled('search')) {
@@ -242,7 +269,7 @@ class AdminController extends Controller
             });
         }
 
-        $bookings = $query->orderBy('date', 'desc')
+        $bookings = $query->orderBy('first_booking_date', 'desc')
             ->orderBy('created_at', 'desc')
             ->paginate(15)
             ->withQueryString()
@@ -262,11 +289,12 @@ class AdminController extends Controller
     public function longTermBorrowing(Request $request)
     {
         $currentSemester = Semester::findByDate(now());
+        $importSemester = $this->resolveCurrentOrNearestFutureSemester();
 
         $hasImportedIds = [];
-        if ($currentSemester) {
-            $hasImportedIds = CourseSchedule::where('semester_id', $currentSemester->id)
-                ->whereNull('borrow_type')
+        if ($importSemester) {
+            $hasImportedIds = CourseSchedule::where('semester_id', $importSemester->id)
+                ->where('type', 'course')
                 ->pluck('classroom_id')
                 ->unique()
                 ->toArray();
@@ -289,24 +317,31 @@ class AdminController extends Controller
         // Existing manual long-term borrowing records (current semester)
         $manualRecords = [];
         if ($currentSemester) {
-            $manualRecords = CourseSchedule::with(['classroom', 'startSlot', 'endSlot'])
+            $manualRecords = CourseSchedule::with(['classroom', 'timeSlots'])
                 ->where('semester_id', $currentSemester->id)
-                ->whereNotNull('borrow_type')
+                ->whereIn('type', ['manual', 'borrowed'])
                 ->orderByDesc('created_at')
                 ->get()
-                ->map(fn ($r) => [
-                    'id'            => $r->id,
-                    'classroom_code' => $r->classroom?->code ?? '—',
-                    'classroom_name' => $r->classroom?->name ?? '—',
-                    'borrow_type'   => $r->borrow_type,
-                    'teacher_name'  => $r->teacher_name,
-                    'course_name'   => $r->course_name,
-                    'day_of_week'   => $r->day_of_week,
-                    'start_slot'    => $r->startSlot?->name ?? '—',
-                    'end_slot'      => $r->endSlot?->name ?? '—',
-                    'start_date'    => $r->start_date?->format('Y-m-d'),
-                    'end_date'      => $r->end_date?->format('Y-m-d'),
-                ])
+                ->map(function ($r) {
+                    $slotNames = $r->timeSlots
+                        ->sortBy('start_time')
+                        ->pluck('name')
+                        ->values();
+
+                    return [
+                        'id'            => $r->id,
+                        'classroom_code' => $r->classroom?->code ?? '—',
+                        'classroom_name' => $r->classroom?->name ?? '—',
+                        'type'          => $r->type,
+                        'teacher_name'  => $r->teacher_name,
+                        'course_name'   => $r->course_name,
+                        'day_of_week'   => $r->day_of_week,
+                        'start_slot'    => $slotNames->first() ?? '—',
+                        'end_slot'      => $slotNames->last() ?? '—',
+                        'start_date'    => $r->start_date?->format('Y-m-d'),
+                        'end_date'      => $r->end_date?->format('Y-m-d'),
+                    ];
+                })
                 ->toArray();
         }
 
@@ -316,8 +351,8 @@ class AdminController extends Controller
             'manualRecords' => $manualRecords,
             'semesterEndDate' => $currentSemester?->end_date?->format('Y-m-d'),
             'importConfig' => [
-                'year'     => (int) Setting::get('course_import_year', (string) ($currentSemester?->academic_year ?? 114)),
-                'seme'     => (int) Setting::get('course_import_seme', (string) ($currentSemester?->semester ?? 2)),
+                'year'     => (int) ($importSemester?->academic_year ?? Setting::get('course_import_year', (string) ($currentSemester?->academic_year ?? 114))),
+                'seme'     => (int) ($importSemester?->semester ?? Setting::get('course_import_seme', (string) ($currentSemester?->semester ?? 2))),
                 'category' => (string) Setting::get('course_import_category', 'B'),
                 'building' => (string) Setting::get('course_import_building', 'GC,粽三館'),
             ],
@@ -346,8 +381,15 @@ class AdminController extends Controller
             return back()->withErrors(['classroom_ids' => '找不到可預覽的教室。']);
         }
 
-        $year = (int) Setting::get('course_import_year', '114');
-        $seme = (int) Setting::get('course_import_seme', '2');
+        $semester = $this->resolveCurrentOrNearestFutureSemester();
+        if (!$semester) {
+            return back()->withErrors([
+                'import' => '找不到目前或未來學期，請先建立學期資料。',
+            ]);
+        }
+
+        $year = (int) $semester->academic_year;
+        $seme = (int) $semester->semester;
         $category = (string) Setting::get('course_import_category', 'B');
         $selectedBuildingCode = $this->validateSingleBuildingSelection($classrooms);
         if (!$selectedBuildingCode) {
@@ -357,17 +399,6 @@ class AdminController extends Controller
         }
 
         $building = $this->resolveImportBuildingValue($selectedBuildingCode);
-
-        $semester = Semester::query()
-            ->where('academic_year', $year)
-            ->where('semester', $seme)
-            ->first();
-
-        if (!$semester) {
-            return back()->withErrors([
-                'import' => "找不到 {$year} 學年 {$seme} 學期，請先建立學期資料。",
-            ]);
-        }
 
         $payload = [
             'year' => $year,
@@ -405,20 +436,25 @@ class AdminController extends Controller
 
         $data = $response->json();
         $importedSchedules = $this->normalizeImportedSchedules($data, $semester->id, $classrooms, $periodToSlotId);
+        $semesterStartDate = $semester->start_date?->format('Y-m-d');
+        $semesterEndDate = $semester->end_date?->format('Y-m-d');
 
         return response()->json([
             'schedules' => collect($importedSchedules)->map(function ($item) {
                 // Ensure correct shape for the frontend preview
                 return [
                      'classroom_id' => $item['classroom_id'],
-                     'start_slot_id' => $item['start_slot_id'],
-                     'end_slot_id' => $item['end_slot_id'],
+                     'time_slot_ids' => $item['time_slot_ids'],
                      'day_of_week' => $item['day_of_week'],
                      'course_name' => collect([$item['course_name'], $item['teacher_name']])->filter()->join(' - '),
-                     'start_date' => null,
-                     'end_date' => null,
+                     'start_date' => $item['start_date'] ?? null,
+                     'end_date' => $item['end_date'] ?? null,
                 ];
             })->values(),
+            'semester_range' => [
+                'start_date' => $semesterStartDate,
+                'end_date' => $semesterEndDate,
+            ],
         ]);
     }
 
@@ -444,8 +480,15 @@ class AdminController extends Controller
             return back()->withErrors(['classroom_ids' => '找不到可匯入的教室。']);
         }
 
-        $year = (int) Setting::get('course_import_year', '114');
-        $seme = (int) Setting::get('course_import_seme', '2');
+        $semester = $this->resolveCurrentOrNearestFutureSemester();
+        if (!$semester) {
+            return back()->withErrors([
+                'import' => '找不到目前或未來學期，請先建立學期資料。',
+            ]);
+        }
+
+        $year = (int) $semester->academic_year;
+        $seme = (int) $semester->semester;
         $category = (string) Setting::get('course_import_category', 'B');
         $selectedBuildingCode = $this->validateSingleBuildingSelection($classrooms);
         if (!$selectedBuildingCode) {
@@ -455,17 +498,6 @@ class AdminController extends Controller
         }
 
         $building = $this->resolveImportBuildingValue($selectedBuildingCode);
-
-        $semester = Semester::query()
-            ->where('academic_year', $year)
-            ->where('semester', $seme)
-            ->first();
-
-        if (!$semester) {
-            return back()->withErrors([
-                'import' => "找不到 {$year} 學年 {$seme} 學期，請先建立學期資料。",
-            ]);
-        }
 
         $payload = [
             'year' => $year,
@@ -514,8 +546,12 @@ class AdminController extends Controller
                 ->delete();
 
             if (!empty($rows)) {
-                foreach (array_chunk($rows, 500) as $chunk) {
-                    CourseSchedule::insert($chunk);
+                foreach ($rows as $row) {
+                    $timeSlotIds = $row['time_slot_ids'] ?? [];
+                    unset($row['time_slot_ids']);
+
+                    $schedule = CourseSchedule::create($row);
+                    $schedule->timeSlots()->sync($timeSlotIds);
                 }
             }
         });
@@ -528,10 +564,24 @@ class AdminController extends Controller
      */
     private function formatBooking(Booking $booking): array
     {
+        $summary = $booking->getDateSummaryData('Y-m-d');
+        $bookingDateItems = $booking->bookingDates
+            ->map(function ($bookingDate) {
+                return [
+                    'date' => $bookingDate->date?->format('Y-m-d') ?? null,
+                    'time_slots' => $bookingDate->timeSlots->pluck('name')->values()->all(),
+                ];
+            })
+            ->filter(fn ($item) => !empty($item['date']))
+            ->values();
+
         return [
             'id' => $booking->id,
-            'date' => $booking->date,
-            'status' => $booking->status,
+            'date' => $summary['first_date'],
+            'date_summary' => $summary['summary'],
+            'is_multi_day' => $summary['is_multi_day'],
+            'status' => Booking::intFromStatusEnum($booking->status_enum),
+            'status_enum' => $booking->status_enum,
             'reason' => $booking->reason,
             'teacher' => $booking->teacher,
             'created_at' => $booking->created_at->format('Y-m-d H:i'),
@@ -546,20 +596,56 @@ class AdminController extends Controller
                 'code' => $booking->classroom->code,
                 'name' => $booking->classroom->name,
             ] : null,
-            'time_slots' => $booking->timeSlots->pluck('name')->toArray(),
+            'time_slots' => $booking->bookingDates
+                ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
+                ->unique('id')
+                ->sortBy('start_time')
+                ->pluck('name')
+                ->values()
+                ->all(),
+            'booking_dates' => $bookingDateItems->all(),
         ];
     }
 
     /**
      * 更新預約狀態
      */
-    public function updateBookingStatus(Request $request, Booking $booking)
+    public function updateBookingStatus(Request $request, Booking $booking, BookingSlotLockService $bookingSlotLockService)
     {
         $request->validate([
             'status' => 'required|integer|in:1,2,3',
         ]);
 
-        $booking->update(['status' => $request->input('status')]);
+        $nextStatus = (int) $request->input('status');
+        $managerId = auth()->guard('admin')->id();
+        $nextStatusEnum = Booking::enumFromLegacyStatus($nextStatus);
+
+        $payload = [
+            'status_enum' => $nextStatusEnum,
+        ];
+
+        if ($nextStatusEnum === Booking::STATUS_APPROVED) {
+            $payload['approved_by'] = $managerId;
+            $payload['approved_at'] = now();
+            $payload['rejected_by'] = null;
+            $payload['rejected_at'] = null;
+        } elseif ($nextStatusEnum === Booking::STATUS_REJECTED) {
+            $payload['rejected_by'] = $managerId;
+            $payload['rejected_at'] = now();
+            $payload['approved_by'] = null;
+            $payload['approved_at'] = null;
+        } elseif ($nextStatusEnum === Booking::STATUS_CANCELLED) {
+            $payload['approved_by'] = null;
+            $payload['approved_at'] = null;
+            $payload['rejected_by'] = null;
+            $payload['rejected_at'] = null;
+        }
+
+        DB::transaction(function () use ($booking, $payload, $bookingSlotLockService) {
+            $booking->update($payload);
+            $booking->refresh();
+            $bookingSlotLockService->syncForBooking($booking);
+        });
 
         return back()->with('success', '預約狀態已更新。');
     }
@@ -569,24 +655,41 @@ class AdminController extends Controller
      */
     public function notifications()
     {
-        $pending = Booking::with(['borrower', 'classroom', 'timeSlots'])
-            ->where('status', 0)
+        $pending = Booking::with(['borrower', 'classroom', 'bookingDates.timeSlots'])
+            ->where('status_enum', 'pending')
             ->orderBy('created_at', 'desc')
             ->limit(10)
             ->get()
-            ->map(fn ($b) => [
-                'id' => $b->id,
-                'date' => $b->date,
-                'created_at' => $b->created_at->diffForHumans(),
-                'borrower_name' => $b->borrower?->name,
-                'classroom_code' => $b->classroom?->code,
-                'time_slots' => $b->timeSlots->pluck('name')->toArray(),
-            ]);
+            ->map(function ($b) {
+                $summary = $b->getDateSummaryData('Y-m-d');
+
+                return [
+                    'id' => $b->id,
+                    'date' => $summary['first_date'],
+                    'date_summary' => $summary['summary'],
+                    'is_multi_day' => $summary['is_multi_day'],
+                    'created_at' => $b->created_at->diffForHumans(),
+                    'borrower_name' => $b->borrower?->name,
+                    'classroom_code' => $b->classroom?->code,
+                    'time_slots' => $b->bookingDates
+                        ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
+                        ->unique('id')
+                        ->sortBy('start_time')
+                        ->pluck('name')
+                        ->values()
+                        ->all(),
+                ];
+            });
 
         return response()->json([
-            'count' => Booking::where('status', 0)->count(),
+            'count' => Booking::where('status_enum', Booking::STATUS_PENDING)->count(),
             'items' => $pending,
         ]);
+    }
+
+    private function resolveStatusEnumFromFilter(mixed $rawStatus): ?string
+    {
+        return Booking::enumFromFilterValue($rawStatus);
     }
 
     /**
@@ -701,7 +804,7 @@ class AdminController extends Controller
     }
 
     /**
-     * 新增或更新黑名單
+     * 新增黑名單紀錄（保留歷史）
      */
     public function storeBlacklist(Request $request)
     {
@@ -723,19 +826,17 @@ class AdminController extends Controller
             ->values();
 
         DB::transaction(function () use ($borrower, $bannedUntilDate, $reasonIds) {
-            $blacklist = Blacklist::updateOrCreate(
-                ['borrower_id' => $borrower->id],
-                ['banned_until' => $bannedUntilDate . ' 23:59:59']
-            );
-
-            $blacklist->blacklistDetails()->delete();
+            $blacklist = Blacklist::create([
+                'borrower_id' => $borrower->id,
+                'banned_until' => $bannedUntilDate . ' 23:59:59',
+            ]);
 
             $blacklist->blacklistDetails()->createMany(
                 $reasonIds->map(fn ($reasonId) => ['reason_id' => $reasonId])->all()
             );
         });
 
-        return back()->with('success', '黑名單已更新。');
+        return back()->with('success', '黑名單已新增。');
     }
 
     /**
@@ -836,6 +937,14 @@ class AdminController extends Controller
             return [];
         }
 
+        $semester = Semester::query()->find($semesterId);
+        if (!$semester || !$semester->start_date || !$semester->end_date) {
+            return [];
+        }
+
+        $semesterStartDate = $semester->start_date->format('Y-m-d');
+        $semesterEndDate = $semester->end_date->format('Y-m-d');
+
         $now = now();
         $result = [];
         $dedup = [];
@@ -882,12 +991,15 @@ class AdminController extends Controller
                     continue;
                 }
 
-                $startPeriod = min($periods);
-                $endPeriod = max($periods);
-                $startSlotId = $periodToSlotId[$startPeriod] ?? null;
-                $endSlotId = $periodToSlotId[$endPeriod] ?? null;
+                $timeSlotIds = collect($periods)
+                    ->map(fn ($period) => $periodToSlotId[(int) $period] ?? null)
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all();
 
-                if (!$startSlotId || !$endSlotId) {
+                if (empty($timeSlotIds)) {
                     continue;
                 }
 
@@ -901,8 +1013,7 @@ class AdminController extends Controller
                     $courseName,
                     $teacherName,
                     $dayOfWeek,
-                    $startSlotId,
-                    $endSlotId,
+                    implode(',', $timeSlotIds),
                 ]);
 
                 if (isset($dedup[$hash])) {
@@ -916,8 +1027,10 @@ class AdminController extends Controller
                     'course_name' => $courseName,
                     'teacher_name' => $teacherName,
                     'day_of_week' => $dayOfWeek,
-                    'start_slot_id' => $startSlotId,
-                    'end_slot_id' => $endSlotId,
+                    'type' => 'course',
+                    'time_slot_ids' => $timeSlotIds,
+                    'start_date' => $semesterStartDate,
+                    'end_date' => $semesterEndDate,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ];
@@ -1030,25 +1143,24 @@ class AdminController extends Controller
 
         $selectedByDay = $analysis['selected_by_day'];
 
-        $slotRangesByDay = [];
+        $slotGroupsByDay = [];
         foreach ($selectedByDay as $weekday => $periodIndexes) {
-            $slotRangesByDay[$weekday] = $this->buildSlotRangesFromPeriods($periodIndexes, $periodToSlotId);
+            $slotGroupsByDay[$weekday] = $this->buildSlotGroupsFromPeriods($periodIndexes, $periodToSlotId);
         }
 
         $rows = [];
         $now  = now();
 
-        foreach ($slotRangesByDay as $weekday => $ranges) {
-            foreach ($ranges as $range) {
+        foreach ($slotGroupsByDay as $weekday => $slotGroups) {
+            foreach ($slotGroups as $slotIds) {
                 $rows[] = [
                     'semester_id'  => $currentSemester->id,
                     'classroom_id' => (int) $validated['classroom_id'],
-                    'borrow_type'  => (int) $validated['borrow_type'],
+                    'type'        => 'manual',
                     'teacher_name' => $validated['teacher_name'],
                     'course_name'  => $validated['course_name'] ?? '',
                     'day_of_week'  => (int) $weekday,
-                    'start_slot_id' => $range['start_slot_id'],
-                    'end_slot_id'   => $range['end_slot_id'],
+                    'time_slot_ids' => $slotIds,
                     'start_date'   => $validated['start_date'],
                     'end_date'     => $validated['end_date'],
                     'created_at'   => $now,
@@ -1062,7 +1174,13 @@ class AdminController extends Controller
         }
 
         DB::transaction(function () use ($rows) {
-            CourseSchedule::insert($rows);
+            foreach ($rows as $row) {
+                $timeSlotIds = $row['time_slot_ids'] ?? [];
+                unset($row['time_slot_ids']);
+
+                $schedule = CourseSchedule::create($row);
+                $schedule->timeSlots()->sync($timeSlotIds);
+            }
         });
 
         $message = '長期借用記錄已新增，共 ' . count($rows) . ' 筆。';
@@ -1073,7 +1191,6 @@ class AdminController extends Controller
     private function validateManualLongTermBorrowingPayload(Request $request, bool $forStore): array
     {
         $rules = [
-            'borrow_type'   => ['required', 'integer', 'in:1,2'],
             'classroom_id'  => ['required', 'integer', 'exists:classrooms,id'],
             'teacher_name'  => $forStore
                 ? ['required', 'string', 'max:50']
@@ -1085,6 +1202,9 @@ class AdminController extends Controller
             'end_date'      => ['required', 'date', 'after_or_equal:start_date'],
             'periods'       => ['required', 'array', 'min:1'],
             'periods.*'     => ['integer', 'min:1'],
+            'periods_by_day' => ['nullable', 'array'],
+            'periods_by_day.*' => ['array', 'min:1'],
+            'periods_by_day.*.*' => ['integer', 'min:1'],
         ];
 
         return $request->validate($rules);
@@ -1093,22 +1213,22 @@ class AdminController extends Controller
     private function analyzeManualConflicts(array $validated, Semester $semester, array $periodToSlotId): array
     {
         $dayOfWeeks = collect($validated['day_of_week'])->map(fn ($d) => (int) $d)->unique()->sort()->values()->all();
-        $selectedPeriods = collect($validated['periods'])->map(fn ($p) => (int) $p)->unique()->sort()->values()->all();
-
-        $selectedByDay = [];
-        foreach ($dayOfWeeks as $weekday) {
-            $selectedByDay[(int) $weekday] = $selectedPeriods;
+        $selectedByDay = $this->buildSelectedPeriodsByDay($validated, $dayOfWeeks);
+        $selectedSlotIdsByDay = [];
+        foreach ($selectedByDay as $weekday => $periods) {
+            $selectedSlotIdsByDay[(int) $weekday] = collect($periods)
+                ->map(fn ($period) => $periodToSlotId[(int) $period] ?? null)
+                ->filter()
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
         }
 
-        $selectedSlotIds = collect($selectedPeriods)
-            ->map(fn ($period) => $periodToSlotId[$period] ?? null)
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values()
-            ->all();
+        $hasSelectableSlot = collect($selectedSlotIdsByDay)
+            ->contains(fn ($slotIds) => !empty($slotIds));
 
-        if (empty($selectedSlotIds)) {
+        if (!$hasSelectableSlot) {
             return [
                 'conflicts' => [],
                 'protected_count' => 0,
@@ -1129,7 +1249,7 @@ class AdminController extends Controller
             && $semesterStart <= $validated['end_date']
             && $semesterEnd >= $validated['start_date'];
 
-        $rows = CourseSchedule::with(['semester', 'startSlot', 'endSlot'])
+        $rows = CourseSchedule::with(['semester', 'timeSlots'])
             ->where('semester_id', (int) $semester->id)
             ->where('classroom_id', (int) $validated['classroom_id'])
             ->whereIn('day_of_week', $dayOfWeeks)
@@ -1145,9 +1265,7 @@ class AdminController extends Controller
 
                 if ($semesterOverlapsRequest) {
                     $query->orWhere(function ($imported) {
-                        $imported
-                            ->whereNull('start_date')
-                            ->whereNull('end_date');
+                        $imported->where('type', 'course');
                     });
                 }
             })
@@ -1159,7 +1277,17 @@ class AdminController extends Controller
 
         foreach ($rows as $row) {
             $weekday = (int) $row->day_of_week;
-            $existingSlotIds = $this->buildSlotIdsInRange((int) $row->start_slot_id, (int) $row->end_slot_id);
+            $selectedSlotIds = $selectedSlotIdsByDay[$weekday] ?? [];
+            if (empty($selectedSlotIds)) {
+                continue;
+            }
+
+            $existingSlotIds = $row->timeSlots
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
             if (empty($existingSlotIds)) {
                 continue;
             }
@@ -1182,7 +1310,8 @@ class AdminController extends Controller
                 continue;
             }
 
-            $isProtected = is_null($row->borrow_type) || (int) $row->borrow_type === 2;
+            $type = $this->resolveScheduleType($row->type);
+            $isProtected = $type === 'course';
             if ($isProtected) {
                 $protectedCount++;
             } else {
@@ -1192,12 +1321,12 @@ class AdminController extends Controller
             $conflicts[] = [
                 'id' => (int) $row->id,
                 'day_of_week' => $weekday,
-                'start_slot' => (string) ($row->startSlot?->name ?? ''),
-                'end_slot' => (string) ($row->endSlot?->name ?? ''),
+                'start_slot' => (string) ($row->timeSlots->sortBy('start_time')->pluck('name')->first() ?? ''),
+                'end_slot' => (string) ($row->timeSlots->sortBy('start_time')->pluck('name')->last() ?? ''),
                 'start_date' => $row->start_date?->format('Y-m-d') ?? $semester->start_date?->format('Y-m-d'),
                 'end_date' => $row->end_date?->format('Y-m-d') ?? $semester->end_date?->format('Y-m-d'),
-                'borrow_type' => is_null($row->borrow_type) ? null : (int) $row->borrow_type,
-                'source_label' => $this->manualConflictSourceLabel($row->borrow_type),
+                'type' => $type,
+                'source_label' => $this->manualConflictSourceLabel($type),
                 'course_name' => (string) ($row->course_name ?? ''),
                 'teacher_name' => (string) ($row->teacher_name ?? ''),
                 'is_protected' => $isProtected,
@@ -1213,36 +1342,69 @@ class AdminController extends Controller
         ];
     }
 
-    private function manualConflictSourceLabel(?int $borrowType): string
+    private function buildSelectedPeriodsByDay(array $validated, array $dayOfWeeks): array
     {
-        if (is_null($borrowType)) {
-            return '課表匯入';
+        $selectedByDay = [];
+
+        $rawByDay = $validated['periods_by_day'] ?? null;
+        if (is_array($rawByDay)) {
+            foreach ($dayOfWeeks as $weekday) {
+                $selectedByDay[(int) $weekday] = collect($rawByDay[(string) $weekday] ?? $rawByDay[(int) $weekday] ?? [])
+                    ->map(fn ($p) => (int) $p)
+                    ->filter(fn ($p) => $p > 0)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
+            }
+
+            return $selectedByDay;
         }
 
-        return match ((int) $borrowType) {
-            2 => '課程使用',
-            1 => '一般借用',
-            default => '既有記錄',
+        // Backward compatibility: old payload only has a global periods array.
+        $selectedPeriods = collect($validated['periods'] ?? [])
+            ->map(fn ($p) => (int) $p)
+            ->filter(fn ($p) => $p > 0)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        foreach ($dayOfWeeks as $weekday) {
+            $selectedByDay[(int) $weekday] = $selectedPeriods;
+        }
+
+        return $selectedByDay;
+    }
+
+    private function manualConflictSourceLabel(string $type): string
+    {
+        return match ($type) {
+            'course' => '課表匯入',
+            'borrowed' => '一般借用',
+            default => '手動課程',
         };
     }
 
-    private function buildSlotIdsInRange(int $startSlotId, int $endSlotId): array
+    private function resolveScheduleType(?string $type): string
     {
-        $ids = TimeSlot::orderBy('start_time')->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
-        $startIndex = array_search($startSlotId, $ids, true);
-        $endIndex = array_search($endSlotId, $ids, true);
-
-        if ($startIndex === false || $endIndex === false) {
-            return [];
-        }
-
-        $from = min($startIndex, $endIndex);
-        $to = max($startIndex, $endIndex);
-
-        return array_slice($ids, $from, $to - $from + 1);
+        return in_array($type, ['course', 'manual', 'borrowed'], true) ? $type : 'manual';
     }
 
-    private function buildSlotRangesFromPeriods(array $periods, array $periodToSlotId): array
+    private function resolveCurrentOrNearestFutureSemester(): ?Semester
+    {
+        $currentSemester = Semester::findByDate(now());
+        if ($currentSemester) {
+            return $currentSemester;
+        }
+
+        return Semester::query()
+            ->whereDate('start_date', '>', now()->toDateString())
+            ->orderBy('start_date')
+            ->first();
+    }
+
+    private function buildSlotGroupsFromPeriods(array $periods, array $periodToSlotId): array
     {
         $indexes = collect($periods)
             ->map(fn ($v) => (int) $v)
@@ -1255,32 +1417,40 @@ class AdminController extends Controller
             return [];
         }
 
-        $ranges = [];
+        $groups = [];
         $chunkStart = $indexes[0];
         $prev = $indexes[0];
 
         for ($i = 1; $i < count($indexes); $i++) {
             $current = $indexes[$i];
             if ($current !== $prev + 1) {
-                if (isset($periodToSlotId[$chunkStart], $periodToSlotId[$prev])) {
-                    $ranges[] = [
-                        'start_slot_id' => (int) $periodToSlotId[$chunkStart],
-                        'end_slot_id' => (int) $periodToSlotId[$prev],
-                    ];
+                $slotIds = [];
+                for ($p = $chunkStart; $p <= $prev; $p++) {
+                    if (isset($periodToSlotId[$p])) {
+                        $slotIds[] = (int) $periodToSlotId[$p];
+                    }
+                }
+
+                if (!empty($slotIds)) {
+                    $groups[] = $slotIds;
                 }
                 $chunkStart = $current;
             }
             $prev = $current;
         }
 
-        if (isset($periodToSlotId[$chunkStart], $periodToSlotId[$prev])) {
-            $ranges[] = [
-                'start_slot_id' => (int) $periodToSlotId[$chunkStart],
-                'end_slot_id' => (int) $periodToSlotId[$prev],
-            ];
+        $slotIds = [];
+        for ($p = $chunkStart; $p <= $prev; $p++) {
+            if (isset($periodToSlotId[$p])) {
+                $slotIds[] = (int) $periodToSlotId[$p];
+            }
         }
 
-        return $ranges;
+        if (!empty($slotIds)) {
+            $groups[] = $slotIds;
+        }
+
+        return $groups;
     }
 
     /**
@@ -1288,14 +1458,14 @@ class AdminController extends Controller
      */
     public function revokeClassroomImport(Classroom $classroom)
     {
-        $currentSemester = Semester::findByDate(now());
-        if (!$currentSemester) {
+        $targetSemester = $this->resolveCurrentOrNearestFutureSemester();
+        if (!$targetSemester) {
             return back()->withErrors(['revoke' => '目前沒有設定中的學期。']);
         }
 
-        $deleted = CourseSchedule::where('semester_id', $currentSemester->id)
+        $deleted = CourseSchedule::where('semester_id', $targetSemester->id)
             ->where('classroom_id', $classroom->id)
-            ->whereNull('borrow_type')
+            ->where('type', 'course')
             ->delete();
 
         return back()->with('success', "已撤回 {$classroom->code} 的課表匯入，共刪除 {$deleted} 筆。");
@@ -1308,7 +1478,7 @@ class AdminController extends Controller
             return back()->withErrors(['revoke' => '目前沒有設定中的學期。']);
         }
 
-        if ((int) $schedule->semester_id !== (int) $currentSemester->id || is_null($schedule->borrow_type)) {
+        if ((int) $schedule->semester_id !== (int) $currentSemester->id || !in_array($this->resolveScheduleType($schedule->type), ['manual', 'borrowed'], true)) {
             return back()->withErrors(['revoke' => '僅能撤回本學期手動新增的長期借用記錄。']);
         }
 

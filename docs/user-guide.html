@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>使用者借用流程 | RoomManager</title>
+    <link rel="stylesheet" href="./assets/site.css" />
+  </head>
+  <body>
+    <div class="site">
+      <section class="hero">
+        <span class="badge">User Guide</span>
+        <h1>使用者借用流程</h1>
+        <p>本系統提供一般使用者進行教室借用申請，流程採用三步驟操作。</p>
+        <div class="actions">
+          <a class="btn primary" href="./index.html">返回文件首頁</a>
+          <a class="btn" href="./admin-guide.html">管理員導覽</a>
+        </div>
+      </section>
+
+      <article class="main">
+        <h2>流程總覽</h2>
+        <ol>
+          <li>教室選擇</li>
+          <li>節數選擇</li>
+          <li>填寫表單</li>
+        </ol>
+
+        <h2>適用對象與權限</h2>
+        <ul>
+          <li>一般使用者可提出借用申請與取消自己的申請。</li>
+          <li>審核、核准或駁回屬於管理員權限。</li>
+          <li>若使用者被列入黑名單或停權中，將無法提出新申請。</li>
+        </ul>
+
+        <h2>1. 進入系統</h2>
+        <p>開啟系統首頁後，畫面會顯示可借用教室與借用流程區塊。</p>
+        <img class="guide-image" src="./images/選擇教室.png" alt="選擇教室" />
+
+        <h2>2. 選擇教室與日期</h2>
+        <ul>
+          <li>先選擇欲借用的教室。</li>
+          <li>再選擇借用日期。</li>
+          <li>系統會依照課表、既有借用與可借用規則顯示可選時段。</li>
+        </ul>
+        <p>若日期為不可借用日或時段已被占用，對應時段將無法勾選。</p>
+
+        <h2>3. 選擇借用節數</h2>
+        <ul>
+          <li>於時段區塊勾選要借用的節數。</li>
+          <li>可一次選擇多個連續或不連續節數。</li>
+        </ul>
+        <img class="guide-image" src="./images/選擇借用節數.png" alt="選擇借用節數" />
+
+        <h2>4. 填寫申請表單</h2>
+        <p>請填寫以下資訊後送出：</p>
+        <ul>
+          <li>申請人姓名</li>
+          <li>身分識別碼（學號或教職員編號）</li>
+          <li>聯絡信箱與電話</li>
+          <li>系所或單位</li>
+          <li>借用原因</li>
+          <li>指導老師（若有）</li>
+        </ul>
+        <img class="guide-image" src="./images/填寫申請表單.png" alt="填寫申請表單" />
+
+        <h2>5. 送出後狀態</h2>
+        <ul>
+          <li>送出後，申請狀態為「待審核」。</li>
+          <li>審核完成後，會依結果更新為「已核准」或「已駁回」。</li>
+          <li>若申請者主動取消，狀態會更新為「已取消」。</li>
+        </ul>
+
+        <h2>6. 取消申請</h2>
+        <ul>
+          <li>系統提供簽章安全連結進行取消。</li>
+          <li>僅能取消尚未完成或仍可取消的申請。</li>
+          <li>取消後將釋放原先占用的時段。</li>
+        </ul>
+
+        <h2>常見注意事項</h2>
+        <div class="notice">
+          <ul>
+            <li>請確認填寫的聯絡資訊正確，避免通知無法送達。</li>
+            <li>同一時段若已被他人借用，系統會阻擋重複申請。</li>
+            <li>若系統顯示無可借用時段，請改選日期或其他教室。</li>
+          </ul>
+        </div>
+      </article>
+    </div>
+  </body>
+</html>

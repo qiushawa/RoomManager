@@ -21,11 +21,13 @@
                             <p class="truncate text-sm font-medium text-a-text">{{ record.classroom_code }}</p>
                             <span
                                 class="shrink-0 rounded border px-1.5 py-0.5 text-[10px]"
-                                :class="record.borrow_type === 1
+                                :class="record.type === 'borrowed'
                                     ? 'border-primary/30 bg-primary/10 text-primary'
-                                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'"
+                                    : record.type === 'manual'
+                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                        : 'border-a-border-2 bg-a-surface-hover text-a-text-muted'"
                             >
-                                {{ record.borrow_type === 1 ? '一般' : '課程' }}
+                                {{ record.type === 'borrowed' ? '一般借用' : record.type === 'manual' ? '手動課程' : '課表匯入' }}
                             </span>
                         </div>
                         <p class="mt-0.5 text-xs text-a-text-muted">{{ weekdayLabel(record.day_of_week) }}</p>

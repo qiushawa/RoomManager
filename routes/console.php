@@ -2,12 +2,15 @@
 
 use App\Mail\BookingSubmitted;
 use App\Models\Booking;
+use App\Models\BookingDate;
 use App\Models\Borrower;
 use App\Models\Classroom;
 use App\Models\TimeSlot;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -63,15 +66,19 @@ Artisan::command('booking:test-mail
     ]);
 
     $booking = new Booking([
-        'date' => $date,
         'teacher' => (string) $this->option('teacher'),
         'reason' => (string) $this->option('reason'),
-        'status' => 0,
+        'status_enum' => 'pending',
     ]);
+
+    $bookingDate = new BookingDate([
+        'date' => $date,
+    ]);
+    $bookingDate->setRelation('timeSlots', $timeSlots);
 
     $booking->setRelation('borrower', $borrower);
     $booking->setRelation('classroom', $classroom);
-    $booking->setRelation('timeSlots', $timeSlots);
+    $booking->setRelation('bookingDates', collect([$bookingDate]));
 
     $mailable = new BookingSubmitted($booking, $timeSlots->pluck('name')->all());
     $html = $mailable->render();
@@ -91,3 +98,76 @@ Artisan::command('booking:test-mail
 
     return self::SUCCESS;
 })->purpose('Send a booking submission test email without creating a booking');
+
+Artisan::command('system:check-conflicts {--date-from=} {--date-to=}', function () {
+    $from = (string) ($this->option('date-from') ?: now()->subMonths(3)->toDateString());
+    $to = (string) ($this->option('date-to') ?: now()->addMonths(6)->toDateString());
+    $hasBookingDeletedAt = Schema::hasColumn('bookings', 'deleted_at');
+    $hasCourseScheduleDeletedAt = Schema::hasColumn('course_schedules', 'deleted_at');
+
+    $this->info('Checking booking conflicts in date range: ' . $from . ' ~ ' . $to);
+
+    $bookingConflicts = DB::table('booking_date_time_slot as bdts')
+        ->join('booking_dates as bd', 'bd.id', '=', 'bdts.booking_date_id')
+        ->join('bookings as b', 'b.id', '=', 'bd.booking_id')
+        ->join('time_slots as ts', 'ts.id', '=', 'bdts.time_slot_id')
+        ->whereBetween('bd.date', [$from, $to])
+        ->whereIn('b.status_enum', Booking::activeStatusEnums())
+        ->when($hasBookingDeletedAt, fn ($query) => $query->whereNull('b.deleted_at'))
+        ->selectRaw('b.classroom_id, bd.date, bdts.time_slot_id, ts.name as slot_name, COUNT(*) as conflict_count, GROUP_CONCAT(b.id ORDER BY b.id) as booking_ids')
+        ->groupBy('b.classroom_id', 'bd.date', 'bdts.time_slot_id', 'ts.name')
+        ->havingRaw('COUNT(*) > 1')
+        ->orderBy('bd.date')
+        ->orderBy('b.classroom_id')
+        ->get();
+
+    if ($bookingConflicts->isEmpty()) {
+        $this->info('No booking conflicts detected.');
+    } else {
+        $this->error('Booking conflicts found: ' . $bookingConflicts->count());
+        $this->table(
+            ['classroom_id', 'date', 'slot', 'count', 'booking_ids'],
+            $bookingConflicts->map(fn ($row) => [
+                $row->classroom_id,
+                $row->date,
+                $row->slot_name,
+                $row->conflict_count,
+                $row->booking_ids,
+            ])->all()
+        );
+    }
+
+    $this->newLine();
+    $this->info('Checking course schedule conflicts by semester/day/classroom...');
+
+    $courseConflicts = DB::table('course_schedule_time_slots as csts')
+        ->join('course_schedules as cs', 'cs.id', '=', 'csts.course_schedule_id')
+        ->join('time_slots as ts', 'ts.id', '=', 'csts.time_slot_id')
+        ->when($hasCourseScheduleDeletedAt, fn ($query) => $query->whereNull('cs.deleted_at'))
+        ->selectRaw('cs.semester_id, cs.classroom_id, cs.day_of_week, csts.time_slot_id, ts.name as slot_name, COUNT(*) as conflict_count, GROUP_CONCAT(cs.id ORDER BY cs.id) as schedule_ids')
+        ->groupBy('cs.semester_id', 'cs.classroom_id', 'cs.day_of_week', 'csts.time_slot_id', 'ts.name')
+        ->havingRaw('COUNT(*) > 1')
+        ->orderBy('cs.semester_id')
+        ->orderBy('cs.classroom_id')
+        ->orderBy('cs.day_of_week')
+        ->get();
+
+    if ($courseConflicts->isEmpty()) {
+        $this->info('No course schedule slot conflicts detected.');
+    } else {
+        $this->error('Course schedule slot conflicts found: ' . $courseConflicts->count());
+        $this->table(
+            ['semester_id', 'classroom_id', 'day_of_week', 'slot', 'count', 'schedule_ids'],
+            $courseConflicts->map(fn ($row) => [
+                $row->semester_id,
+                $row->classroom_id,
+                $row->day_of_week,
+                $row->slot_name,
+                $row->conflict_count,
+                $row->schedule_ids,
+            ])->all()
+        );
+    }
+
+    return ($bookingConflicts->isEmpty() && $courseConflicts->isEmpty()) ? self::SUCCESS : self::FAILURE;
+})->purpose('Check booking and course-schedule slot conflicts in current data');

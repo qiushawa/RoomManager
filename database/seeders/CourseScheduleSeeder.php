@@ -72,15 +72,15 @@ class CourseScheduleSeeder extends Seeder
                 for ($i = 0; $i < $coursesCount; $i++) {
                     // 隨機選一個時段
                     $startSlot = $timeSlots->random();
-                    CourseSchedule::factory()->create([
+                    $schedule = CourseSchedule::factory()->create([
                         'semester_id' => $semester->id,
                         'classroom_id' => $classroom->id,
-                        'start_slot_id' => $startSlot->id,
-                        'end_slot_id' => $startSlot->id, // 簡化：單節課
                         'day_of_week' => rand(1, 6), // 週一到週六
                         'course_name' => $courseNames[array_rand($courseNames)],
                         'teacher_name' => $instructorNames[array_rand($instructorNames)],
                     ]);
+
+                    $schedule->timeSlots()->sync([(int) $startSlot->id]);
                 }
             }
         }

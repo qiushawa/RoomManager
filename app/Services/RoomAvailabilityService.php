@@ -59,12 +59,46 @@ class RoomAvailabilityService
         }
 
         $room->loadMissing([
-            'bookings.timeSlots', // 預載多對多時段
-            'courseSchedules.semester'
+            'bookings.bookingDates.timeSlots',
+            'courseSchedules.semester',
+            'courseSchedules.timeSlots',
         ]);
 
         // 取得與日期範圍重疊的學期
         $semesters = Semester::overlapping($startDate, $endDate);
+
+        // 先將短期借用依日期索引，避免每一天都重新掃描所有 booking。
+        $bookingsByDate = [];
+        $activeBookings = $room->bookings->whereIn('status_enum', ['pending', 'approved']);
+        foreach ($activeBookings as $booking) {
+            $status = $booking->status_enum === 'pending' ? 'pending' : 'approved';
+            $basePayload = [
+                'status' => $status,
+                'title' => $booking->reason,
+                'applicant' => $booking->borrower ? $booking->borrower->name : null,
+                'instructor' => $booking->teacher,
+            ];
+
+            $bookingDates = $booking->bookingDates
+                ->filter(fn ($bookingDate) => !empty($bookingDate->date))
+                ->values();
+
+            if ($bookingDates->isNotEmpty()) {
+                foreach ($bookingDates as $bookingDate) {
+                    $dateKey = $bookingDate->date?->format('Y-m-d');
+                    if (empty($dateKey)) {
+                        continue;
+                    }
+
+                    $slots = $bookingDate->timeSlots->pluck('name')->values()->all();
+                    if (empty($slots)) {
+                        continue;
+                    }
+
+                    $bookingsByDate[$dateKey][] = $basePayload + ['slots' => $slots];
+                }
+            }
+        }
 
         $occupiedData = [];
         $currentDate = $startDate->copy();
@@ -93,9 +127,19 @@ class RoomAvailabilityService
                 $dayOfWeek = $currentDate->dayOfWeekIso;
                 $courses = $room->courseSchedules
                     ->where('semester_id', $currentSemester->id)
-                    ->where('day_of_week', $dayOfWeek);
+                    ->where('day_of_week', $dayOfWeek)
+                    ->filter(function ($course) use ($currentDate, $currentSemester) {
+                        $effectiveStart = $course->start_date
+                            ? Carbon::parse($course->start_date)
+                            : Carbon::parse($currentSemester->start_date);
+                        $effectiveEnd = $course->end_date
+                            ? Carbon::parse($course->end_date)
+                            : Carbon::parse($currentSemester->end_date);
+
+                        return $currentDate->between($effectiveStart, $effectiveEnd);
+                    });
                 foreach ($courses as $course) {
-                    $slots = $this->getSlotsInRange($course->start_slot_id, $course->end_slot_id);
+                    $slots = $course->timeSlots->pluck('name')->values()->all();
                     foreach ($slots as $slot) {
                         $occupiedSlots->push([
                             'slot' => $slot,
@@ -107,18 +151,15 @@ class RoomAvailabilityService
                 }
             }
 
-            // 檢查單次預約
-            $bookings = $room->bookings->where('date', $dateStr)->whereNotIn('status', [2, 3]);
-            foreach ($bookings as $booking) {
-                $slots = $booking->timeSlots->pluck('name')->toArray();
-                $status = $booking->status == 0 ? 'pending' : 'approved';
-                foreach ($slots as $slot) {
+            // 檢查短期預約（新結構優先，舊資料相容）
+            foreach ($bookingsByDate[$dateStr] ?? [] as $bookingData) {
+                foreach ($bookingData['slots'] as $slot) {
                     $occupiedSlots->push([
                         'slot' => $slot,
-                        'status' => $status,
-                        'title' => $booking->reason,
-                        'applicant' => $booking->borrower ? $booking->borrower->name : null,
-                        'instructor' => $booking->teacher
+                        'status' => $bookingData['status'],
+                        'title' => $bookingData['title'],
+                        'applicant' => $bookingData['applicant'],
+                        'instructor' => $bookingData['instructor']
                     ]);
                 }
             }
@@ -139,25 +180,4 @@ class RoomAvailabilityService
         return $occupiedData;
     }
 
-    // --- 輔助函式 ---
-
-    /**
-     * 計算開始與結束 ID 之間的所有時段代號
-     */
-    private function getSlotsInRange(int $startId, int $endId): array
-    {
-        // 在已排序的集合中尋找索引位置
-        $startIndex = $this->timeSlots->search(fn($t) => $t->id == $startId);
-        $endIndex = $this->timeSlots->search(fn($t) => $t->id == $endId);
-
-        if ($startIndex === false || $endIndex === false) {
-            return [];
-        }
-
-        // 計算切片範圍
-        $start = min($startIndex, $endIndex);
-        $length = abs($endIndex - $startIndex) + 1;
-
-        return $this->timeSlots->slice($start, $length)->pluck('name')->toArray();
-    }
 }
