@@ -10,6 +10,8 @@ return new class extends Migration
 {
     public function up(): void
     {
+        $hasLegacyEmailIndex = $this->indexExists('borrowers', 'idx_borrowers_email');
+
         $duplicateEmails = DB::table('borrowers')
             ->select('email')
             ->whereNotNull('email')
@@ -52,10 +54,25 @@ return new class extends Migration
             }
         }
 
-        Schema::table('borrowers', function (Blueprint $table) {
-            $table->dropIndex('idx_borrowers_email');
+        Schema::table('borrowers', function (Blueprint $table) use ($hasLegacyEmailIndex) {
+            if ($hasLegacyEmailIndex) {
+                $table->dropIndex('idx_borrowers_email');
+            }
             $table->unique('email', 'uk_borrowers_email');
         });
+    }
+
+    private function indexExists(string $tableName, string $indexName): bool
+    {
+        try {
+            return DB::table('information_schema.statistics')
+                ->where('table_schema', DB::getDatabaseName())
+                ->where('table_name', $tableName)
+                ->where('index_name', $indexName)
+                ->exists();
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function buildUniqueAliasEmail(string $email, int $borrowerId): string

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -101,6 +102,8 @@ Artisan::command('booking:test-mail
 Artisan::command('system:check-conflicts {--date-from=} {--date-to=}', function () {
     $from = (string) ($this->option('date-from') ?: now()->subMonths(3)->toDateString());
     $to = (string) ($this->option('date-to') ?: now()->addMonths(6)->toDateString());
+    $hasBookingDeletedAt = Schema::hasColumn('bookings', 'deleted_at');
+    $hasCourseScheduleDeletedAt = Schema::hasColumn('course_schedules', 'deleted_at');
 
     $this->info('Checking booking conflicts in date range: ' . $from . ' ~ ' . $to);
 
@@ -109,7 +112,8 @@ Artisan::command('system:check-conflicts {--date-from=} {--date-to=}', function 
         ->join('bookings as b', 'b.id', '=', 'bd.booking_id')
         ->join('time_slots as ts', 'ts.id', '=', 'bdts.time_slot_id')
         ->whereBetween('bd.date', [$from, $to])
-        ->whereIn('b.status_enum', ['pending', 'approved'])
+        ->whereIn('b.status_enum', Booking::activeStatusEnums())
+        ->when($hasBookingDeletedAt, fn ($query) => $query->whereNull('b.deleted_at'))
         ->selectRaw('b.classroom_id, bd.date, bdts.time_slot_id, ts.name as slot_name, COUNT(*) as conflict_count, GROUP_CONCAT(b.id ORDER BY b.id) as booking_ids')
         ->groupBy('b.classroom_id', 'bd.date', 'bdts.time_slot_id', 'ts.name')
         ->havingRaw('COUNT(*) > 1')
@@ -139,6 +143,7 @@ Artisan::command('system:check-conflicts {--date-from=} {--date-to=}', function 
     $courseConflicts = DB::table('course_schedule_time_slots as csts')
         ->join('course_schedules as cs', 'cs.id', '=', 'csts.course_schedule_id')
         ->join('time_slots as ts', 'ts.id', '=', 'csts.time_slot_id')
+        ->when($hasCourseScheduleDeletedAt, fn ($query) => $query->whereNull('cs.deleted_at'))
         ->selectRaw('cs.semester_id, cs.classroom_id, cs.day_of_week, csts.time_slot_id, ts.name as slot_name, COUNT(*) as conflict_count, GROUP_CONCAT(cs.id ORDER BY cs.id) as schedule_ids')
         ->groupBy('cs.semester_id', 'cs.classroom_id', 'cs.day_of_week', 'csts.time_slot_id', 'ts.name')
         ->havingRaw('COUNT(*) > 1')
