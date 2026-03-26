@@ -228,6 +228,10 @@ const bookingFlow = useBookingFlow({
         targetRoom.value = null;
         selectedSlots.value = [];
     },
+    onSubmitSuccess: () => {
+        selectedSlots.value = [];
+        currentStep.value = 1;
+    },
 });
 
 const {
@@ -250,8 +254,6 @@ watch(
     () => page.props.flash?.success,
     (successMessage) => {
         if (!successMessage || typeof successMessage !== 'string') return;
-        selectedSlots.value = [];
-        currentStep.value = 1;
         openFeedbackModal('申請已送出', successMessage, 'success');
     },
     { immediate: true },

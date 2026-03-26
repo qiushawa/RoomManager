@@ -23,10 +23,11 @@ export interface UseBookingFlowOptions {
     getTargetRoom: () => Room | null;
     getSelectedSlots: () => SelectedSlot[];
     onReset?: () => void;
+    onSubmitSuccess?: () => void;
 }
 
 export function useBookingFlow(options: UseBookingFlowOptions) {
-    const { getTargetRoom, getSelectedSlots, onReset } = options;
+    const { getTargetRoom, getSelectedSlots, onReset, onSubmitSuccess } = options;
 
     // 當前步驟
     const currentStep = ref<Step>(1);
@@ -164,6 +165,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             preserveScroll: true,
             onSuccess: () => {
                 showBookingFormModal.value = false;
+                onSubmitSuccess?.();
             },
             onError: (errors) => {
                 const firstError =
