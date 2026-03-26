@@ -5,7 +5,7 @@
                 <div class="flex items-center gap-2">
                     <button @click="$emit('change-week', -1)"
                         class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-blue-600 active:scale-95"
-                        title="上一週">
+                        :title="prevTitle">
                         <span class="text-xl leading-none">‹</span>
                     </button>
 
@@ -14,7 +14,7 @@
 
                     <button @click="$emit('change-week', 1)"
                         class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-blue-600 active:scale-95"
-                        title="下一週">
+                        :title="nextTitle">
                         <span class="text-xl leading-none">›</span>
                     </button>
 
@@ -68,8 +68,9 @@
  */
 import { DatePicker } from '@/components/schedule';
 import type { Step } from '@/types';
+import { computed } from 'vue';
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         /** 當前步驟 */
         currentStep: Step;
@@ -79,13 +80,19 @@ withDefaults(
         formattedDate?: string;
         /** 日期字串 (YYYY-MM-DD) */
         currentDateString?: string;
+        /** 導航模式：週或天 */
+        navigationMode?: 'week' | 'day';
     }>(),
     {
         selectedCount: 0,
         formattedDate: '',
         currentDateString: '',
+        navigationMode: 'week',
     },
 );
+
+const prevTitle = computed(() => (props.navigationMode === 'day' ? '上一天' : '上一週'));
+const nextTitle = computed(() => (props.navigationMode === 'day' ? '下一天' : '下一週'));
 
 defineEmits<{
     (e: 'change-week', offset: number): void;

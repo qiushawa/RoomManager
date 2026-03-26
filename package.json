@@ -1,6 +1,7 @@
 {
     "private": true,
     "type": "module",
+    "version": "1.1.1-beta",
     "scripts": {
         "build": "vite build",
         "build:ssr": "vite build && vite build --ssr",

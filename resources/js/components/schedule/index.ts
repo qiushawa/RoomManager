@@ -8,6 +8,7 @@
  */
 
 export { default as DatePicker } from './DatePicker.vue';
+export { default as ClassroomOverviewGrid } from './ClassroomOverviewGrid.vue';
 export { default as OccupiedTooltip } from './OccupiedTooltip.vue';
 export { default as ScheduleGrid } from './ScheduleGrid.vue';
 export { default as ScheduleToolbar } from './ScheduleToolbar.vue';

@@ -34,6 +34,7 @@ export {
 // 課表時段模組 (Schedule)
 // ============================================================
 export {
+    ClassroomOverviewGrid,
     DatePicker,
     ScheduleGrid,
     ScheduleToolbar,
