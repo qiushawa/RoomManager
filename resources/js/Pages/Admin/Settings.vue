@@ -130,13 +130,7 @@ import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BaseModal } from '@/components';
 import AdminLayout from '@/layouts/AdminLayout.vue';
-
-interface SemesterItem {
-    id: number;
-    display_name: string;
-    start_date: string;
-    end_date: string;
-}
+import type { SemesterItem } from '@/types';
 
 defineProps<{
     currentSemester: string | null;

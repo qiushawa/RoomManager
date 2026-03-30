@@ -309,8 +309,8 @@ class AdminController extends Controller
                 return $room;
             });
 
-        // Time slots (exclude lunch break) for the manual form period picker
-        $timeSlots = TimeSlot::where('name', '!=', '午休')
+        // Time slots for the manual form period picker (includes lunch break)
+        $timeSlots = TimeSlot::query()
             ->orderBy('start_time')
             ->get(['id', 'name']);
 
@@ -388,54 +388,23 @@ class AdminController extends Controller
             ]);
         }
 
-        $year = (int) $semester->academic_year;
-        $seme = (int) $semester->semester;
-        $category = (string) Setting::get('course_import_category', 'B');
-        $selectedBuildingCode = $this->validateSingleBuildingSelection($classrooms);
-        if (!$selectedBuildingCode) {
-            return back()->withErrors([
-                'classroom_ids' => '只能批量匯入同一大樓教室（CB、GC、RA）。',
-            ]);
-        }
-
-        $building = $this->resolveImportBuildingValue($selectedBuildingCode);
-
-        $payload = [
-            'year' => $year,
-            'seme' => $seme,
-            'category' => $category,
-            'building' => $building,
-            'classrooms' => $classrooms
-                ->map(fn ($room) => "{$room->code},{$room->code}-{$room->name}")
-                ->values()
-                ->all(),
-        ];
-
         $periodToSlotId = $this->buildPeriodToSlotIdMap();
         if (empty($periodToSlotId)) {
             return back()->withErrors(['import' => '時段資料不足，請先建立 time_slots。']);
         }
 
-        $importUrl = config('services.nfu_schedule_import.url');
-
         try {
-            $response = Http::timeout(45)
-                ->acceptJson()
-                ->post($importUrl, $payload);
+            $importedSchedules = $this->fetchImportedSchedulesForClassrooms(
+                $semester,
+                $classrooms,
+                $periodToSlotId
+            );
         } catch (\Throwable $e) {
             return back()->withErrors([
-                'import' => '課表匯入服務連線失敗，請確認匯入服務是否啟動。',
+                'import' => $e->getMessage(),
             ]);
         }
 
-        if (!$response->successful()) {
-            return back()->withErrors([
-                'import' => '課表匯入服務回應錯誤：HTTP ' . $response->status(),
-            ]);
-        }
-
-        $data = $response->json();
-        $importedSchedules = $this->normalizeImportedSchedules($data, $semester->id, $classrooms, $periodToSlotId);
         $semesterStartDate = $semester->start_date?->format('Y-m-d');
         $semesterEndDate = $semester->end_date?->format('Y-m-d');
 
@@ -487,58 +456,22 @@ class AdminController extends Controller
             ]);
         }
 
-        $year = (int) $semester->academic_year;
-        $seme = (int) $semester->semester;
-        $category = (string) Setting::get('course_import_category', 'B');
-        $selectedBuildingCode = $this->validateSingleBuildingSelection($classrooms);
-        if (!$selectedBuildingCode) {
-            return back()->withErrors([
-                'classroom_ids' => '只能批量匯入同一大樓教室（CB、GC、RA）。',
-            ]);
-        }
-
-        $building = $this->resolveImportBuildingValue($selectedBuildingCode);
-
-        $payload = [
-            'year' => $year,
-            'seme' => $seme,
-            'category' => $category,
-            'building' => $building,
-            'classrooms' => $classrooms
-                ->map(fn ($room) => "{$room->code},{$room->code}-{$room->name}")
-                ->values()
-                ->all(),
-        ];
-
         $periodToSlotId = $this->buildPeriodToSlotIdMap();
         if (empty($periodToSlotId)) {
             return back()->withErrors(['import' => '時段資料不足，請先建立 time_slots。']);
         }
 
-        $importUrl = config('services.nfu_schedule_import.url');
-
         try {
-            $response = Http::timeout(45)
-                ->acceptJson()
-                ->post($importUrl, $payload);
+            $rows = $this->fetchImportedSchedulesForClassrooms(
+                $semester,
+                $classrooms,
+                $periodToSlotId
+            );
         } catch (\Throwable $e) {
             return back()->withErrors([
-                'import' => '課表匯入服務連線失敗，請確認匯入服務是否啟動。',
+                'import' => $e->getMessage(),
             ]);
         }
-
-        if (!$response->successful()) {
-            return back()->withErrors([
-                'import' => '課表匯入服務回應錯誤：HTTP ' . $response->status(),
-            ]);
-        }
-
-        $rows = $this->normalizeImportedSchedules(
-            $response->json(),
-            $semester->id,
-            $classrooms,
-            $periodToSlotId
-        );
 
         DB::transaction(function () use ($semester, $classroomIds, $rows) {
             CourseSchedule::where('semester_id', $semester->id)
@@ -622,6 +555,7 @@ class AdminController extends Controller
 
         $payload = [
             'status_enum' => $nextStatusEnum,
+            'level' => Booking::levelForStatus($nextStatusEnum),
         ];
 
         if ($nextStatusEnum === Booking::STATUS_APPROVED) {
@@ -929,6 +863,23 @@ class AdminController extends Controller
     }
 
     /**
+     * 手動長期借用使用的 1-based 節次對應時段 ID（包含午休）
+     */
+    private function buildManualPeriodToSlotIdMap(): array
+    {
+        $slots = TimeSlot::query()
+            ->orderBy('start_time')
+            ->get(['id']);
+
+        $map = [];
+        foreach ($slots->values() as $index => $slot) {
+            $map[$index + 1] = $slot->id;
+        }
+
+        return $map;
+    }
+
+    /**
      * 將匯入服務回傳資料轉為 course_schedules 欄位格式
      */
     private function normalizeImportedSchedules($raw, int $semesterId, $classrooms, array $periodToSlotId): array
@@ -1089,6 +1040,70 @@ class AdminController extends Controller
     }
 
     /**
+     * 依教室大樓分批呼叫匯入服務，並合併結果
+     *
+     * @throws \RuntimeException
+     */
+    private function fetchImportedSchedulesForClassrooms(Semester $semester, Collection $classrooms, array $periodToSlotId): array
+    {
+        $groupedClassrooms = $classrooms
+            ->groupBy(fn ($room) => $this->extractBuildingCode((string) $room->code) ?? '__UNKNOWN_BUILDING__');
+
+        if ($groupedClassrooms->has('__UNKNOWN_BUILDING__')) {
+            throw new \RuntimeException('教室代碼無法判斷大樓，僅支援 CB、GC、RA。');
+        }
+
+        $year = (int) $semester->academic_year;
+        $seme = (int) $semester->semester;
+        $category = (string) Setting::get('course_import_category', 'B');
+        $importUrl = config('services.nfu_schedule_import.url');
+
+        $allRows = [];
+
+        foreach ($groupedClassrooms as $buildingCode => $roomsInBuilding) {
+            $roomsInBuilding = $roomsInBuilding->values();
+
+            $payload = [
+                'year' => $year,
+                'seme' => $seme,
+                'category' => $category,
+                'building' => $this->resolveImportBuildingValue((string) $buildingCode),
+                'classrooms' => $roomsInBuilding
+                    ->map(fn ($room) => "{$room->code},{$room->code}-{$room->name}")
+                    ->values()
+                    ->all(),
+            ];
+
+            try {
+                $response = Http::timeout(45)
+                    ->acceptJson()
+                    ->post($importUrl, $payload);
+            } catch (\Throwable $e) {
+                throw new \RuntimeException(
+                    sprintf('課表匯入服務連線失敗（%s 棟），請確認匯入服務是否啟動。', strtoupper((string) $buildingCode))
+                );
+            }
+
+            if (!$response->successful()) {
+                throw new \RuntimeException(
+                    sprintf('課表匯入服務回應錯誤（%s 棟）：HTTP %d', strtoupper((string) $buildingCode), $response->status())
+                );
+            }
+
+            $rows = $this->normalizeImportedSchedules(
+                $response->json(),
+                $semester->id,
+                $roomsInBuilding,
+                $periodToSlotId
+            );
+
+            $allRows = array_merge($allRows, $rows);
+        }
+
+        return $allRows;
+    }
+
+    /**
      * 手動新增長期借用記錄
      */
     public function previewManualLongTermBorrowingConflicts(Request $request)
@@ -1102,13 +1117,14 @@ class AdminController extends Controller
                 'conflicts' => [],
                 'summary' => [
                     'total' => 0,
-                    'protected' => 0,
-                    'overridable' => 0,
+                    'schedule' => 0,
+                    'approved_short_term' => 0,
+                    'pending_short_term' => 0,
                 ],
             ], 422);
         }
 
-        $periodToSlotId = $this->buildPeriodToSlotIdMap();
+        $periodToSlotId = $this->buildManualPeriodToSlotIdMap();
         $analysis = $this->analyzeManualConflicts($validated, $currentSemester, $periodToSlotId);
 
         return response()->json([
@@ -1116,16 +1132,61 @@ class AdminController extends Controller
             'conflicts' => $analysis['conflicts'],
             'summary' => [
                 'total' => count($analysis['conflicts']),
-                'protected' => $analysis['protected_count'],
-                'overridable' => $analysis['overridable_count'],
+                'schedule' => $analysis['schedule_conflict_count'],
+                'approved_short_term' => $analysis['approved_short_term_count'],
+                'pending_short_term' => $analysis['pending_short_term_count'],
             ],
+        ]);
+    }
+
+    /**
+     * 立即執行手動長借衝突處理動作
+     */
+    public function resolveManualLongTermConflict(Request $request, BookingSlotLockService $bookingSlotLockService)
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:cancel_slot,review_pending,reject_and_override,defer_to_short_term,override_with_long_term'],
+            'booking_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $action = (string) $validated['action'];
+
+        if ($action === 'review_pending') {
+            return response()->json([
+                'message' => '請前往審核清單處理未審核短期借用。',
+                'redirect' => '/admin/reviews?from=long-term-borrowing',
+            ]);
+        }
+
+        if ($action === 'cancel_slot' || $action === 'defer_to_short_term') {
+            return response()->json([
+                'message' => '衝突處理已套用。',
+            ]);
+        }
+
+        $bookingId = (int) ($validated['booking_id'] ?? 0);
+
+        if ($bookingId <= 0) {
+            return response()->json([
+                'message' => '缺少短期借用識別資訊，請重新整理後再試。',
+            ], 422);
+        }
+
+        $managerId = (int) (auth()->guard('admin')->id() ?? 0);
+
+        DB::transaction(function () use ($bookingId, $managerId, $bookingSlotLockService) {
+            $this->rejectBookingsByIds([$bookingId], $managerId, $bookingSlotLockService, Booking::activeStatusEnums());
+        });
+
+        return response()->json([
+            'message' => '衝突處理已執行，該短期借用已整筆駁回。',
         ]);
     }
 
     /**
      * 手動新增長期借用記錄
      */
-    public function storeManualLongTermBorrowing(Request $request)
+    public function storeManualLongTermBorrowing(Request $request, BookingSlotLockService $bookingSlotLockService)
     {
         $validated = $this->validateManualLongTermBorrowingPayload($request, true);
 
@@ -1134,14 +1195,239 @@ class AdminController extends Controller
             return back()->withErrors(['semester' => '目前沒有設定中的學期，請先建立學期資料。']);
         }
 
-        $periodToSlotId = $this->buildPeriodToSlotIdMap();
+        $periodToSlotId = $this->buildManualPeriodToSlotIdMap();
         $analysis = $this->analyzeManualConflicts($validated, $currentSemester, $periodToSlotId);
-
-        if (count($analysis['conflicts']) > 0) {
-            return back()->withErrors(['periods' => '存在衝突記錄，請先調整條件至無衝突後再送出。']);
-        }
+        $conflictResolution = $validated['conflict_resolution'] ?? [];
+        $slotResolutions = collect($validated['slot_resolutions'] ?? [])
+            ->mapWithKeys(fn ($value, $key) => [(string) $key => (string) $value])
+            ->filter(fn ($value) => $value !== '')
+            ->all();
+        $hasSlotResolutions = !empty($slotResolutions);
 
         $selectedByDay = $analysis['selected_by_day'];
+        $pendingResolution = $conflictResolution['pending_short_term'] ?? null;
+        $pendingRejectBookingIds = [];
+        $approvedRejectBookingIds = [];
+
+        if ($hasSlotResolutions) {
+            $kindPriority = [
+                'short_term_pending' => 1,
+                'short_term_approved' => 2,
+                'schedule' => 3,
+            ];
+            $conflictKindBySlot = [];
+            $hasPendingReviewResolution = false;
+            $hasUnresolvedPendingConflict = false;
+            $hasUnresolvedApprovedConflict = false;
+
+            foreach ($analysis['conflicts'] as $conflict) {
+                $conflictKind = (string) ($conflict['conflict_kind'] ?? '');
+                $periods = collect($conflict['overlap_periods'] ?? [])
+                    ->map(fn ($period) => (int) $period)
+                    ->filter(fn ($period) => $period > 0)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (empty($periods)) {
+                    continue;
+                }
+
+                $weekdays = [];
+                if ($conflictKind === 'schedule') {
+                    $weekday = (int) ($conflict['day_of_week'] ?? 0);
+                    if ($weekday >= 1 && $weekday <= 7) {
+                        $weekdays[] = $weekday;
+                    }
+                } else {
+                    $weekdays = collect($conflict['conflict_dates'] ?? [])
+                        ->map(function ($dateText) {
+                            if (!is_string($dateText) || $dateText === '') {
+                                return null;
+                            }
+                            $timestamp = strtotime($dateText);
+                            if ($timestamp === false) {
+                                return null;
+                            }
+                            return (int) date('N', $timestamp);
+                        })
+                        ->filter(fn ($weekday) => is_int($weekday) && $weekday >= 1 && $weekday <= 7)
+                        ->unique()
+                        ->values()
+                        ->all();
+                }
+
+                foreach ($weekdays as $weekday) {
+                    foreach ($periods as $period) {
+                        $slotKey = $this->buildManualConflictSlotKey((int) $weekday, (int) $period);
+                        $existingKind = $conflictKindBySlot[$slotKey] ?? null;
+                        if (!$existingKind || ($kindPriority[$conflictKind] ?? 0) > ($kindPriority[$existingKind] ?? 0)) {
+                            $conflictKindBySlot[$slotKey] = $conflictKind;
+                        }
+                    }
+                }
+
+                $conflictSlots = collect($conflict['conflict_slots'] ?? [])
+                    ->filter(fn ($slot) => is_array($slot))
+                    ->values();
+
+                if (in_array($conflictKind, ['short_term_pending', 'short_term_approved'], true)) {
+                    $bookingId = (int) ($conflict['booking_id'] ?? 0);
+
+                    $bookingActions = $conflictSlots
+                        ->map(function ($slot) use ($bookingId, $slotResolutions) {
+                            $slotKey = (string) ($slot['slot_key'] ?? '');
+                            if ($slotKey === '') {
+                                $weekday = (int) ($slot['day_of_week'] ?? 0);
+                                $period = (int) ($slot['period'] ?? 0);
+                                if ($weekday >= 1 && $weekday <= 7 && $period > 0) {
+                                    $slotKey = $this->buildManualConflictSlotKey($weekday, $period);
+                                }
+                            }
+
+                            if ($slotKey === '') {
+                                return null;
+                            }
+
+                            $bookingDateId = (int) ($slot['booking_date_id'] ?? 0);
+                            $timeSlotId = (int) ($slot['time_slot_id'] ?? 0);
+
+                            $resolutionKey = ($bookingDateId > 0 && $timeSlotId > 0)
+                                ? $this->buildManualConflictResolutionKey($slotKey, $bookingDateId, $timeSlotId)
+                                : null;
+                            $legacyBookingKey = $bookingId > 0
+                                ? $this->buildManualConflictLegacyResolutionKey($slotKey, $bookingId)
+                                : null;
+
+                            return $resolutionKey
+                                ? ($slotResolutions[$resolutionKey] ?? $slotResolutions[$slotKey] ?? ($legacyBookingKey ? ($slotResolutions[$legacyBookingKey] ?? null) : null))
+                                : ($slotResolutions[$slotKey] ?? ($legacyBookingKey ? ($slotResolutions[$legacyBookingKey] ?? null) : null));
+                        })
+                        ->filter(fn ($action) => is_string($action) && $action !== '')
+                        ->values();
+
+                    if ($conflictKind === 'short_term_pending') {
+                        if ($bookingActions->contains('review_pending')) {
+                            $hasPendingReviewResolution = true;
+                            continue;
+                        }
+
+                        if ($bookingActions->contains('reject_and_override')) {
+                            if ($bookingId > 0) {
+                                $pendingRejectBookingIds[] = $bookingId;
+                            }
+                            continue;
+                        }
+
+                        $hasUnresolvedPendingConflict = true;
+                        continue;
+                    }
+
+                    if ($bookingActions->contains('defer_to_short_term')) {
+                        continue;
+                    }
+
+                    if ($bookingActions->contains('override_with_long_term')) {
+                        if ($bookingId > 0) {
+                            $approvedRejectBookingIds[] = $bookingId;
+                        }
+                        continue;
+                    }
+
+                    $hasUnresolvedApprovedConflict = true;
+                    continue;
+                }
+
+                if ($conflictSlots->isNotEmpty()) {
+                    foreach ($conflictSlots as $slot) {
+                        $slotKey = (string) ($slot['slot_key'] ?? '');
+                        if ($slotKey === '') {
+                            $weekday = (int) ($slot['day_of_week'] ?? 0);
+                            $period = (int) ($slot['period'] ?? 0);
+                            if ($weekday >= 1 && $weekday <= 7 && $period > 0) {
+                                $slotKey = $this->buildManualConflictSlotKey($weekday, $period);
+                            }
+                        }
+
+                        if ($slotKey === '') {
+                            continue;
+                        }
+
+                        // 保留對非短借衝突資料的向後相容掃描（目前主要是 schedule）。
+                    }
+                }
+            }
+
+            if ($hasPendingReviewResolution) {
+                return back()->withErrors(['periods' => '偵測到未審核短期借用，請先前往審核清單處理後再新增。']);
+            }
+
+            if ($hasUnresolvedPendingConflict) {
+                return back()->withErrors(['periods' => '請先處理未審核短期借用衝突。']);
+            }
+
+            if ($hasUnresolvedApprovedConflict) {
+                return back()->withErrors(['periods' => '請先處理已審核短期借用衝突。']);
+            }
+
+            foreach ($selectedByDay as $weekday => $periods) {
+                $keptPeriods = [];
+                foreach ($periods as $period) {
+                    $slotKey = $this->buildManualConflictSlotKey((int) $weekday, (int) $period);
+                    $kind = $conflictKindBySlot[$slotKey] ?? null;
+                    $action = $slotResolutions[$slotKey] ?? null;
+
+                    if (!$kind) {
+                        $keptPeriods[] = (int) $period;
+                        continue;
+                    }
+
+                    if ($kind === 'schedule') {
+                        if ($action !== 'cancel_slot') {
+                            return back()->withErrors(['periods' => '存在課表衝突，請點擊衝突格選擇「取消該節」。']);
+                        }
+                        continue;
+                    }
+
+                    if ($kind === 'short_term_pending') {
+                        $keptPeriods[] = (int) $period;
+                        continue;
+                    }
+
+                    if ($kind === 'short_term_approved') {
+                        // defer_to_short_term 僅處理當前衝突筆，不排除整個週期節次。
+                        $keptPeriods[] = (int) $period;
+                    }
+                }
+
+                $selectedByDay[$weekday] = collect($keptPeriods)
+                    ->map(fn ($period) => (int) $period)
+                    ->filter(fn ($period) => $period > 0)
+                    ->unique()
+                    ->sort()
+                    ->values()
+                    ->all();
+            }
+        } else {
+            if (($analysis['schedule_conflict_count'] ?? 0) > 0) {
+                return back()->withErrors(['periods' => '存在課表衝突，請先調整時段後再送出。']);
+            }
+
+            if (($analysis['approved_short_term_count'] ?? 0) > 0 && ($conflictResolution['approved_short_term'] ?? null) !== 'keep_short_term') {
+                return back()->withErrors(['periods' => '請先確認「保留短期借用節數」後再送出。']);
+            }
+
+            $pendingConflictCount = (int) ($analysis['pending_short_term_count'] ?? 0);
+            if ($pendingConflictCount > 0) {
+                if ($pendingResolution === 'review_pending') {
+                    return back()->withErrors(['periods' => '偵測到未審核短期借用，請先前往審核清單處理後再新增。']);
+                }
+
+                if ($pendingResolution !== 'reject_and_override') {
+                    return back()->withErrors(['periods' => '請選擇未審核短期借用的處理方式。']);
+                }
+            }
+        }
 
         $slotGroupsByDay = [];
         foreach ($selectedByDay as $weekday => $periodIndexes) {
@@ -1173,7 +1459,42 @@ class AdminController extends Controller
             return back()->withErrors(['periods' => '所選節次皆與既有課表衝突，沒有可新增的時段。']);
         }
 
-        DB::transaction(function () use ($rows) {
+        $rejectedCount = 0;
+        $managerId = auth()->guard('admin')->id();
+
+        DB::transaction(function () use (
+            $rows,
+            $analysis,
+            $pendingResolution,
+            $pendingRejectBookingIds,
+            $approvedRejectBookingIds,
+            $hasSlotResolutions,
+            $managerId,
+            $bookingSlotLockService,
+            &$rejectedCount
+        ) {
+            if ($hasSlotResolutions) {
+                $rejectedCount += $this->rejectBookingsByIds(
+                    array_merge($pendingRejectBookingIds, $approvedRejectBookingIds),
+                    (int) $managerId,
+                    $bookingSlotLockService,
+                    Booking::activeStatusEnums()
+                );
+            } elseif ($pendingResolution === 'reject_and_override') {
+                $pendingIds = collect($analysis['pending_conflict_booking_ids'] ?? [])
+                    ->map(fn ($id) => (int) $id)
+                    ->filter(fn ($id) => $id > 0)
+                    ->unique()
+                    ->values();
+
+                $rejectedCount += $this->rejectBookingsByIds(
+                    $pendingIds->all(),
+                    (int) $managerId,
+                    $bookingSlotLockService,
+                    [Booking::STATUS_PENDING]
+                );
+            }
+
             foreach ($rows as $row) {
                 $timeSlotIds = $row['time_slot_ids'] ?? [];
                 unset($row['time_slot_ids']);
@@ -1184,6 +1505,11 @@ class AdminController extends Controller
         });
 
         $message = '長期借用記錄已新增，共 ' . count($rows) . ' 筆。';
+        if ($rejectedCount > 0) {
+            $message .= $hasSlotResolutions
+                ? ' 已同步駁回 ' . $rejectedCount . ' 筆短期借用申請。'
+                : ' 已覆蓋並拒絕 ' . $rejectedCount . ' 筆未審核短期借用。';
+        }
 
         return back()->with('success', $message);
     }
@@ -1205,6 +1531,11 @@ class AdminController extends Controller
             'periods_by_day' => ['nullable', 'array'],
             'periods_by_day.*' => ['array', 'min:1'],
             'periods_by_day.*.*' => ['integer', 'min:1'],
+            'conflict_resolution' => ['nullable', 'array'],
+            'conflict_resolution.approved_short_term' => ['nullable', 'string', 'in:keep_short_term'],
+            'conflict_resolution.pending_short_term' => ['nullable', 'string', 'in:review_pending,reject_and_override'],
+            'slot_resolutions' => ['nullable', 'array'],
+            'slot_resolutions.*' => ['nullable', 'string', 'in:cancel_slot,review_pending,reject_and_override,defer_to_short_term,override_with_long_term'],
         ];
 
         return $request->validate($rules);
@@ -1231,8 +1562,11 @@ class AdminController extends Controller
         if (!$hasSelectableSlot) {
             return [
                 'conflicts' => [],
-                'protected_count' => 0,
-                'overridable_count' => 0,
+                'schedule_conflict_count' => 0,
+                'approved_short_term_count' => 0,
+                'pending_short_term_count' => 0,
+                'pending_conflict_booking_ids' => [],
+                'approved_conflict_booking_ids' => [],
                 'selected_by_day' => $selectedByDay,
             ];
         }
@@ -1272,8 +1606,7 @@ class AdminController extends Controller
             ->get();
 
         $conflicts = [];
-        $protectedCount = 0;
-        $overridableCount = 0;
+        $scheduleConflictCount = 0;
 
         foreach ($rows as $row) {
             $weekday = (int) $row->day_of_week;
@@ -1311,15 +1644,11 @@ class AdminController extends Controller
             }
 
             $type = $this->resolveScheduleType($row->type);
-            $isProtected = $type === 'course';
-            if ($isProtected) {
-                $protectedCount++;
-            } else {
-                $overridableCount++;
-            }
+            $scheduleConflictCount++;
 
             $conflicts[] = [
                 'id' => (int) $row->id,
+                'conflict_kind' => 'schedule',
                 'day_of_week' => $weekday,
                 'start_slot' => (string) ($row->timeSlots->sortBy('start_time')->pluck('name')->first() ?? ''),
                 'end_slot' => (string) ($row->timeSlots->sortBy('start_time')->pluck('name')->last() ?? ''),
@@ -1329,17 +1658,313 @@ class AdminController extends Controller
                 'source_label' => $this->manualConflictSourceLabel($type),
                 'course_name' => (string) ($row->course_name ?? ''),
                 'teacher_name' => (string) ($row->teacher_name ?? ''),
-                'is_protected' => $isProtected,
+                'is_protected' => true,
                 'overlap_periods' => $overlapPeriods,
+                'conflict_dates' => [],
+                'booking_id' => null,
+                'booking_status' => null,
+                'applicant_name' => '',
+            ];
+        }
+
+        $shortTermAnalysis = $this->analyzeShortTermBookingConflicts(
+            (int) $validated['classroom_id'],
+            $validated['start_date'],
+            $validated['end_date'],
+            $selectedSlotIdsByDay,
+            $slotIdToPeriod
+        );
+
+        $conflicts = [...$conflicts, ...$shortTermAnalysis['conflicts']];
+
+        return [
+            'conflicts' => $conflicts,
+            'schedule_conflict_count' => $scheduleConflictCount,
+            'approved_short_term_count' => $shortTermAnalysis['approved_count'],
+            'pending_short_term_count' => $shortTermAnalysis['pending_count'],
+            'pending_conflict_booking_ids' => $shortTermAnalysis['pending_booking_ids'],
+            'approved_conflict_booking_ids' => $shortTermAnalysis['approved_booking_ids'],
+            'selected_by_day' => $selectedByDay,
+        ];
+    }
+
+    private function analyzeShortTermBookingConflicts(
+        int $classroomId,
+        string $startDate,
+        string $endDate,
+        array $selectedSlotIdsByDay,
+        array $slotIdToPeriod
+    ): array {
+        $bookings = Booking::with(['borrower', 'bookingDates.timeSlots'])
+            ->where('classroom_id', $classroomId)
+            ->whereIn('status_enum', Booking::activeStatusEnums())
+            ->whereHas('bookingDates', function ($query) use ($startDate, $endDate) {
+                $query->whereDate('date', '>=', $startDate)
+                    ->whereDate('date', '<=', $endDate);
+            })
+            ->get();
+
+        $aggregated = [];
+
+        foreach ($bookings as $booking) {
+            foreach ($booking->bookingDates as $bookingDate) {
+                $dateText = $bookingDate->date?->format('Y-m-d');
+                if (!$dateText || $dateText < $startDate || $dateText > $endDate) {
+                    continue;
+                }
+
+                $weekday = (int) date('N', strtotime($dateText));
+                $selectedSlotIds = $selectedSlotIdsByDay[$weekday] ?? [];
+                if (empty($selectedSlotIds)) {
+                    continue;
+                }
+
+                $bookingSlotIds = $bookingDate->timeSlots
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if (empty($bookingSlotIds)) {
+                    continue;
+                }
+
+                $overlapSlotIds = array_values(array_intersect($selectedSlotIds, $bookingSlotIds));
+                if (empty($overlapSlotIds)) {
+                    continue;
+                }
+
+                $bookingId = (int) $booking->id;
+                if (!isset($aggregated[$bookingId])) {
+                    $aggregated[$bookingId] = [
+                        'booking' => $booking,
+                        'periods' => [],
+                        'dates' => [],
+                        'slots' => [],
+                    ];
+                }
+
+                foreach ($overlapSlotIds as $slotId) {
+                    $period = $slotIdToPeriod[(int) $slotId] ?? null;
+                    if ($period) {
+                        $aggregated[$bookingId]['periods'][] = (int) $period;
+                        $aggregated[$bookingId]['slots'][] = [
+                            'slot_key' => $this->buildManualConflictSlotKey($weekday, (int) $period),
+                            'day_of_week' => $weekday,
+                            'period' => (int) $period,
+                            'date' => $dateText,
+                            'booking_date_id' => (int) $bookingDate->id,
+                            'time_slot_id' => (int) $slotId,
+                        ];
+                    }
+                }
+
+                $aggregated[$bookingId]['dates'][] = $dateText;
+            }
+        }
+
+        $approvedCount = 0;
+        $pendingCount = 0;
+        $approvedBookingIds = [];
+        $pendingBookingIds = [];
+        $conflicts = [];
+
+        foreach ($aggregated as $bookingId => $item) {
+            /** @var Booking $booking */
+            $booking = $item['booking'];
+            $statusEnum = (string) $booking->status_enum;
+            $isPending = $statusEnum === Booking::STATUS_PENDING;
+
+            if ($isPending) {
+                $pendingCount++;
+                $pendingBookingIds[] = (int) $bookingId;
+            } else {
+                $approvedCount++;
+                $approvedBookingIds[] = (int) $bookingId;
+            }
+
+            $overlapPeriods = collect($item['periods'])
+                ->map(fn ($period) => (int) $period)
+                ->filter(fn ($period) => $period > 0)
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $conflictDates = collect($item['dates'])
+                ->filter(fn ($date) => is_string($date) && $date !== '')
+                ->unique()
+                ->sort()
+                ->values()
+                ->all();
+
+            $conflictSlots = collect($item['slots'])
+                ->filter(fn ($slot) => is_array($slot))
+                ->unique(fn ($slot) => ($slot['booking_date_id'] ?? '0') . ':' . ($slot['time_slot_id'] ?? '0'))
+                ->values()
+                ->all();
+
+            $conflicts[] = [
+                'id' => 1000000000 + (int) $bookingId,
+                'conflict_kind' => $isPending ? 'short_term_pending' : 'short_term_approved',
+                'day_of_week' => 0,
+                'start_slot' => '',
+                'end_slot' => '',
+                'start_date' => $conflictDates[0] ?? null,
+                'end_date' => $conflictDates[count($conflictDates) - 1] ?? null,
+                'type' => 'borrowed',
+                'source_label' => $isPending ? '未審核短期借用' : '已審核短期借用',
+                'course_name' => '',
+                'teacher_name' => (string) ($booking->teacher ?? ''),
+                'is_protected' => !$isPending,
+                'overlap_periods' => $overlapPeriods,
+                'conflict_dates' => $conflictDates,
+                'booking_id' => (int) $bookingId,
+                'booking_status' => $statusEnum,
+                'applicant_name' => (string) ($booking->borrower?->name ?? ''),
+                'conflict_slots' => $conflictSlots,
             ];
         }
 
         return [
             'conflicts' => $conflicts,
-            'protected_count' => $protectedCount,
-            'overridable_count' => $overridableCount,
-            'selected_by_day' => $selectedByDay,
+            'approved_count' => $approvedCount,
+            'pending_count' => $pendingCount,
+            'approved_booking_ids' => array_values(array_unique($approvedBookingIds)),
+            'pending_booking_ids' => array_values(array_unique($pendingBookingIds)),
         ];
+    }
+
+    private function buildManualConflictSlotKey(int $dayOfWeek, int $period): string
+    {
+        return $dayOfWeek . ':' . $period;
+    }
+
+    private function buildManualConflictResolutionKey(string $slotKey, int $bookingDateId, int $timeSlotId): string
+    {
+        return $slotKey . '|bd:' . $bookingDateId . '|ts:' . $timeSlotId;
+    }
+
+    private function buildManualConflictLegacyResolutionKey(string $slotKey, int $bookingId): string
+    {
+        return $slotKey . '|booking:' . $bookingId;
+    }
+
+    private function rejectBookingsByIds(
+        array $bookingIds,
+        int $managerId,
+        BookingSlotLockService $bookingSlotLockService,
+        array $allowedStatuses
+    ): int {
+        $normalizedIds = collect($bookingIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values();
+
+        if ($normalizedIds->isEmpty()) {
+            return 0;
+        }
+
+        $bookings = Booking::with('bookingDates.timeSlots')
+            ->whereIn('id', $normalizedIds->all())
+            ->whereIn('status_enum', $allowedStatuses)
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($bookings as $booking) {
+            $booking->status_enum = Booking::STATUS_REJECTED;
+            $booking->level = Booking::levelForStatus(Booking::STATUS_REJECTED);
+            $booking->rejected_by = $managerId > 0 ? $managerId : null;
+            $booking->rejected_at = now();
+            $booking->approved_by = null;
+            $booking->approved_at = null;
+            $booking->save();
+
+            $bookingSlotLockService->syncForBooking($booking);
+        }
+
+        return $bookings->count();
+    }
+
+    private function applyBookingSlotOverrides(array $mutations, int $managerId, BookingSlotLockService $bookingSlotLockService): int
+    {
+        $normalized = collect($mutations)
+            ->filter(fn ($mutation) => is_array($mutation))
+            ->map(function ($mutation) {
+                return [
+                    'booking_id' => (int) ($mutation['booking_id'] ?? 0),
+                    'booking_date_id' => (int) ($mutation['booking_date_id'] ?? 0),
+                    'time_slot_id' => (int) ($mutation['time_slot_id'] ?? 0),
+                ];
+            })
+            ->filter(fn ($mutation) => $mutation['booking_id'] > 0 && $mutation['booking_date_id'] > 0 && $mutation['time_slot_id'] > 0)
+            ->unique(fn ($mutation) => $mutation['booking_date_id'] . ':' . $mutation['time_slot_id'])
+            ->values();
+
+        if ($normalized->isEmpty()) {
+            return 0;
+        }
+
+        $bookingIds = $normalized
+            ->pluck('booking_id')
+            ->unique()
+            ->values();
+
+        $bookings = Booking::with('bookingDates.timeSlots')
+            ->whereIn('id', $bookingIds->all())
+            ->whereIn('status_enum', Booking::activeStatusEnums())
+            ->lockForUpdate()
+            ->get()
+            ->keyBy('id');
+
+        $mutationsByBooking = $normalized->groupBy('booking_id');
+        $touchedBookingIds = [];
+
+        foreach ($mutationsByBooking as $bookingId => $bookingMutations) {
+            /** @var Booking|null $booking */
+            $booking = $bookings->get((int) $bookingId);
+            if (!$booking) {
+                continue;
+            }
+
+            foreach ($bookingMutations as $mutation) {
+                $bookingDate = BookingDate::query()
+                    ->where('id', (int) $mutation['booking_date_id'])
+                    ->where('booking_id', (int) $booking->id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$bookingDate) {
+                    continue;
+                }
+
+                $bookingDate->timeSlots()->detach((int) $mutation['time_slot_id']);
+
+                $hasRemainingSlots = $bookingDate->timeSlots()->exists();
+                if (!$hasRemainingSlots) {
+                    $bookingDate->delete();
+                }
+            }
+
+            $booking->load('bookingDates.timeSlots');
+
+            if ($booking->bookingDates->isEmpty()) {
+                $booking->status_enum = Booking::STATUS_REJECTED;
+                $booking->level = Booking::levelForStatus(Booking::STATUS_REJECTED);
+                $booking->rejected_by = $managerId > 0 ? $managerId : null;
+                $booking->rejected_at = now();
+                $booking->approved_by = null;
+                $booking->approved_at = null;
+                $booking->save();
+            }
+
+            $bookingSlotLockService->syncForBooking($booking);
+            $touchedBookingIds[] = (int) $booking->id;
+        }
+
+        return count(array_unique($touchedBookingIds));
     }
 
     private function buildSelectedPeriodsByDay(array $validated, array $dayOfWeeks): array

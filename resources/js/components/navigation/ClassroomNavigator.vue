@@ -128,38 +128,3 @@ defineEmits<{
     (e: 'select-overview'): void;
 }>();
 </script>
-
-<style scoped>
-.sidebar-scroll {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
-}
-.sidebar-scroll::-webkit-scrollbar {
-    width: 3px;
-}
-.sidebar-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-.sidebar-scroll::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 999px;
-}
-.sidebar-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.28);
-}
-
-.sidebar-scroll {
-    mask-image: linear-gradient(
-        to bottom,
-        black 0px,
-        black calc(100% - 16px),
-        transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-        to bottom,
-        black 0px,
-        black calc(100% - 16px),
-        transparent 100%
-    );
-}
-</style>

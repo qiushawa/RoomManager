@@ -1,5 +1,4 @@
 <template>
-
     <Head title="長期借用管理 | Admin" />
     <AdminLayout title="長期借用管理">
         <div class="admin-page-container">
@@ -15,26 +14,28 @@
                 <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
                     :class="activeMode === 'manual'
                         ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'" @click="activeMode = 'manual'">
+                        : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'manual'">
                     手動新增
                 </button>
                 <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
                     :class="activeMode === 'import'
                         ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'" @click="activeMode = 'import'">
+                        : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'import'">
                     教室課表匯入
                 </button>
                 <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
                     :class="activeMode === 'records'
                         ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'" @click="activeMode = 'records'">
+                        : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'records'">
                     已儲存記錄
                 </button>
             </div>
 
             <!-- ── 手動新增 ── -->
             <section v-if="activeMode === 'manual'" class="flex flex-col gap-8">
-
                 <div class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
 
                     <div v-if="manualForm.errors.semester || manualForm.errors.periods"
@@ -47,226 +48,246 @@
                         <p>{{ manualForm.errors.semester || manualForm.errors.periods }}</p>
                     </div>
 
-                    <form class="space-y-10" @submit.prevent="submitManual">
+                    <form class="space-y-8" @submit.prevent="handleManualSubmit">
 
-                        <section>
-                            <h4 class="mb-5 flex items-center gap-2 text-sm font-bold text-a-text">
-                                <span
-                                    class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">1</span>
+                        <!-- ── 基本資訊 ── -->
+                        <fieldset class="space-y-5">
+                            <legend class="w-full border-b border-a-divider pb-2 text-xs font-medium uppercase tracking-widest text-a-text-muted">
                                 基本資訊
-                            </h4>
+                            </legend>
 
-                            <div class="space-y-6 pl-8">
-                                <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                                    <div>
-                                        <label class="mb-2 block text-sm font-medium text-a-text-body">指導老師</label>
-                                        <input v-model.trim="manualForm.teacher_name" type="text" placeholder="如：王大明"
-                                            class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
-                                        <p v-if="manualForm.errors.teacher_name" class="mt-1 text-xs text-red-400">{{
-                                            manualForm.errors.teacher_name }}</p>
-                                    </div>
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-a-text-body">指導老師</label>
+                                    <input v-model.trim="manualForm.teacher_name" type="text" placeholder="如：王大明"
+                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
+                                    <p v-if="manualForm.errors.teacher_name" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.teacher_name }}
+                                    </p>
+                                </div>
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-a-text-body">課程名稱</label>
+                                    <input v-model.trim="manualForm.course_name" type="text" placeholder="如：資料結構"
+                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
+                                    <p v-if="manualForm.errors.course_name" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.course_name }}
+                                    </p>
+                                </div>
+                            </div>
+                        </fieldset>
 
-                                    <div>
-                                        <label class="mb-2 block text-sm font-medium text-a-text-body">課程名稱</label>
-                                        <input v-model.trim="manualForm.course_name" type="text" placeholder="如：資料結構"
-                                            class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
-                                        <p v-if="manualForm.errors.course_name" class="mt-1 text-xs text-red-400">{{
-                                            manualForm.errors.course_name }}</p>
-                                    </div>
+                        <!-- ── 借用時段 ── -->
+                        <fieldset class="space-y-5">
+                            <legend class="w-full border-b border-a-divider pb-2 text-xs font-medium uppercase tracking-widest text-a-text-muted">
+                                借用時段
+                            </legend>
+
+                            <!-- 教室 + 開始日期 + 結束日期（同一行） -->
+                            <div class="grid grid-cols-1 gap-5 sm:grid-cols-[minmax(160px,220px)_1fr_1fr]">
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-a-text-body">教室</label>
+                                    <select v-model="manualForm.classroom_id"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-4 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary">
+                                        <option value="">請選擇教室</option>
+                                        <option v-for="room in classrooms" :key="room.id" :value="room.id">
+                                            {{ room.code }} - {{ room.name }}
+                                        </option>
+                                    </select>
+                                    <p v-if="manualForm.errors.classroom_id" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.classroom_id }}
+                                    </p>
                                 </div>
 
-                                <div class="pt-2">
-                                    <label class="mb-3 block text-sm font-medium text-a-text-body">選擇教室</label>
-                                    <div
-                                        class="grid max-h-[220px] grid-cols-2 gap-3 overflow-y-auto pr-2 sm:grid-cols-3 xl:grid-cols-4">
-                                        <button v-for="room in classrooms" :key="room.id" type="button"
-                                            class="group flex flex-col items-start rounded-xl border p-3 text-left transition-all duration-200"
-                                            :class="manualForm.classroom_id === room.id
-                                                ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
-                                                : 'border-a-border-2 hover:border-a-text-muted/30 hover:bg-a-surface-hover'"
-                                            @click="manualForm.classroom_id = room.id">
-                                            <span class="text-sm font-bold transition-colors"
-                                                :class="manualForm.classroom_id === room.id ? 'text-primary' : 'text-a-text'">
-                                                {{ room.code }}
-                                            </span>
-                                            <span class="mt-0.5 text-xs text-a-text-muted">{{ room.name }}</span>
+                                <div>
+                                    <label class="mb-2 block text-sm font-medium text-a-text-body">開始日期</label>
+                                    <input v-model="manualForm.start_date" type="date"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
+                                    <p v-if="manualForm.errors.start_date" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.start_date }}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <div class="mb-2 flex items-center justify-between">
+                                        <label class="text-sm font-medium text-a-text-body">結束日期</label>
+                                        <button type="button" :disabled="!props.semesterEndDate"
+                                            class="text-xs font-medium text-primary hover:underline disabled:text-a-text-muted disabled:no-underline"
+                                            @click="applyQuickDateRange">
+                                            帶入至學期末
                                         </button>
                                     </div>
-                                    <p v-if="manualForm.errors.classroom_id" class="mt-2 text-xs text-red-400">{{
-                                        manualForm.errors.classroom_id }}</p>
+                                    <input v-model="manualForm.end_date" type="date"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
+                                    <p v-if="manualForm.errors.end_date" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.end_date }}
+                                    </p>
                                 </div>
                             </div>
-                        </section>
 
-                        <section>
-                            <h4 class="mb-5 flex items-center gap-2 text-sm font-bold text-a-text">
-                                <span
-                                    class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">2</span>
-                                時段與排程
-                            </h4>
-
-                            <div class="grid grid-cols-1 gap-8 pl-8 xl:grid-cols-2">
-                                <div class="space-y-6">
-                                    <div>
-                                        <label class="mb-3 block text-sm font-medium text-a-text-body">借用星期 <span
-                                                class="text-xs text-a-text-muted font-normal">(可多選)</span></label>
-                                        <div class="flex flex-wrap gap-2">
-                                            <label v-for="day in weekdayOptions" :key="day.value"
-                                                class="cursor-pointer rounded-lg border px-3.5 py-1.5 text-sm font-medium transition-all"
-                                                :class="manualForm.day_of_week.includes(day.value)
-                                                    ? 'border-primary bg-primary text-white shadow-sm'
-                                                    : 'border-a-border-2 text-a-text-muted hover:border-a-text-muted/40'">
-                                                <input type="checkbox" :value="day.value"
-                                                    v-model="manualForm.day_of_week" class="sr-only" />
-                                                {{ day.label }}
-                                            </label>
-                                        </div>
-                                        <p v-if="manualForm.errors.day_of_week" class="mt-2 text-xs text-red-400">{{
-                                            manualForm.errors.day_of_week }}</p>
-                                    </div>
-
-                                    <div class="space-y-3 rounded-xl border border-a-divider bg-a-surface-hover/30 p-4">
-                                        <div class="flex items-center justify-between">
-                                            <label class="text-sm font-medium text-a-text-body">生效日期區間</label>
-                                            <button type="button" :disabled="!props.semesterEndDate"
-                                                class="text-xs font-medium text-primary hover:underline disabled:text-a-text-muted disabled:no-underline"
-                                                @click="applyQuickDateRange">
-                                                自動帶入至學期末
-                                            </button>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <input v-model="manualForm.start_date" type="date"
-                                                    class="w-full rounded-lg border border-a-border-2 bg-a-surface px-3 py-2 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
-                                            </div>
-                                            <div>
-                                                <input v-model="manualForm.end_date" type="date"
-                                                    class="w-full rounded-lg border border-a-border-2 bg-a-surface px-3 py-2 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
-                                            </div>
-                                        </div>
-                                        <p v-if="manualForm.errors.start_date || manualForm.errors.end_date"
-                                            class="mt-1 text-xs text-red-400">日期設定有誤，請檢查起訖時間。</p>
-                                    </div>
+                            <!-- 節次選取（獨立一行） -->
+                            <div>
+                                <label class="mb-3 block text-sm font-medium text-a-text-body">節次選取</label>
+                                <!-- overflow-visible 確保 tooltip 不被容器裁切 -->
+                                <div class="overflow-visible rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm">
+                                    <ScheduleGrid
+                                        :week-dates="manualWeekDates"
+                                        :periods="manualGridPeriods"
+                                        :occupied-data="manualConflictOccupiedData"
+                                        :model-value="manualSelectedSlots"
+                                        :show-header-date="false"
+                                        :allow-cross-date-selection="true"
+                                        :allow-occupied-selection="true"
+                                        :show-period-time="false"
+                                        period-column-width-class="w-16"
+                                        :theme="adminScheduleGridTheme"
+                                        @update:model-value="handleManualScheduleChange"
+                                        @occupied-click="handleManualOccupiedClick"
+                                    />
                                 </div>
-
-                                <div class="flex flex-col">
-                                    <label class="mb-3 block text-sm font-medium text-a-text-body">節數選取</label>
-                                    <div class="flex-1 rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm">
-                                        <div v-if="manualWeekDates.length === 0"
-                                            class="flex h-full items-center justify-center rounded-lg border border-dashed border-a-divider bg-a-surface-hover/50 p-6 text-center text-sm text-a-text-muted">
-                                            請先於左側選擇「借用星期」，<br>課表將會自動顯示供您勾選。
-                                        </div>
-                                        <div v-else class="max-h-[320px] overflow-auto">
-                                            <ScheduleGrid :week-dates="manualWeekDates" :periods="manualGridPeriods"
-                                                :model-value="manualSelectedSlots" :show-header-date="false"
-                                                :allow-cross-date-selection="true" :theme="adminScheduleGridTheme"
-                                                @update:model-value="handleManualScheduleChange" />
-                                        </div>
-                                    </div>
-                                    <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">{{
-                                        manualForm.errors.periods }}</p>
-                                </div>
+                                <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">
+                                    {{ manualForm.errors.periods }}
+                                </p>
                             </div>
-                        </section>
+                        </fieldset>
 
-                        <section class="border-t border-a-divider pt-8">
-                            <div class="flex items-center justify-between mb-4">
-                                <h4 class="text-sm font-bold text-a-text">衝突檢查狀態</h4>
-                                <span
-                                    class="inline-flex items-center gap-1.5 rounded-full bg-a-surface-hover px-3 py-1 text-xs font-medium text-a-text-muted">
-                                    <span v-if="manualConflictLoading"
-                                        class="h-2 w-2 animate-pulse rounded-full bg-primary"></span>
-                                    <span v-else class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                                    {{ manualConflictLoading ? '自動檢查中...' : '系統監測中' }}
+                        <!-- ── 衝突狀態 + 送出 ── -->
+                        <div class="flex items-center justify-between border-t border-a-divider pt-6">
+                            <div class="flex items-center gap-2 text-sm">
+                                <span class="h-2 w-2 rounded-full transition-colors"
+                                    :class="manualConflictLoading
+                                        ? 'animate-pulse bg-primary'
+                                        : manualConflictSummary
+                                            ? 'bg-emerald-500'
+                                            : 'bg-a-text-muted/40'">
                                 </span>
+                                <span v-if="manualConflictLoading" class="text-a-text-muted">衝突檢查中…</span>
+                                <span v-else-if="manualConflictError" class="text-amber-400">{{ manualConflictError }}</span>
+                                <span v-else-if="manualConflictSummary && remainingConflictCount > 0" class="text-amber-400">
+                                    偵測到衝突，請依格內符號提示調整後再送出
+                                </span>
+                                <span v-else-if="manualConflictSummary" class="text-emerald-400">無衝突，可直接送出</span>
+                                <span v-else class="text-a-text-muted">尚未檢查</span>
                             </div>
 
-                            <div v-if="manualConflictError"
-                                class="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-500">
-                                {{ manualConflictError }}
-                            </div>
-
-                            <div v-else-if="manualConflictSummary && manualConflictSummary.total === 0"
-                                class="flex items-center gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-400">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                                時段暢通無阻，可以放心送出申請。
-                            </div>
-
-                            <div v-else-if="manualConflictSummary && manualConflictSummary.total > 0"
-                                class="rounded-xl border border-red-500/20 bg-red-500/10 p-5">
-                                <div class="mb-4 sm:flex sm:items-center sm:justify-between">
-                                    <div>
-                                        <p class="text-sm font-bold text-red-400">偵測到 {{
-                                            manualConflictSummary.total }} 筆排程衝突</p>
-                                        <p class="mt-1 text-xs text-red-300/80">不可覆蓋 {{
-                                            manualConflictSummary.protected }} 筆 / 可處理 {{
-                                            manualConflictSummary.overridable }} 筆</p>
-                                    </div>
-
-                                </div>
-
-                                <div
-                                    class="overflow-x-auto rounded-lg border border-a-border-2 bg-a-surface">
-                                    <table class="w-full text-left text-sm whitespace-nowrap">
-                                        <thead
-                                            class="border-b border-a-border-2 bg-a-surface-hover text-a-text-muted">
-                                            <tr>
-                                                <th class="px-4 py-2.5 font-medium">來源 / 課程</th>
-                                                <th class="px-4 py-2.5 font-medium">星期</th>
-                                                <th class="px-4 py-2.5 font-medium">衝突節次</th>
-                                                <th class="px-4 py-2.5 font-medium">有效日期</th>
-                                                <th class="px-4 py-2.5 font-medium">處理狀態</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="divide-y divide-a-divider text-a-text-body">
-                                            <tr v-for="item in manualConflicts" :key="item.id">
-                                                <td class="px-4 py-3">
-                                                    <p class="font-medium text-a-text">{{ item.source_label }}</p>
-                                                    <p v-if="item.course_name" class="text-xs text-a-text-muted mt-0.5">
-                                                        {{ item.course_name }}</p>
-                                                </td>
-                                                <td class="px-4 py-3">{{ weekdayText(item.day_of_week) }}</td>
-                                                <td class="px-4 py-3">{{ formatPeriodList(item.overlap_periods) }}</td>
-                                                <td class="px-4 py-3 text-xs text-a-text-muted">
-                                                    {{ item.start_date || '—' }} ~ {{ item.end_date || '—' }}
-                                                </td>
-                                                <td class="px-4 py-3">
-                                                    <span
-                                                        class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
-                                                        :class="item.is_protected ? 'bg-red-500/10 text-red-400' : 'bg-primary/10 text-primary'">
-                                                        {{ item.is_protected ? '不可覆蓋' : '可處理' }}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
-
-                        <div class="mt-8 flex justify-end border-t border-a-divider pt-6">
                             <button type="submit" :disabled="!canSubmitManual || manualForm.processing"
                                 class="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-primary/90 hover:shadow-lg focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-a-divider disabled:text-a-text-muted disabled:shadow-none">
                                 <svg v-if="manualForm.processing" class="h-4 w-4 animate-spin"
                                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                        stroke-width="4"></circle>
+                                        stroke-width="4" />
                                     <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
-                                    </path>
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                                 </svg>
-                                {{ manualForm.processing ? '處理中...' : '確認新增記錄' }}
+                                {{ manualForm.processing ? '處理中…' : '確認新增記錄' }}
                             </button>
                         </div>
+
                     </form>
                 </div>
 
+                <BaseModal :show="conflictActionModalOpen" size="sm" @close="closeConflictActionModal">
+  <div class="border-b border-slate-100 bg-slate-50/50 px-6 py-5">
+    <div class="flex items-center gap-2">
+      <h4 class="text-base font-bold text-slate-800">處理時段衝突</h4>
+    </div>
+    <p v-if="activeConflictSlot" class="mt-2 flex items-center gap-1.5 text-sm font-medium text-slate-600">
+      <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {{ `週${WEEKDAY_NAME_MAP[activeConflictSlot.dayOfWeek]} 第${periodLabelText(activeConflictSlot.period)}節` }}
+    </p>
+  </div>
+
+  <div class="space-y-3 px-6 py-5 text-sm">
+        <!-- <p
+            v-if="activeConflictSlot?.kind === 'short_term_pending' || activeConflictSlot?.kind === 'short_term_approved'"
+            class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700"
+        >
+            注意：紅色覆蓋選項會直接駁回整筆短期借用申請（同申請內其他日期與節次也會一併失效），請務必確認後再執行。
+        </p> -->
+
+    <template v-if="activeConflictSlot?.kind === 'schedule'">
+      <button
+        type="button"
+                :disabled="manualConflictLoading"
+        class="group flex w-full items-center justify-between rounded-xl border border-rose-200 bg-white p-3.5 text-left shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50 hover:shadow"
+        @click="applyConflictAction('cancel_slot')"
+      >
+        <div>
+          <div class="font-semibold text-rose-700">取消該節</div>
+          <div class="mt-0.5 text-xs text-rose-500/80">移除此時段的長期借用安排</div>
+        </div>
+      </button>
+    </template>
+
+    <template v-else-if="activeConflictSlot?.kind === 'short_term_pending'">
+      <button
+        type="button"
+                :disabled="manualConflictLoading"
+        class="group flex w-full items-center justify-between rounded-xl border border-amber-200 bg-white p-3.5 text-left shadow-sm transition-all hover:border-amber-300 hover:bg-amber-50 hover:shadow"
+        @click="applyConflictAction('review_pending')"
+      >
+        <div>
+          <div class="font-semibold text-amber-700">跳轉審核</div>
+          <div class="mt-0.5 text-xs text-amber-600/80">保留目前進度為草稿並前往查看</div>
+        </div>
+      </button>
+      
+      <button
+        type="button"
+                :disabled="manualConflictLoading"
+        class="group flex w-full items-center justify-between rounded-xl border border-rose-200 bg-white p-3.5 text-left shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50 hover:shadow"
+        @click="applyConflictAction('reject_and_override')"
+      >
+        <div>
+          <div class="font-semibold text-rose-700">直接覆蓋並拒絕</div>
+                    <div class="mt-0.5 text-xs text-rose-500/90">將強制佔用，且整筆短期申請（含其他節次）會被駁回</div>
+        </div>
+      </button>
+    </template>
+
+    <template v-else-if="activeConflictSlot?.kind === 'short_term_approved'">
+      <button
+        type="button"
+                :disabled="manualConflictLoading"
+        class="group flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white p-3.5 text-left shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50 hover:shadow"
+        @click="applyConflictAction('defer_to_short_term')"
+      >
+        <div>
+          <div class="font-semibold text-slate-700">該節讓給短期借用</div>
+                    <div class="mt-0.5 text-xs text-slate-500/80">僅限當日當節，其他週同節仍由長期借用使用</div>
+        </div>
+      </button>
+
+      <button
+        type="button"
+                :disabled="manualConflictLoading"
+                class="group flex w-full items-center justify-between rounded-xl border border-rose-200 bg-white p-3.5 text-left shadow-sm transition-all hover:border-rose-300 hover:bg-rose-50 hover:shadow"
+        @click="applyConflictAction('override_with_long_term')"
+      >
+        <div>
+                    <div class="font-semibold text-rose-700">讓給長期借用 (覆蓋)</div>
+                                        <div class="mt-0.5 text-xs text-rose-600/90">會駁回整筆短期借用申請（含其他節次），請謹慎操作</div>
+        </div>
+      </button>
+    </template>
+  </div>
+
+  <div class="border-t border-slate-100 bg-slate-50 px-6 py-4 text-right">
+    <button
+      type="button"
+      class="rounded-lg bg-white border border-slate-300 px-5 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-200 focus:ring-offset-1"
+      @click="closeConflictActionModal"
+    >
+      關閉
+    </button>
+  </div>
+</BaseModal>
             </section>
 
-            <section v-else-if="activeMode === 'records'" class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
+            <!-- ── 已儲存記錄 ── -->
+            <section v-else-if="activeMode === 'records'"
+                class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
                 <div class="mb-5 border-b border-a-divider pb-4">
                     <h3 class="text-base font-bold text-a-text">已儲存記錄</h3>
                     <p class="mt-1 text-sm text-a-text-muted">可在此檢視與撤回本學期手動新增的長期借用。</p>
@@ -276,62 +297,62 @@
                     @revoke="revokeManualRecord"
                 />
             </section>
+
             <!-- ── 教室課表匯入 ── -->
             <section v-else-if="activeMode === 'import'" class="flex flex-col gap-5">
 
-                <!-- 錯誤訊息 -->
                 <p v-if="importErrorMessage || importForm.errors.classroom_ids || importServerError || previewError"
                     class="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
                     {{ importErrorMessage || importForm.errors.classroom_ids || importServerError || previewError }}
                 </p>
 
-                <!-- 大樓教室選擇 -->
                 <div class="space-y-4">
                     <ImportBuildingPanel v-for="buildingCode in buildingOrder" :key="buildingCode"
                         :building-code="buildingCode" :building-label="buildingLabels[buildingCode]"
-                        :rooms="classroomsByBuilding[buildingCode]" :selected-building-code="selectedBuildingCode"
-                        :selected-classroom-set="selectedClassroomSet" @select-all="selectAllInBuilding"
-                        @toggle-room="toggleClassroomSelection" @revoke-room="revokeImport" />
+                        :rooms="classroomsByBuilding[buildingCode]"
+                        :selected-classroom-set="selectedClassroomSet"
+                        @select-all="selectAllInBuilding"
+                        @toggle-room="toggleClassroomSelection"
+                        @revoke-room="revokeImport" />
                 </div>
 
-                <!-- 工具列 + 動作按鈕 -->
+                <div v-if="isAwaitingImportConfirmation"
+                    class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+                    已完成預覽，請確認內容後再次按下「確認匯入」。
+                </div>
+
                 <div class="flex flex-wrap items-center justify-between gap-3 border-t border-a-border-2 pt-4">
                     <button type="button"
                         class="text-xs text-a-text-muted underline-offset-2 hover:text-a-text hover:underline"
                         @click="clearSelectedClassrooms">
                         清空選取
                     </button>
-
                     <div class="flex items-center gap-2">
-                        <button type="button" :disabled="previewLoading || selectedClassroomIds.length === 0"
-                            class="rounded-lg border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
-                            @click="previewImport">
-                            {{ previewLoading ? '預覽中...' : `預覽 ${selectedClassroomIds.length} 間課表` }}
-                        </button>
-                        <button type="button" :disabled="importForm.processing || previewSchedules.length === 0"
+                        <button type="button"
+                            :disabled="previewLoading || importForm.processing || selectedClassroomIds.length === 0"
                             class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-                            @click="submitImport">
-                            {{ importForm.processing ? '匯入中...' : `確認匯入` }}
+                            @click="handleImportAction">
+                            {{ importActionLabel }}
                         </button>
                     </div>
                 </div>
 
                 <ImportPreviewTable :classrooms="classrooms" :preview-schedules="previewSchedules" />
             </section>
+
         </div>
     </AdminLayout>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import AdminLayout from '@/layouts/AdminLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ScheduleGrid } from '@/components';
+import { BaseModal, ScheduleGrid } from '@/components';
 import { useAdminTheme } from '@/composables';
 import {
     LONG_TERM_BUILDING_LABELS,
     LONG_TERM_BUILDING_ORDER,
-    LONG_TERM_WEEKDAY_OPTIONS,
 } from '@/constants';
 import { ImportBuildingPanel, ImportPreviewTable, ManualRecordList } from '@/components/admin';
 import type {
@@ -339,12 +360,15 @@ import type {
     ClassroomOption,
     ImportConfig,
     ManualConflictItem,
+    ManualConflictKind,
     ManualConflictSummary,
     ManualFormData,
     ManualRecord,
+    OccupiedData,
     Period,
     PreviewSchedule,
     SelectedSlot,
+    SlotResolutionAction,
     TimeSlotOption,
     WeekDate,
 } from '@/types';
@@ -364,26 +388,6 @@ const adminScheduleGridTheme = computed<'light' | 'dark'>(() => (isDark.value ? 
 // ── 常數 ──────────────────────────────────────────────
 const buildingOrder = LONG_TERM_BUILDING_ORDER;
 const buildingLabels = LONG_TERM_BUILDING_LABELS;
-const weekdayOptions = LONG_TERM_WEEKDAY_OPTIONS;
-
-// ── 狀態 ──────────────────────────────────────────────
-const activeMode = ref<'manual' | 'import' | 'records'>('manual');
-const selectedClassroomIds = ref<number[]>([]);
-const importErrorMessage = ref('');
-const previewLoading = ref(false);
-const previewError = ref('');
-const previewSchedules = ref<PreviewSchedule[]>([]);
-
-// ── 手動表單 ──────────────────────────────────────────
-const manualForm = useForm<ManualFormData>({
-    classroom_id: '',
-    teacher_name: '',
-    course_name: '',
-    day_of_week: [],
-    start_date: '',
-    end_date: '',
-    periods: [],
-});
 
 const WEEKDAY_NAME_MAP: Record<number, string> = {
     1: '一',
@@ -395,32 +399,123 @@ const WEEKDAY_NAME_MAP: Record<number, string> = {
     7: '日',
 };
 
+const FULL_WEEK_DAYS = [1, 2, 3, 4, 5, 6, 7] as const;
+const MANUAL_LONG_TERM_DRAFT_KEY = 'admin-long-term-manual-draft-v1';
+
+interface OccupiedClickPayload {
+    date: string;
+    period: string;
+    item?: unknown;
+}
+
+interface ActiveConflictSlot {
+    slotKey: string;
+    dayOfWeek: number;
+    period: number;
+    kind: ManualConflictKind;
+    conflictKey?: string;
+    bookingId?: number;
+}
+
+interface ShortTermConflictEntry {
+    date: string;
+    conflictDate: string;
+    period: number;
+    dayOfWeek: number;
+    slotKey: string;
+    conflictKey: string;
+    bookingId: number;
+    kind: 'short_term_pending' | 'short_term_approved';
+    typeText: string;
+    counterpart: string;
+}
+
+interface ManualDraftPayload {
+    manualForm: {
+        classroom_id: number | '';
+        teacher_name: string;
+        course_name: string;
+        day_of_week: number[];
+        start_date: string;
+        end_date: string;
+        periods: number[];
+    };
+    manualSelectedSlots: SelectedSlot[];
+    slotResolutionMap: Record<string, SlotResolutionAction>;
+    manualConflicts: ManualConflictItem[];
+    manualConflictSummary: ManualConflictSummary | null;
+}
+
+// ── 狀態 ──────────────────────────────────────────────
+const activeMode = ref<'manual' | 'import' | 'records'>('manual');
+const selectedClassroomIds = ref<number[]>([]);
+const importErrorMessage = ref('');
+const previewLoading = ref(false);
+const previewError = ref('');
+const previewSchedules = ref<PreviewSchedule[]>([]);
+const isAwaitingImportConfirmation = ref(false);
+
+// ── 手動表單 ──────────────────────────────────────────
+const manualForm = useForm<ManualFormData>({
+    classroom_id: '',
+    teacher_name: '',
+    course_name: '',
+    day_of_week: [...FULL_WEEK_DAYS],
+    start_date: '',
+    end_date: '',
+    periods: [],
+    slot_resolutions: {},
+});
+
 const manualSelectedSlots = ref<SelectedSlot[]>([]);
 const manualConflictLoading = ref(false);
 const manualConflictError = ref('');
 const manualConflicts = ref<ManualConflictItem[]>([]);
 const manualConflictSummary = ref<ManualConflictSummary | null>(null);
-let manualConflictTimer: ReturnType<typeof setTimeout> | null = null;
+const slotResolutionMap = ref<Record<string, SlotResolutionAction>>({});
+const conflictActionModalOpen = ref(false);
+const activeConflictSlot = ref<ActiveConflictSlot | null>(null);
+const isRestoringDraft = ref(false);
 
-const manualGridPeriods = computed<Period[]>(() =>
-    props.timeSlots.map((slot, index) => ({
-        id: slot.id,
-        code: String(index + 1),
-        label: String(index + 1),
-    })),
-);
+const manualGridPeriods = computed<Period[]>(() => {
+    let nonLunchOrder = 0;
 
+    return props.timeSlots.map((slot, index) => {
+        const isLunch = slot.name === '午休';
+        if (!isLunch) {
+            nonLunchOrder += 1;
+        }
+
+        return {
+            id: slot.id,
+            code: String(index + 1),
+            label: isLunch ? '午休' : String(nonLunchOrder),
+        };
+    });
+});
+
+const manualPeriodDisplayLabelByCode = computed<Record<number, string>>(() => {
+    const map: Record<number, string> = {};
+
+    manualGridPeriods.value.forEach((period) => {
+        const periodCode = Number(period.code);
+        if (Number.isFinite(periodCode)) {
+            map[periodCode] = period.label;
+        }
+    });
+
+    return map;
+});
+
+// 固定產生週一到週日，不再依賴 day_of_week
 const manualWeekDates = computed<WeekDate[]>(() => {
-    const selectedDays = [...manualForm.day_of_week].sort((a, b) => a - b);
-    if (selectedDays.length === 0) return [];
-
     const today = new Date();
     const day = today.getDay();
     const mondayOffset = day === 0 ? -6 : 1 - day;
     const monday = new Date(today);
     monday.setDate(today.getDate() + mondayOffset);
 
-    return selectedDays.map((weekday) => {
+    return [1, 2, 3, 4, 5, 6, 7].map((weekday) => {
         const target = new Date(monday);
         target.setDate(monday.getDate() + (weekday - 1));
         const fullDate = formatDateToYYYYMMDD(target);
@@ -433,17 +528,12 @@ const manualWeekDates = computed<WeekDate[]>(() => {
 });
 
 function applyQuickDateRange() {
-    if (!props.semesterEndDate) {
-        return;
-    }
-
+    if (!props.semesterEndDate) return;
     const today = formatDateToYYYYMMDD(new Date());
     const end = props.semesterEndDate >= today ? props.semesterEndDate : today;
     manualForm.start_date = today;
     manualForm.end_date = end;
 }
-
-const selectedManualWeekDateSet = computed(() => new Set(manualWeekDates.value.map((day) => day.fullDate)));
 
 function isoWeekdayFromDateString(dateString: string): number | null {
     const [yearText, monthText, dayText] = dateString.split('-');
@@ -456,14 +546,13 @@ function isoWeekdayFromDateString(dateString: string): number | null {
     }
 
     const date = new Date(year, month - 1, day);
-    if (Number.isNaN(date.getTime())) {
-        return null;
-    }
+    if (Number.isNaN(date.getTime())) return null;
 
     const jsWeekday = date.getDay();
     return jsWeekday === 0 ? 7 : jsWeekday;
 }
 
+// manualDateToWeekdayMap 從 manualWeekDates 直接建立，不再依賴 day_of_week
 const manualDateToWeekdayMap = computed<Record<string, number>>(() => {
     const mapping: Record<string, number> = {};
 
@@ -477,9 +566,392 @@ const manualDateToWeekdayMap = computed<Record<string, number>>(() => {
     return mapping;
 });
 
+const slotKindPriority: Record<ManualConflictKind, number> = {
+    short_term_pending: 1,
+    short_term_approved: 2,
+    schedule: 3,
+};
+
+const validActionsByKind: Record<ManualConflictKind, SlotResolutionAction[]> = {
+    schedule: ['cancel_slot'],
+    short_term_pending: ['review_pending', 'reject_and_override'],
+    short_term_approved: ['defer_to_short_term', 'override_with_long_term'],
+};
+
+function toSlotKey(dayOfWeek: number, period: number): string {
+    return `${dayOfWeek}:${period}`;
+}
+
+function toCellKey(date: string, period: number): string {
+    return `${date}|${period}`;
+}
+
+function buildShortTermConflictResolutionKey(slotKey: string, bookingDateId: number, timeSlotId: number): string {
+    return `${slotKey}|bd:${bookingDateId}|ts:${timeSlotId}`;
+}
+
+function periodLabelText(period: number): string {
+    return manualPeriodDisplayLabelByCode.value[period] ?? String(period);
+}
+
+function removeSelectedSlotByWeekdayPeriod(dayOfWeek: number, period: number) {
+    manualSelectedSlots.value = manualSelectedSlots.value.filter((slot) => {
+        const weekday = isoWeekdayFromDateString(slot.date);
+        return !(weekday === dayOfWeek && Number(slot.period) === period);
+    });
+}
+
+const conflictKindBySlot = computed<Record<string, ManualConflictKind>>(() => {
+    const mapped: Record<string, ManualConflictKind> = {};
+
+    manualConflicts.value.forEach((item) => {
+        const weekdays = item.conflict_kind === 'schedule'
+            ? [item.day_of_week]
+            : Array.from(new Set(
+                item.conflict_dates
+                    .map((date) => isoWeekdayFromDateString(date))
+                    .filter((weekday): weekday is number => !!weekday),
+            ));
+
+        weekdays.forEach((weekday) => {
+            item.overlap_periods.forEach((period) => {
+                const key = toSlotKey(weekday, period);
+                const currentKind = mapped[key];
+                if (!currentKind || slotKindPriority[item.conflict_kind] > slotKindPriority[currentKind]) {
+                    mapped[key] = item.conflict_kind;
+                }
+            });
+        });
+    });
+
+    return mapped;
+});
+
+const selectedSlotKeySet = computed<Set<string>>(() => new Set(
+    manualSelectedSlots.value
+        .map((slot) => {
+            const weekday = isoWeekdayFromDateString(slot.date);
+            const period = Number(slot.period);
+            if (!weekday || !Number.isFinite(period) || period <= 0) return null;
+            return toSlotKey(weekday, period);
+        })
+        .filter((slotKey): slotKey is string => !!slotKey),
+));
+
+const shortTermConflictEntries = computed<ShortTermConflictEntry[]>(() => {
+    const entries: ShortTermConflictEntry[] = [];
+    const dateToWeekday = manualDateToWeekdayMap.value;
+
+    const datesByWeekday = new Map<number, string[]>();
+    manualWeekDates.value.forEach((day) => {
+        const weekday = dateToWeekday[day.fullDate];
+        if (!weekday) return;
+        if (!datesByWeekday.has(weekday)) datesByWeekday.set(weekday, []);
+        datesByWeekday.get(weekday)?.push(day.fullDate);
+    });
+
+    manualConflicts.value.forEach((item) => {
+        if (item.conflict_kind !== 'short_term_pending' && item.conflict_kind !== 'short_term_approved') {
+            return;
+        }
+
+        const typeText = conflictTypeText(item.conflict_kind);
+        const counterpart = item.applicant_name || item.teacher_name || '—';
+
+        const conflictSlots = Array.isArray(item.conflict_slots) ? item.conflict_slots : [];
+        conflictSlots.forEach((slot) => {
+            const period = Number(slot.period);
+            const dayOfWeek = Number(slot.day_of_week);
+            const conflictDate = typeof slot.date === 'string' ? slot.date : '';
+            const bookingDateId = Number(slot.booking_date_id);
+            const timeSlotId = Number(slot.time_slot_id);
+            if (!Number.isFinite(period) || period <= 0) return;
+            if (!Number.isFinite(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) return;
+            if (!conflictDate) return;
+            if (!Number.isFinite(bookingDateId) || bookingDateId <= 0) return;
+            if (!Number.isFinite(timeSlotId) || timeSlotId <= 0) return;
+
+            const displayDate = (datesByWeekday.get(dayOfWeek) ?? [])[0];
+            if (!displayDate) return;
+
+            const slotKey = toSlotKey(dayOfWeek, period);
+            if (!selectedSlotKeySet.value.has(slotKey)) {
+                return;
+            }
+
+            entries.push({
+                date: displayDate,
+                conflictDate,
+                period,
+                dayOfWeek,
+                slotKey,
+                conflictKey: buildShortTermConflictResolutionKey(slotKey, bookingDateId, timeSlotId),
+                bookingId: Number(item.booking_id ?? 0),
+                kind: item.conflict_kind as 'short_term_pending' | 'short_term_approved',
+                typeText,
+                counterpart,
+            });
+        });
+    });
+
+    return entries;
+});
+
+const shortTermQueueByCell = computed<Record<string, ShortTermConflictEntry[]>>(() => {
+    const grouped: Record<string, ShortTermConflictEntry[]> = {};
+
+    shortTermConflictEntries.value.forEach((entry) => {
+        const action = slotResolutionMap.value[entry.conflictKey] ?? slotResolutionMap.value[entry.slotKey];
+        if (isResolvedActionForKind(entry.kind, action)) {
+            return;
+        }
+
+        const cellKey = toCellKey(entry.date, entry.period);
+        if (!grouped[cellKey]) grouped[cellKey] = [];
+        grouped[cellKey].push(entry);
+    });
+
+    Object.values(grouped).forEach((queue) => {
+        queue.sort((a, b) => {
+            if (a.conflictDate === b.conflictDate) return 0;
+            return a.conflictDate < b.conflictDate ? -1 : 1;
+        });
+    });
+
+    return grouped;
+});
+
+function isResolvedActionForKind(kind: ManualConflictKind, action: SlotResolutionAction | undefined): boolean {
+    if (!action) return false;
+    if (kind === 'schedule') return action === 'cancel_slot';
+    if (kind === 'short_term_pending') return action === 'reject_and_override' || action === 'review_pending';
+    return action === 'defer_to_short_term' || action === 'override_with_long_term';
+}
+
+const unresolvedConflictSlots = computed<string[]>(() => {
+    const unresolvedSlotKeys = new Set<string>();
+
+    Object.entries(conflictKindBySlot.value).forEach(([slotKey, kind]) => {
+        if (!selectedSlotKeySet.value.has(slotKey)) return;
+
+        if (kind === 'schedule') {
+            const action = slotResolutionMap.value[slotKey];
+            if (action !== 'cancel_slot') {
+                unresolvedSlotKeys.add(slotKey);
+            }
+        }
+    });
+
+    shortTermConflictEntries.value.forEach((entry) => {
+        const action = slotResolutionMap.value[entry.conflictKey] ?? slotResolutionMap.value[entry.slotKey];
+        if (!action || !isResolvedActionForKind(entry.kind, action)) {
+            unresolvedSlotKeys.add(`${entry.slotKey}|${entry.conflictKey}`);
+        }
+    });
+
+    return Array.from(unresolvedSlotKeys);
+});
+
+const remainingConflictCount = computed(() => unresolvedConflictSlots.value.length);
+
+function restoreManualDraft() {
+    if (typeof window === 'undefined') return;
+
+    try {
+        isRestoringDraft.value = true;
+        const raw = window.localStorage.getItem(MANUAL_LONG_TERM_DRAFT_KEY);
+        if (!raw) return;
+
+        const draft = JSON.parse(raw) as ManualDraftPayload;
+        manualForm.classroom_id = draft.manualForm.classroom_id;
+        manualForm.teacher_name = draft.manualForm.teacher_name;
+        manualForm.course_name = draft.manualForm.course_name;
+        manualForm.day_of_week = Array.isArray(draft.manualForm.day_of_week)
+            ? draft.manualForm.day_of_week
+            : [...FULL_WEEK_DAYS];
+        manualForm.start_date = draft.manualForm.start_date;
+        manualForm.end_date = draft.manualForm.end_date;
+        manualForm.periods = Array.isArray(draft.manualForm.periods) ? draft.manualForm.periods : [];
+        manualSelectedSlots.value = Array.isArray(draft.manualSelectedSlots) ? draft.manualSelectedSlots : [];
+        slotResolutionMap.value = draft.slotResolutionMap ?? {};
+        manualConflicts.value = Array.isArray(draft.manualConflicts) ? draft.manualConflicts : [];
+        manualConflictSummary.value = draft.manualConflictSummary ?? null;
+        manualConflictError.value = '已還原未完成的申請草稿。';
+    } catch {
+        window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
+    } finally {
+        isRestoringDraft.value = false;
+    }
+}
+
+function saveManualDraft() {
+    if (typeof window === 'undefined') return;
+
+    const payload: ManualDraftPayload = {
+        manualForm: {
+            classroom_id: manualForm.classroom_id,
+            teacher_name: manualForm.teacher_name,
+            course_name: manualForm.course_name,
+            day_of_week: [...manualForm.day_of_week],
+            start_date: manualForm.start_date,
+            end_date: manualForm.end_date,
+            periods: [...manualForm.periods],
+        },
+        manualSelectedSlots: [...manualSelectedSlots.value],
+        slotResolutionMap: { ...slotResolutionMap.value },
+        manualConflicts: [...manualConflicts.value],
+        manualConflictSummary: manualConflictSummary.value,
+    };
+
+    window.localStorage.setItem(MANUAL_LONG_TERM_DRAFT_KEY, JSON.stringify(payload));
+}
+
+function clearManualDraft() {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
+}
+
+function closeConflictActionModal() {
+    conflictActionModalOpen.value = false;
+    activeConflictSlot.value = null;
+}
+
+function handleManualOccupiedClick(payload: OccupiedClickPayload) {
+    const dayOfWeek = manualDateToWeekdayMap.value[payload.date];
+    const period = Number(payload.period);
+    if (!dayOfWeek || !Number.isFinite(period) || period <= 0) return;
+
+    const slotKey = toSlotKey(dayOfWeek, period);
+    const item = payload.item as { status?: string; conflict_key?: string } | string | null | undefined;
+    const clickedStatus = typeof item === 'string'
+        ? item
+        : (item && typeof item === 'object' ? item.status ?? null : null);
+    const kind = conflictKindFromOccupiedStatus(clickedStatus) ?? conflictKindBySlot.value[slotKey];
+    if (!kind) return;
+
+    const conflictKey = item && typeof item === 'object' ? (item.conflict_key ?? undefined) : undefined;
+    const bookingId = item && typeof item === 'object' ? Number((item as { booking_id?: number }).booking_id ?? 0) : 0;
+
+    activeConflictSlot.value = {
+        slotKey,
+        dayOfWeek,
+        period,
+        kind,
+        conflictKey,
+        bookingId: Number.isFinite(bookingId) ? bookingId : 0,
+    };
+    conflictActionModalOpen.value = true;
+}
+
+async function applyConflictAction(action: SlotResolutionAction) {
+    const slot = activeConflictSlot.value;
+    if (!slot) return;
+
+    if (!validActionsByKind[slot.kind].includes(action)) {
+        manualConflictError.value = '此衝突類型不支援該操作。';
+        return;
+    }
+
+    if (action === 'review_pending') {
+        if ((slot.bookingId ?? 0) > 0) {
+            shortTermConflictEntries.value
+                .filter((entry) => entry.kind === 'short_term_pending' && entry.bookingId === slot.bookingId)
+                .forEach((entry) => {
+                    slotResolutionMap.value[entry.conflictKey] = action;
+                });
+        } else {
+            const targetKey = slot.conflictKey ?? slot.slotKey;
+            slotResolutionMap.value[targetKey] = action;
+        }
+        saveManualDraft();
+        closeConflictActionModal();
+        window.location.href = '/admin/reviews?from=long-term-borrowing';
+        return;
+    }
+
+    if (action === 'cancel_slot') {
+        if (slot.conflictKey) {
+            slotResolutionMap.value[slot.conflictKey] = action;
+        } else {
+            slotResolutionMap.value[slot.slotKey] = action;
+        }
+        removeSelectedSlotByWeekdayPeriod(slot.dayOfWeek, slot.period);
+        closeConflictActionModal();
+        return;
+    }
+
+    if (action === 'defer_to_short_term') {
+        if (slot.conflictKey) {
+            // 僅標記當前衝突為讓給短借，不移除整個節次選取。
+            slotResolutionMap.value[slot.conflictKey] = action;
+        } else {
+            slotResolutionMap.value[slot.slotKey] = action;
+        }
+        closeConflictActionModal();
+        return;
+    }
+
+    if (action === 'reject_and_override' || action === 'override_with_long_term') {
+        const bookingId = Number(slot.bookingId ?? 0);
+        if (!Number.isFinite(bookingId) || bookingId <= 0) {
+            manualConflictError.value = '缺少短期借用識別資訊，請重新整理後再試。';
+            return;
+        }
+
+        const actionLabel = action === 'reject_and_override'
+            ? '直接覆蓋並拒絕'
+            : '該節讓給長期借用';
+        const firstConfirm = window.confirm(
+            `【高風險操作】你選擇「${actionLabel}」。此動作會駁回整筆短期借用申請（同申請內其他日期/節次也會失效），是否繼續？`,
+        );
+        if (!firstConfirm) {
+            return;
+        }
+
+        const secondConfirm = window.confirm(
+            '請再次確認：本次駁回無法自動復原，必須由借用人重新提出申請。確定要執行嗎？',
+        );
+        if (!secondConfirm) {
+            return;
+        }
+
+        shortTermConflictEntries.value
+            .filter((entry) => entry.bookingId === bookingId)
+            .forEach((entry) => {
+                slotResolutionMap.value[entry.conflictKey] = action;
+            });
+
+        manualConflictLoading.value = true;
+        try {
+            await window.axios.post('/admin/long-term-borrowing/manual/resolve-conflict', {
+                action,
+                booking_id: bookingId,
+            });
+
+            await previewManualConflicts();
+            manualConflictError.value = '';
+        } catch (error: any) {
+            const backendMessage =
+                error?.response?.data?.message
+                || error?.response?.data?.errors?.action?.[0]
+                || error?.response?.data?.errors?.booking_id?.[0];
+            manualConflictError.value = backendMessage || '衝突處理執行失敗，請稍後再試。';
+        } finally {
+            manualConflictLoading.value = false;
+        }
+
+        closeConflictActionModal();
+        return;
+    }
+
+    const targetKey = slot.conflictKey ?? slot.slotKey;
+    slotResolutionMap.value[targetKey] = action;
+
+    closeConflictActionModal();
+}
+
 const canPreviewManualConflicts = computed(() => (
     !!manualForm.classroom_id
-    && manualForm.day_of_week.length > 0
     && manualForm.periods.length > 0
     && !!manualForm.start_date
     && !!manualForm.end_date
@@ -488,42 +960,165 @@ const canPreviewManualConflicts = computed(() => (
 const canSubmitManual = computed(() => (
     canPreviewManualConflicts.value
     && !manualConflictLoading.value
-    && !!manualConflictSummary.value
-    && manualConflictSummary.value.total === 0
-    && !manualConflictError.value
     && !manualForm.processing
 ));
 
-function weekdayText(day: number): string {
-    return `週${WEEKDAY_NAME_MAP[day] ?? day}`;
+const conflictStatusPriority: Record<string, number> = {
+    conflict_short_term_pending: 1,
+    conflict_short_term_approved: 2,
+    conflict_schedule: 3,
+};
+
+function conflictStatusForKind(item: ManualConflictItem): 'conflict_short_term_pending' | 'conflict_short_term_approved' | 'conflict_schedule' {
+    if (item.conflict_kind === 'short_term_pending') return 'conflict_short_term_pending';
+    if (item.conflict_kind === 'short_term_approved') return 'conflict_short_term_approved';
+    return 'conflict_schedule';
 }
 
-function formatPeriodList(periods: number[]): string {
-    if (!periods.length) return '—';
-    return periods.map((p) => `第${p}節`).join('、');
+function conflictTypeText(kind: ManualConflictKind): string {
+    if (kind === 'schedule') return '課表衝突';
+    if (kind === 'short_term_pending') return '未審核短期借用衝突';
+    return '已審核短期借用衝突';
+}
+
+function conflictKindFromOccupiedStatus(status: string | null): ManualConflictKind | null {
+    if (status === 'conflict_schedule') return 'schedule';
+    if (status === 'conflict_short_term_pending') return 'short_term_pending';
+    if (status === 'conflict_short_term_approved') return 'short_term_approved';
+    return null;
+}
+
+const manualConflictOccupiedData = computed<OccupiedData>(() => {
+    const occupied: OccupiedData = {};
+    const dateToWeekday = manualDateToWeekdayMap.value;
+
+    const datesByWeekday = new Map<number, string[]>();
+    manualWeekDates.value.forEach((day) => {
+        const weekday = dateToWeekday[day.fullDate];
+        if (!weekday) return;
+        if (!datesByWeekday.has(weekday)) datesByWeekday.set(weekday, []);
+        datesByWeekday.get(weekday)?.push(day.fullDate);
+    });
+
+    manualConflicts.value.forEach((item) => {
+        if (!item.overlap_periods.length || item.conflict_kind !== 'schedule') return;
+
+        const status = conflictStatusForKind(item);
+        const typeText = conflictTypeText(item.conflict_kind);
+        const detailText = item.conflict_kind === 'schedule'
+            ? (item.course_name || '—')
+            : null;
+        const counterpartText = item.applicant_name || item.teacher_name || '—';
+
+        let targetDates: string[] = [];
+        if (item.conflict_kind === 'schedule') {
+            targetDates = datesByWeekday.get(item.day_of_week) ?? [];
+        } else {
+            const weekdays = Array.from(new Set(
+                item.conflict_dates
+                    .map((date) => isoWeekdayFromDateString(date))
+                    .filter((weekday): weekday is number => !!weekday),
+            ));
+            targetDates = weekdays.flatMap((weekday) => datesByWeekday.get(weekday) ?? []);
+        }
+
+        const uniqueTargetDates = Array.from(new Set(targetDates));
+
+        uniqueTargetDates.forEach((date) => {
+            if (!occupied[date]) occupied[date] = {};
+
+            const weekday = manualDateToWeekdayMap.value[date];
+            if (!weekday) return;
+
+            item.overlap_periods.forEach((period) => {
+                const code = String(period);
+                const slotKey = toSlotKey(weekday, period);
+
+                if (!selectedSlotKeySet.value.has(slotKey)) {
+                    return;
+                }
+
+                if (isResolvedActionForKind(item.conflict_kind, slotResolutionMap.value[slotKey])) {
+                    return;
+                }
+
+                const existing = occupied[date][code];
+                const existingStatus = typeof existing === 'string' ? existing : existing?.status;
+                if (
+                    existingStatus
+                    && (conflictStatusPriority[existingStatus] ?? 0) >= conflictStatusPriority[status]
+                ) {
+                    return;
+                }
+
+                occupied[date][code] = {
+                    status,
+                    title: typeText,
+                    instructor: detailText ?? date,
+                    applicant: counterpartText,
+                    marker: '✗',
+                };
+            });
+        });
+    });
+
+    Object.entries(shortTermQueueByCell.value).forEach(([cellKey, queue]) => {
+        if (!queue.length) return;
+
+        const [date, periodText] = cellKey.split('|');
+        const period = Number(periodText);
+        if (!date || !Number.isFinite(period)) return;
+
+        const active = queue[0];
+        if (!occupied[date]) occupied[date] = {};
+
+        const code = String(period);
+        const current = occupied[date][code];
+        const currentStatus = typeof current === 'string' ? current : current?.status;
+        if (currentStatus === 'conflict_schedule') {
+            return;
+        }
+
+        const status = active.kind === 'short_term_pending'
+            ? 'conflict_short_term_pending'
+            : 'conflict_short_term_approved';
+
+        occupied[date][code] = {
+            status,
+            title: active.typeText,
+            instructor: active.conflictDate,
+            applicant: active.counterpart,
+            marker: active.kind === 'short_term_pending' ? '!' : '◆',
+            remaining_count: queue.length,
+            conflict_key: active.conflictKey,
+            booking_id: active.bookingId > 0 ? active.bookingId : undefined,
+        };
+    });
+
+    return occupied;
+});
+
+function weekdayText(day: number): string {
+    return `週${WEEKDAY_NAME_MAP[day] ?? day}`;
 }
 
 function resetManualConflictResult() {
     manualConflictError.value = '';
     manualConflicts.value = [];
     manualConflictSummary.value = null;
+    slotResolutionMap.value = {};
+    closeConflictActionModal();
 }
 
+// periods_by_day 直接從 slot.date 反推 weekday，不再依賴 day_of_week
 function buildManualPeriodsByDay(): Record<string, number[]> {
     const grouped: Record<number, Set<number>> = {};
-    const dateToWeekday = manualDateToWeekdayMap.value;
 
     manualSelectedSlots.value.forEach((slot) => {
-        const weekday = dateToWeekday[slot.date];
+        const weekday = isoWeekdayFromDateString(slot.date);
         const period = Number(slot.period);
-        if (!weekday || !Number.isFinite(period) || period <= 0) {
-            return;
-        }
-
-        if (!grouped[weekday]) {
-            grouped[weekday] = new Set<number>();
-        }
-
+        if (!weekday || !Number.isFinite(period) || period <= 0) return;
+        if (!grouped[weekday]) grouped[weekday] = new Set<number>();
         grouped[weekday].add(period);
     });
 
@@ -535,10 +1130,10 @@ function buildManualPeriodsByDay(): Record<string, number[]> {
     return result;
 }
 
-async function previewManualConflicts() {
+async function previewManualConflicts(): Promise<boolean> {
     if (!canPreviewManualConflicts.value) {
-        manualConflictError.value = '請先完成教室、星期、節次與日期範圍設定。';
-        return;
+        manualConflictError.value = '請先完成教室、節次與日期範圍設定。';
+        return false;
     }
 
     manualConflictLoading.value = true;
@@ -559,6 +1154,7 @@ async function previewManualConflicts() {
         const response = await window.axios.post('/admin/long-term-borrowing/manual/conflicts', payload);
         manualConflicts.value = (response?.data?.conflicts ?? []) as ManualConflictItem[];
         manualConflictSummary.value = (response?.data?.summary ?? null) as ManualConflictSummary | null;
+        return true;
     } catch (error: any) {
         const backendMessage =
             error?.response?.data?.message
@@ -568,99 +1164,93 @@ async function previewManualConflicts() {
         manualConflictError.value = backendMessage || '衝突檢查失敗，請稍後再試。';
         manualConflicts.value = [];
         manualConflictSummary.value = null;
+        return false;
     } finally {
         manualConflictLoading.value = false;
     }
-}
-
-function scheduleAutoManualConflictPreview() {
-    if (manualConflictTimer) {
-        clearTimeout(manualConflictTimer);
-        manualConflictTimer = null;
-    }
-
-    if (!canPreviewManualConflicts.value) {
-        return;
-    }
-
-    manualConflictTimer = setTimeout(() => {
-        previewManualConflicts();
-    }, 400);
 }
 
 function handleManualScheduleChange(slots: SelectedSlot[]) {
     manualSelectedSlots.value = slots;
 }
 
-watch(manualSelectedSlots, (slots) => {
-    const periods = Array.from(new Set(slots.map((slot) => Number(slot.period)).filter((value) => Number.isFinite(value))))
-        .sort((a, b) => a - b);
-    manualForm.periods = periods;
+onMounted(() => {
+    restoreManualDraft();
 });
 
-watch(
-    () => manualForm.day_of_week,
-    () => {
-        const allowedDates = selectedManualWeekDateSet.value;
-        manualSelectedSlots.value = manualSelectedSlots.value.filter((slot) => allowedDates.has(slot.date));
-    },
-    { deep: true },
-);
+watch(manualSelectedSlots, (slots) => {
+    const periods = Array.from(
+        new Set(slots.map((slot) => Number(slot.period)).filter((value) => Number.isFinite(value))),
+    ).sort((a, b) => a - b);
+    manualForm.periods = periods;
+});
 
 watch(
     () => [
         manualForm.classroom_id,
         manualForm.start_date,
         manualForm.end_date,
-        manualForm.teacher_name,
-        manualForm.course_name,
-        manualForm.day_of_week.join(','),
-        manualForm.periods.join(','),
     ],
     () => {
+        if (isRestoringDraft.value) return;
         resetManualConflictResult();
-        scheduleAutoManualConflictPreview();
     },
 );
 
-onBeforeUnmount(() => {
-    if (manualConflictTimer) {
-        clearTimeout(manualConflictTimer);
-        manualConflictTimer = null;
-    }
+watch(conflictKindBySlot, (kindMap) => {
+    const nextMap: Record<string, SlotResolutionAction> = {};
+    Object.entries(slotResolutionMap.value).forEach(([resolutionKey, action]) => {
+        const baseSlotKey = resolutionKey.split('|')[0] || resolutionKey;
+        const kind = kindMap[baseSlotKey];
+        if (kind && validActionsByKind[kind].includes(action)) {
+            nextMap[resolutionKey] = action;
+        }
+    });
+    slotResolutionMap.value = nextMap;
 });
 
 function submitManual() {
-    if (!canSubmitManual.value) {
-        manualConflictError.value = '僅可在衝突檢查完成且無衝突時送出新增。';
-        if (canPreviewManualConflicts.value) {
-            scheduleAutoManualConflictPreview();
-        }
-        return;
-    }
-
     if (manualConflictLoading.value) {
         manualConflictError.value = '衝突自動檢查進行中，請稍候再送出。';
-        return;
-    }
-
-    if (canPreviewManualConflicts.value && !manualConflictSummary.value) {
-        manualConflictError.value = '尚未完成衝突檢查，系統將自動重試後再送出。';
-        scheduleAutoManualConflictPreview();
         return;
     }
 
     manualForm.transform((data) => ({
         ...data,
         periods_by_day: buildManualPeriodsByDay(),
+        slot_resolutions: { ...slotResolutionMap.value },
     })).post('/admin/long-term-borrowing/manual', {
         preserveScroll: true,
         onSuccess: () => {
             manualForm.reset();
+            manualForm.day_of_week = [...FULL_WEEK_DAYS];
             manualSelectedSlots.value = [];
             resetManualConflictResult();
+            clearManualDraft();
         },
     });
+}
+
+async function handleManualSubmit() {
+    if (!canSubmitManual.value) {
+        manualConflictError.value = '請先完成教室、節次與日期設定。';
+        return;
+    }
+
+    const checked = await previewManualConflicts();
+    if (!checked || !manualConflictSummary.value) return;
+
+    if (manualConflictSummary.value.total === 0) {
+        submitManual();
+        return;
+    }
+
+    if (unresolvedConflictSlots.value.length > 0) {
+        manualConflictError.value = `仍有 ${unresolvedConflictSlots.value.length} 個衝突格尚未處理，請點擊 ! 選擇操作。`;
+        return;
+    }
+
+    submitManual();
 }
 
 function revokeManualRecord(record: ManualRecord) {
@@ -680,22 +1270,11 @@ const importForm = useForm<{ classroom_ids: number[] }>({
 
 const selectedClassroomSet = computed(() => new Set(selectedClassroomIds.value.map((id) => Number(id))));
 
-const selectedClassrooms = computed(() => {
-    const selected = selectedClassroomSet.value;
-    return props.classrooms.filter((room) => selected.has(room.id));
-});
-
-const selectedBuildingCode = computed<BuildingCode | null>(() => {
-    const selected = selectedClassrooms.value;
-    if (selected.length === 0) return null;
-    const codes = new Set<BuildingCode>();
-    for (const room of selected) {
-        const code = getRoomBuildingCode(room);
-        if (!code) return null;
-        codes.add(code);
-    }
-    if (codes.size !== 1) return null;
-    return Array.from(codes)[0];
+const importActionLabel = computed(() => {
+    if (previewLoading.value) return '預覽中...';
+    if (importForm.processing) return '匯入中...';
+    if (isAwaitingImportConfirmation.value) return '確認匯入';
+    return `匯入 ${selectedClassroomIds.value.length} 間教室`;
 });
 
 const classroomsByBuilding = computed<Record<BuildingCode, ClassroomOption[]>>(() => ({
@@ -712,24 +1291,15 @@ const importServerError = computed(() => {
 watch(selectedClassroomIds, () => {
     previewSchedules.value = [];
     previewError.value = '';
+    isAwaitingImportConfirmation.value = false;
 });
 
 function toggleClassroomSelection(room: ClassroomOption) {
     importErrorMessage.value = '';
-    const targetBuilding = getRoomBuildingCode(room);
-    if (!targetBuilding) {
-        importErrorMessage.value = '教室代碼無法判斷大樓，僅支援 CB、GC、RA。';
-        return;
-    }
     const selected = new Set(selectedClassroomIds.value);
     if (selected.has(room.id)) {
         selected.delete(room.id);
         selectedClassroomIds.value = Array.from(selected);
-        return;
-    }
-    const currentBuilding = selectedBuildingCode.value;
-    if (currentBuilding && currentBuilding !== targetBuilding) {
-        importErrorMessage.value = '只能批量匯入同一大樓教室，請先清空目前選取。';
         return;
     }
     selected.add(room.id);
@@ -738,11 +1308,6 @@ function toggleClassroomSelection(room: ClassroomOption) {
 
 function selectAllInBuilding(buildingCode: BuildingCode) {
     importErrorMessage.value = '';
-    const currentBuilding = selectedBuildingCode.value;
-    if (currentBuilding && currentBuilding !== buildingCode) {
-        importErrorMessage.value = '只能批量匯入同一大樓教室，請先清空目前選取。';
-        return;
-    }
     const ids = classroomsByBuilding.value[buildingCode].map((room) => room.id);
     selectedClassroomIds.value = Array.from(new Set([...selectedClassroomIds.value, ...ids]));
 }
@@ -750,6 +1315,9 @@ function selectAllInBuilding(buildingCode: BuildingCode) {
 function clearSelectedClassrooms() {
     selectedClassroomIds.value = [];
     importErrorMessage.value = '';
+    previewSchedules.value = [];
+    previewError.value = '';
+    isAwaitingImportConfirmation.value = false;
 }
 
 async function previewImport() {
@@ -759,12 +1327,9 @@ async function previewImport() {
         previewError.value = '請至少選擇一間教室。';
         return;
     }
-    if (!selectedBuildingCode.value) {
-        previewError.value = '請選擇同一大樓教室（CB、GC、RA）後再預覽。';
-        return;
-    }
     previewLoading.value = true;
     previewSchedules.value = [];
+    isAwaitingImportConfirmation.value = false;
     try {
         const payloadIds = selectedClassroomIds.value.map((id) => Number(id));
         const response = await window.axios.post('/admin/long-term-borrowing/preview', {
@@ -774,26 +1339,40 @@ async function previewImport() {
         previewSchedules.value = schedules;
         if (schedules.length === 0) {
             previewError.value = '預覽成功，但未取得可匯入課表。';
+            return;
         }
+        isAwaitingImportConfirmation.value = true;
     } catch (error: any) {
         const backendMessage =
-            error?.response?.data?.errors?.import?.[0] ||
-            error?.response?.data?.errors?.classroom_ids?.[0] ||
-            error?.response?.data?.message;
+            error?.response?.data?.errors?.import?.[0]
+            || error?.response?.data?.errors?.classroom_ids?.[0]
+            || error?.response?.data?.message;
         previewError.value = backendMessage || '預覽失敗，請確認匯入服務與參數設定。';
     } finally {
         previewLoading.value = false;
     }
 }
 
-function submitImport() {
+async function handleImportAction() {
     importErrorMessage.value = '';
+
     if (selectedClassroomIds.value.length === 0) {
         importErrorMessage.value = '請至少選擇一間教室。';
         return;
     }
-    if (!selectedBuildingCode.value) {
-        importErrorMessage.value = '請僅保留同一大樓教室再匯入。';
+
+    if (isAwaitingImportConfirmation.value && previewSchedules.value.length > 0) {
+        submitImport();
+        return;
+    }
+
+    await previewImport();
+}
+
+function submitImport() {
+    importErrorMessage.value = '';
+    if (selectedClassroomIds.value.length === 0) {
+        importErrorMessage.value = '請至少選擇一間教室。';
         return;
     }
     if (previewSchedules.value.length === 0) {
@@ -804,10 +1383,14 @@ function submitImport() {
     importForm.post('/admin/long-term-borrowing/import', {
         preserveScroll: true,
         onSuccess: () => {
+            selectedClassroomIds.value = [];
             previewSchedules.value = [];
+            previewError.value = '';
+            isAwaitingImportConfirmation.value = false;
         },
         onError: () => {
             importErrorMessage.value = '匯入失敗，請確認匯入服務與參數設定。';
+            isAwaitingImportConfirmation.value = false;
         },
     });
 }
