@@ -113,7 +113,7 @@ class LongTermCourseScheduleService
 
             $rows = $this->normalizeImportedSchedules(
                 $response->json(),
-                (int) $semester->id,
+                $semester,
                 $roomsInBuilding,
                 $periodToSlotId
             );
@@ -153,16 +153,17 @@ class LongTermCourseScheduleService
      * @param array<int, int> $periodToSlotId
      * @return array<int, array<string, mixed>>
      */
-    private function normalizeImportedSchedules($raw, int $semesterId, EloquentCollection $classrooms, array $periodToSlotId): array
+    private function normalizeImportedSchedules($raw, Semester $semester, EloquentCollection $classrooms, array $periodToSlotId): array
     {
         if (! is_array($raw)) {
             return [];
         }
 
-        $semester = Semester::query()->find($semesterId);
-        if (! $semester || ! $semester->start_date || ! $semester->end_date) {
+        if (! $semester->start_date || ! $semester->end_date) {
             return [];
         }
+
+        $semesterId = (int) $semester->id;
 
         $semesterStartDate = $semester->start_date->format('Y-m-d');
         $semesterEndDate = $semester->end_date->format('Y-m-d');
