@@ -62,3 +62,24 @@ export interface PaginatedData<T> {
     total: number;
     links: PaginationLink[];
 }
+
+export interface BlacklistReasonOption {
+    id: number;
+    reason: string;
+}
+
+export interface BlacklistListItem {
+    id: number;
+    borrower_identity_code: string;
+    borrower_name: string | null;
+    borrower_department: string | null;
+    banned_until: string | null;
+    reasons: string[];
+}
+
+export interface SemesterItem {
+    id: number;
+    display_name: string;
+    start_date: string;
+    end_date: string;
+}

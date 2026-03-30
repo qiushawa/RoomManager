@@ -36,6 +36,7 @@ export {
 export {
     ClassroomOverviewGrid,
     DatePicker,
+    OccupiedTooltip,
     ScheduleGrid,
     ScheduleToolbar,
 } from './schedule';

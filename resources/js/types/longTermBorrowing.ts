@@ -1,5 +1,14 @@
 export type BuildingCode = 'CB' | 'GC' | 'RA';
 export type LongTermScheduleType = 'course' | 'manual' | 'borrowed';
+export type ManualConflictKind = 'schedule' | 'short_term_approved' | 'short_term_pending';
+export type ShortTermResolution = 'review_pending' | 'reject_and_override';
+export type ApprovedShortTermResolution = 'keep_short_term';
+export type SlotResolutionAction =
+    | 'cancel_slot'
+    | 'review_pending'
+    | 'reject_and_override'
+    | 'defer_to_short_term'
+    | 'override_with_long_term';
 
 export interface ImportConfig {
     year: number;
@@ -56,10 +65,12 @@ export interface ManualFormData {
     start_date: string;
     end_date: string;
     periods: number[];
+    slot_resolutions?: Record<string, SlotResolutionAction>;
 }
 
 export interface ManualConflictItem {
     id: number;
+    conflict_kind: ManualConflictKind;
     day_of_week: number;
     start_slot: string;
     end_slot: string;
@@ -71,10 +82,38 @@ export interface ManualConflictItem {
     teacher_name: string;
     is_protected: boolean;
     overlap_periods: number[];
+    conflict_dates: string[];
+    booking_id: number | null;
+    booking_status: 'pending' | 'approved' | 'rejected' | 'cancelled' | null;
+    applicant_name: string;
+    conflict_slots?: ManualConflictSlot[];
+}
+
+export interface ManualConflictSlot {
+    slot_key: string;
+    day_of_week: number;
+    period: number;
+    date: string | null;
+    booking_date_id: number | null;
+    time_slot_id: number | null;
 }
 
 export interface ManualConflictSummary {
     total: number;
-    protected: number;
-    overridable: number;
+    schedule: number;
+    approved_short_term: number;
+    pending_short_term: number;
+}
+
+export interface ManualConflictResolution {
+    approved_short_term?: ApprovedShortTermResolution;
+    pending_short_term?: ShortTermResolution;
+}
+
+export interface SlotResolutionState {
+    slotKey: string;
+    dayOfWeek: number;
+    period: number;
+    conflictKind: ManualConflictKind;
+    action: SlotResolutionAction | null;
 }
