@@ -48,7 +48,7 @@
 
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { BOOKING_STATUS_TABS, BOOKING_TABLE_HEADERS } from '@/constants';
 import { usePreviewModal, useTableFilters } from '@/composables';
 import {

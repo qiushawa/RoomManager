@@ -105,7 +105,7 @@
 
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import type { AdminClassroomItem } from '@/types';
 
 defineProps<{
