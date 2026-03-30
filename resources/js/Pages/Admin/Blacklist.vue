@@ -131,7 +131,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { AdminDataTable, AdminPagination } from '@/components/admin';
 import type { BlacklistListItem, BlacklistReasonOption, PaginatedData } from '@/types';
 

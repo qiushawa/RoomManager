@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { BORROWING_RECORD_STATUS_TABS, RECORD_TABLE_HEADERS } from '@/constants';
 import { usePreviewModal, useTableFilters } from '@/composables';
 import {

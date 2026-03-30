@@ -1,6 +1,6 @@
 ﻿# 前端架構說明
 > RoomManager 前端（Vue + Inertia）
-> 最後更新：2026-03-19
+> 最後更新：2026-03-30
 
 ## 1. 目前分層
 
@@ -15,7 +15,12 @@ resources/
 │   │   └── Admin/*.vue
 │   ├── components/                # 可重用 UI 區塊
 │   │   ├── admin/
+│   │   │   ├── charts/
+│   │   │   ├── filters/
 │   │   │   ├── long-term-borrowing/
+│   │   │   ├── preview/
+│   │   │   │   └── request-preview/
+│   │   │   ├── table/
 │   │   │   └── index.ts
 │   │   ├── booking/
 │   │   ├── navigation/
@@ -42,7 +47,12 @@ resources/
 - `components/schedule`: 課表與時段顯示
 - `components/ui`: 通用 UI（Modal、Input、Dialog 等）
 - `components/admin`: Admin 共用區塊（表格、分頁、圖表卡片、預覽彈窗等）
-- `components/admin/long-term-borrowing`: 長期借用子領域元件
+- `components/admin/charts`: 圖表與圖卡（Bar、Doughnut、DashboardChartCard、MetricCard）
+- `components/admin/filters`: 清單篩選 UI（AdminSearchBar、AdminStatusTabs）
+- `components/admin/table`: 清單表格相關（AdminDataTable、AdminPagination、BookingTableRow）
+- `components/admin/preview`: 申請預覽彈窗主體與排程格（RequestPreviewModal、PreviewScheduleGrid）
+- `components/admin/long-term-borrowing`: 長期借用子領域元件（含 `ConflictActionModal`、`ImportBuildingPanel`、`ImportPreviewTable`、`ManualRecordList`）
+- `components/admin/preview/request-preview`: 申請預覽彈窗子區塊（Header、借用人資訊、基本資訊格、時段列表）
 
 ### composables
 - 前台：`useBookingFlow`, `useDateSelection`, `useSlotSelection`, `useHighlight`, `useSyncedApplicantForm`
@@ -74,6 +84,7 @@ resources/
 ```ts
 import { BookingFormModal, WelcomeGuide } from '@/components';
 import { AdminDataTable, RequestPreviewModal } from '@/components/admin';
+import { AdminLayout, AppLayout } from '@/layouts';
 import { useTableFilters, useBookingFlow } from '@/composables';
 import { BOOKING_STATUS_TABS } from '@/constants';
 import type { AdminBookingItem, HomePageProps } from '@/types';
@@ -82,8 +93,9 @@ import { formatPeriodLabel } from '@/utils';
 
 ### 原則
 1. 頁面層避免直接 `from '@/components/.../*.vue'`。
-2. 新增元件/邏輯後，必須同步更新對應 `index.ts`。
-3. 頁面內型別優先外移到 `types/`。
+2. 頁面層 `layouts` 亦優先透過 `@/layouts` 匯入。
+3. 新增元件/邏輯後，必須同步更新對應 `index.ts`。
+4. 頁面內型別優先外移到 `types/`。
 
 ## 4. 開發規則
 

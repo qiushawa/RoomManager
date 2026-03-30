@@ -9,5 +9,6 @@
  */
 
 export { default as AppLayout } from './AppLayout.vue';
+export { default as AdminLayout } from './AdminLayout.vue';
 export { default as SidebarBase } from './SidebarBase.vue';
 export { default as PanelBase } from './PanelBase.vue';

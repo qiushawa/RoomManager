@@ -129,7 +129,7 @@
 import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BaseModal } from '@/components';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import type { SemesterItem } from '@/types';
 
 defineProps<{
