@@ -218,7 +218,8 @@ class HomeController extends Controller
             $booking->borrower_id = $borrower->id;
             $booking->reason = $applicantData['reason'] ?? null;
             $booking->teacher = $applicantData['teacher'] ?? null;
-            $booking->status_enum = 'pending';
+            $booking->status_enum = Booking::STATUS_PENDING;
+            $booking->level = Booking::levelForStatus(Booking::STATUS_PENDING);
             $booking->save();
 
             foreach ($selectionRows as $selection) {
@@ -324,7 +325,8 @@ class HomeController extends Controller
             ]);
         }
 
-        $bookingModel->status_enum = 'cancelled';
+        $bookingModel->status_enum = Booking::STATUS_CANCELLED;
+        $bookingModel->level = Booking::levelForStatus(Booking::STATUS_CANCELLED);
         $bookingModel->save();
         $this->bookingSlotLockService->syncForBooking($bookingModel);
 

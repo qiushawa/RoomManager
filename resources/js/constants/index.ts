@@ -18,6 +18,9 @@ export const STATUS_COLORS = {
     pending: 'bg-info/90',        // 水藍色 - 申請中
     course: 'bg-neutral/90',      // 深灰色 - 課程使用
     holiday: 'bg-danger/90',      // 紅色 - 假日
+    conflict_short_term_pending: 'bg-amber-500/90',
+    conflict_short_term_approved: 'bg-purple-500/90',
+    conflict_schedule: 'bg-red-500/90',
     // 前端 UI 狀態
     default: 'bg-gray-400/90',    // 灰色 - 無資料時的預設
     selected: 'bg-success',       // 綠色 - 使用者選取中
@@ -36,6 +39,9 @@ export const STATUS_LABELS = {
     pending: '申請中',
     course: '課程使用',
     holiday: '假日',
+    conflict_short_term_pending: '與未審核短期借用衝突',
+    conflict_short_term_approved: '與已審核短期借用衝突',
+    conflict_schedule: '與課表衝突',
     // 前端 UI 狀態
     available: '可申請',
     selected: '選取中',

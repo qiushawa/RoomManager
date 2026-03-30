@@ -8,7 +8,7 @@
             <button
                 type="button"
                 class="rounded-md border border-a-border-2 px-3 py-1 text-xs text-a-text-2 transition-colors hover:bg-a-surface-hover disabled:cursor-not-allowed disabled:opacity-40"
-                :disabled="rooms.length === 0 || (selectedBuildingCode !== null && selectedBuildingCode !== buildingCode)"
+                :disabled="rooms.length === 0"
                 @click="emit('select-all', buildingCode)"
             >
                 全選
@@ -69,7 +69,6 @@ defineProps<{
     buildingCode: BuildingCode;
     buildingLabel: string;
     rooms: ClassroomOption[];
-    selectedBuildingCode: BuildingCode | null;
     selectedClassroomSet: Set<number>;
 }>();
 

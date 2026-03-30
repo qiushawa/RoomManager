@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Booking;
 use App\Models\Classroom;
 use App\Models\TimeSlot;
 use App\Models\Holiday;
@@ -13,6 +14,8 @@ class RoomAvailabilityService
 {
     /** @var Collection */
     protected $timeSlots;
+
+    private const LEVEL_MANUAL_LONG_TERM = 15;
 
     public function __construct()
     {
@@ -69,11 +72,13 @@ class RoomAvailabilityService
 
         // 先將短期借用依日期索引，避免每一天都重新掃描所有 booking。
         $bookingsByDate = [];
-        $activeBookings = $room->bookings->whereIn('status_enum', ['pending', 'approved']);
+        $activeBookings = $room->bookings->whereIn('status_enum', Booking::activeStatusEnums());
         foreach ($activeBookings as $booking) {
-            $status = $booking->status_enum === 'pending' ? 'pending' : 'approved';
+            $status = $booking->status_enum === Booking::STATUS_PENDING ? Booking::STATUS_PENDING : Booking::STATUS_APPROVED;
+            $bookingLevel = (int) ($booking->level ?? Booking::levelForStatus($status));
             $basePayload = [
                 'status' => $status,
+                'level' => $bookingLevel,
                 'title' => $booking->reason,
                 'applicant' => $booking->borrower ? $booking->borrower->name : null,
                 'instructor' => $booking->teacher,
@@ -140,10 +145,12 @@ class RoomAvailabilityService
                     });
                 foreach ($courses as $course) {
                     $slots = $course->timeSlots->pluck('name')->values()->all();
+                    $scheduleLevel = $this->resolveSchedulePriorityLevel((string) ($course->type ?? 'manual'));
                     foreach ($slots as $slot) {
                         $occupiedSlots->push([
                             'slot' => $slot,
                             'status' => 'course',
+                            'level' => $scheduleLevel,
                             'title' => $course->course_name,
                             'instructor' => $course->teacher_name
                         ]);
@@ -157,6 +164,7 @@ class RoomAvailabilityService
                     $occupiedSlots->push([
                         'slot' => $slot,
                         'status' => $bookingData['status'],
+                        'level' => (int) ($bookingData['level'] ?? Booking::LEVEL_PENDING),
                         'title' => $bookingData['title'],
                         'applicant' => $bookingData['applicant'],
                         'instructor' => $bookingData['instructor']
@@ -165,19 +173,50 @@ class RoomAvailabilityService
             }
 
             if ($occupiedSlots->isNotEmpty()) {
-                $occupiedData[$dateStr] = $occupiedSlots->unique('slot')->mapWithKeys(function ($item) {
-                    $val = ['status' => $item['status']];
-                    if (!empty($item['title'])) $val['title'] = $item['title'];
-                    if (!empty($item['applicant'])) $val['applicant'] = $item['applicant'];
-                    if (!empty($item['instructor'])) $val['instructor'] = $item['instructor'];
-                    return [$item['slot'] => $val];
-                })->toArray();
+                $bestBySlot = [];
+                foreach ($occupiedSlots as $item) {
+                    $slotName = (string) ($item['slot'] ?? '');
+                    if ($slotName === '') {
+                        continue;
+                    }
+
+                    $current = $bestBySlot[$slotName] ?? null;
+                    if ($current === null) {
+                        $bestBySlot[$slotName] = $item;
+                        continue;
+                    }
+
+                    $currentLevel = (int) ($current['level'] ?? 0);
+                    $nextLevel = (int) ($item['level'] ?? 0);
+                    if ($nextLevel > $currentLevel) {
+                        $bestBySlot[$slotName] = $item;
+                    }
+                }
+
+                $occupiedData[$dateStr] = collect($bestBySlot)
+                    ->mapWithKeys(function ($item, $slotName) {
+                        $val = ['status' => $item['status']];
+                        if (!empty($item['title'])) $val['title'] = $item['title'];
+                        if (!empty($item['applicant'])) $val['applicant'] = $item['applicant'];
+                        if (!empty($item['instructor'])) $val['instructor'] = $item['instructor'];
+                        return [$slotName => $val];
+                    })
+                    ->toArray();
             }
 
             $currentDate->addDay();
         }
 
         return $occupiedData;
+    }
+
+    private function resolveSchedulePriorityLevel(string $type): int
+    {
+        if ($type === 'course') {
+            return Booking::LEVEL_COURSE;
+        }
+
+        return self::LEVEL_MANUAL_LONG_TERM;
     }
 
 }

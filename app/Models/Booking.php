@@ -12,6 +12,12 @@ class Booking extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const LEVEL_REJECTED = 0;
+    public const LEVEL_CANCELLED = 0;
+    public const LEVEL_PENDING = 10;
+    public const LEVEL_APPROVED = 20;
+    public const LEVEL_COURSE = 255;
+
     public const STATUS_PENDING = 'pending';
     public const STATUS_APPROVED = 'approved';
     public const STATUS_REJECTED = 'rejected';
@@ -44,10 +50,15 @@ class Booking extends Model
         'reason',
         'teacher',
         'status_enum',
+        'level',
         'approved_by',
         'rejected_by',
         'approved_at',
         'rejected_at',
+    ];
+
+    protected $casts = [
+        'level' => 'integer',
     ];
 
     public function classroom()
@@ -126,6 +137,17 @@ class Booking extends Model
     public static function activeStatusEnums(): array
     {
         return [self::STATUS_PENDING, self::STATUS_APPROVED];
+    }
+
+    public static function levelForStatus(?string $statusEnum): int
+    {
+        return match ($statusEnum) {
+            self::STATUS_APPROVED => self::LEVEL_APPROVED,
+            self::STATUS_PENDING => self::LEVEL_PENDING,
+            self::STATUS_REJECTED => self::LEVEL_REJECTED,
+            self::STATUS_CANCELLED => self::LEVEL_CANCELLED,
+            default => self::LEVEL_PENDING,
+        };
     }
 
     public static function enumFromLegacyStatus(int|string|null $status): string
