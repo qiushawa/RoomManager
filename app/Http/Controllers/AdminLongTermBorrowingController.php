@@ -10,10 +10,10 @@ use App\Models\CourseSchedule;
 use App\Models\Semester;
 use App\Models\Setting;
 use App\Models\TimeSlot;
+use App\Services\Admin\BookingRejectionService;
 use App\Services\Admin\LongTermCourseScheduleService;
 use App\Services\Admin\ManualLongTermBorrowingService;
 use App\Services\Admin\ManualLongTermConflictService;
-use App\Services\BookingSlotLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -25,6 +25,7 @@ class AdminLongTermBorrowingController extends Controller
         private readonly LongTermCourseScheduleService $longTermCourseScheduleService,
         private readonly ManualLongTermConflictService $manualLongTermConflictService,
         private readonly ManualLongTermBorrowingService $manualLongTermBorrowingService,
+        private readonly BookingRejectionService $bookingRejectionService,
     ) {
     }
 
@@ -245,7 +246,7 @@ class AdminLongTermBorrowingController extends Controller
         ]);
     }
 
-    public function resolveManualLongTermConflict(Request $request, BookingSlotLockService $bookingSlotLockService)
+    public function resolveManualLongTermConflict(Request $request)
     {
         $validated = $request->validate([
             'action' => ['required', 'string', 'in:cancel_slot,review_pending,reject_and_override,defer_to_short_term,override_with_long_term'],
@@ -276,8 +277,8 @@ class AdminLongTermBorrowingController extends Controller
 
         $managerId = (int) (auth()->guard('admin')->id() ?? 0);
 
-        DB::transaction(function () use ($bookingId, $managerId, $bookingSlotLockService): void {
-            $this->rejectBookingsByIds([$bookingId], $managerId, $bookingSlotLockService, Booking::activeStatusEnums());
+        DB::transaction(function () use ($bookingId, $managerId): void {
+            $this->bookingRejectionService->rejectBookingsByIds([$bookingId], $managerId, Booking::activeStatusEnums());
         });
 
         return response()->json([
@@ -345,44 +346,4 @@ class AdminLongTermBorrowingController extends Controller
         return back()->with('success', '已撤回一筆手動長期借用記錄。');
     }
 
-    /**
-     * @param array<int,int> $bookingIds
-     * @param array<int,string> $allowedStatuses
-     */
-    private function rejectBookingsByIds(
-        array $bookingIds,
-        int $managerId,
-        BookingSlotLockService $bookingSlotLockService,
-        array $allowedStatuses
-    ): int {
-        $normalizedIds = collect($bookingIds)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
-
-        if ($normalizedIds->isEmpty()) {
-            return 0;
-        }
-
-        $bookings = Booking::with('bookingDates.timeSlots')
-            ->whereIn('id', $normalizedIds->all())
-            ->whereIn('status_enum', $allowedStatuses)
-            ->lockForUpdate()
-            ->get();
-
-        foreach ($bookings as $booking) {
-            $booking->status_enum = Booking::STATUS_REJECTED;
-            $booking->level = Booking::levelForStatus(Booking::STATUS_REJECTED);
-            $booking->rejected_by = $managerId > 0 ? $managerId : null;
-            $booking->rejected_at = now();
-            $booking->approved_by = null;
-            $booking->approved_at = null;
-            $booking->save();
-
-            $bookingSlotLockService->syncForBooking($booking);
-        }
-
-        return $bookings->count();
-    }
 }

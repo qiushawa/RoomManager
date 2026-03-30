@@ -3,10 +3,8 @@
 namespace App\Services\Admin;
 
 use App\Models\Booking;
-use App\Models\BookingDate;
 use App\Models\CourseSchedule;
 use App\Models\Semester;
-use App\Services\BookingSlotLockService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -15,7 +13,7 @@ class ManualLongTermBorrowingService
     public function __construct(
         private readonly LongTermCourseScheduleService $longTermCourseScheduleService,
         private readonly ManualLongTermConflictService $manualLongTermConflictService,
-        private readonly BookingSlotLockService $bookingSlotLockService,
+        private readonly BookingRejectionService $bookingRejectionService,
     ) {
     }
 
@@ -324,35 +322,7 @@ class ManualLongTermBorrowingService
      */
     private function rejectBookingsByIds(array $bookingIds, int $managerId, array $allowedStatuses): int
     {
-        $normalizedIds = collect($bookingIds)
-            ->map(fn ($id) => (int) $id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values();
-
-        if ($normalizedIds->isEmpty()) {
-            return 0;
-        }
-
-        $bookings = Booking::with('bookingDates.timeSlots')
-            ->whereIn('id', $normalizedIds->all())
-            ->whereIn('status_enum', $allowedStatuses)
-            ->lockForUpdate()
-            ->get();
-
-        foreach ($bookings as $booking) {
-            $booking->status_enum = Booking::STATUS_REJECTED;
-            $booking->level = Booking::levelForStatus(Booking::STATUS_REJECTED);
-            $booking->rejected_by = $managerId > 0 ? $managerId : null;
-            $booking->rejected_at = now();
-            $booking->approved_by = null;
-            $booking->approved_at = null;
-            $booking->save();
-
-            $this->bookingSlotLockService->syncForBooking($booking);
-        }
-
-        return $bookings->count();
+        return $this->bookingRejectionService->rejectBookingsByIds($bookingIds, $managerId, $allowedStatuses);
     }
 
     /**
