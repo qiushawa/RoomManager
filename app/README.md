@@ -11,7 +11,20 @@ app/
 │   ├── Controllers/
 │   │   ├── Controller.php            # 基礎控制器
 │   │   ├── HomeController.php        # 前台：首頁與借用申請
-│   │   └── AdminController.php       # 後台：管理面板
+│   │   ├── AdminAuthController.php               # 後台：登入/登出
+│   │   ├── AdminDashboardController.php          # 後台：儀表板統計
+│   │   ├── AdminBookingController.php            # 後台：預約/審核/通知
+│   │   ├── AdminSettingsController.php           # 後台：學期與系統設定
+│   │   ├── AdminClassroomController.php          # 後台：教室管理
+│   │   ├── AdminBlacklistController.php          # 後台：黑名單管理
+│   │   └── AdminLongTermBorrowingController.php  # 後台：長期借用子域
+│   ├── Requests/
+│   │   ├── Admin/
+│   │   │   ├── PreviewManualLongTermBorrowingConflictsRequest.php
+│   │   │   └── StoreManualLongTermBorrowingRequest.php
+│   │   └── Booking/
+│   │       ├── StoreBookingRequest.php   # 借用申請驗證
+│   │       └── CancelBookingRequest.php  # 取消借用請求驗證（簽章路由）
 │   └── Middleware/
 │       └── HandleInertiaRequests.php  # Inertia.js 中介層
 ├── Mail/
@@ -33,8 +46,41 @@ app/
 ├── Providers/
 │   └── AppServiceProvider.php        # 應用程式服務提供者
 └── Services/
-    └── RoomAvailabilityService.php   # 教室可用性服務
+  ├── Admin/
+  │   ├── LongTermCourseScheduleService.php   # 長借課表匯入/正規化/覆寫
+  │   ├── ManualLongTermConflictService.php   # 長借衝突分析
+  │   └── ManualLongTermBorrowingService.php  # 手動長借建立流程
+    ├── RoomAvailabilityService.php   # 教室可用性服務
+    ├── BookingSlotLockService.php    # 時段鎖同步服務
+    └── Booking/
+        ├── BookingCreationService.php     # 借用建立流程協調
+        ├── BookingConflictService.php     # 借用衝突檢查
+        └── BookingCancellationService.php # 借用取消流程
 ```
+
+---
+
+## 控制器重構原則（目前已套用於 HomeController）
+
+- 控制器保留：路由輸入輸出、Inertia props、Redirect/Flash 與 Mail dispatch。
+- 請求驗證下放：`StoreBookingRequest`、`CancelBookingRequest`。
+- 業務流程下放到 `App\Services\Booking\*`：
+  - 建立申請：黑名單檢查、借用人建立/重用、日期時段正規化、衝突檢查、交易寫入、鎖表同步。
+  - 取消申請：可取消目標查詢、摘要組裝、狀態轉換與鎖同步。
+
+## 前台借用主流程（最新）
+
+1. `HomeController::store` 透過 `StoreBookingRequest` 先完成欄位驗證。
+2. `BookingCreationService::create` 執行黑名單檢查與衝突檢查。
+3. 寫入 `bookings` / `booking_dates` / `booking_date_time_slot` 後同步 `booking_slot_locks`。
+4. 控制器發送 `BookingSubmitted` 信件，並回傳原本的 redirect 與 flash 訊息（相容既有前端行為）。
+
+## 取消借用流程（最新）
+
+1. 使用 signed route 進入 `showCancelConfirmation` 與 `destroy`。
+2. `BookingCancellationService::findBookingForCancellation` 查詢申請與關聯。
+3. 若狀態為 `pending`，`cancelPendingBooking` 將狀態改為 `cancelled` 並同步 slot lock。
+4. 回傳 `BookingCancellation` 頁面，依狀態呈現 `confirm/cancelled/locked/missing`。
 
 ---
 

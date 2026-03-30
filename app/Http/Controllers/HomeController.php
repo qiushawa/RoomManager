@@ -2,31 +2,40 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Booking\CancelBookingRequest;
+use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Models\Classroom;
 use App\Models\TimeSlot;
 use App\Models\Booking;
-use App\Models\Borrower;
-use App\Models\Blacklist;
+use App\Services\Booking\BookingCancellationService;
+use App\Services\Booking\BookingCreationService;
 use App\Services\RoomAvailabilityService;
-use App\Services\BookingSlotLockService;
 use App\Mail\BookingSubmitted;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+
 class HomeController extends Controller
 {
     protected $availabilityService;
-    protected $bookingSlotLockService;
+    protected $bookingCreationService;
+    protected $bookingCancellationService;
 
-    public function __construct(RoomAvailabilityService $availabilityService, BookingSlotLockService $bookingSlotLockService)
+    public function __construct(
+        RoomAvailabilityService $availabilityService,
+        BookingCreationService $bookingCreationService,
+        BookingCancellationService $bookingCancellationService,
+    )
     {
         $this->availabilityService = $availabilityService;
-        $this->bookingSlotLockService = $bookingSlotLockService;
+        $this->bookingCreationService = $bookingCreationService;
+        $this->bookingCancellationService = $bookingCancellationService;
     }
+
     public function index(Request $request)
     {
         // 1. 基礎資料 (保持不變)
@@ -92,150 +101,16 @@ class HomeController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(StoreBookingRequest $request)
     {
-        $requestData = $request->validate([
-            'classroom_id' => 'required|exists:classrooms,id',
-            'classroom_code' => 'required|string',
-            'date' => 'nullable|date|required_without:selections',
-            'time_slot_ids' => 'nullable|array|min:1|required_with:date',
-            'time_slot_ids.*' => 'exists:time_slots,id',
-            'selections' => 'nullable|array|min:1|required_without:date',
-            'selections.*.date' => 'required|date',
-            'selections.*.time_slot_ids' => 'required|array|min:1',
-            'selections.*.time_slot_ids.*' => 'exists:time_slots,id',
-            'applicant.name' => 'required|string|max:50',
-            'applicant.identity_code' => ['required', 'string', 'max:8', 'regex:/^[A-Za-z0-9]+$/'],
-            'applicant.email' => 'required|email|max:255',
-            'applicant.phone' => 'nullable|string|max:10',
-            'applicant.department' => 'nullable|string|max:50',
-            'applicant.teacher' => 'nullable|string|max:50',
-            'applicant.reason' => 'nullable|string|max:255',
-        ], [
-            'applicant.identity_code.regex' => '學號/員工編號僅可輸入英文與數字。',
-        ]);
-
-        $applicantData = $requestData['applicant'];
-
-        $activeBlacklist = Blacklist::findActiveByIdentityCode($applicantData['identity_code']);
-
-        if ($activeBlacklist) {
-            return back()->withErrors([
-                'applicant.identity_code' => '此學號目前停權中，停權至 ' . $activeBlacklist->banned_until->format('Y-m-d') . '。',
-            ]);
-        }
-
-        $borrower = Borrower::firstOrCreate(
-            [
-                'identity_code' => $applicantData['identity_code'],
-                'email' => $applicantData['email'],
-            ],
-            [
-                'name' => $applicantData['name'],
-                'phone' => $applicantData['phone'] ?? null,
-                'department' => $applicantData['department'] ?? null,
-            ]
-        );
-
-        $selectionRows = collect($requestData['selections'] ?? [
-            [
-                'date' => $requestData['date'] ?? null,
-                'time_slot_ids' => $requestData['time_slot_ids'] ?? [],
-            ],
-        ])
-            ->filter(fn ($item) => is_array($item) && !empty($item['date']) && !empty($item['time_slot_ids']))
-            ->map(function ($item) {
-                $slotIds = collect($item['time_slot_ids'])
-                    ->map(fn ($id) => (int) $id)
-                    ->filter(fn ($id) => $id > 0)
-                    ->unique()
-                    ->sort()
-                    ->values()
-                    ->all();
-
-                return [
-                    'date' => (string) $item['date'],
-                    'time_slot_ids' => $slotIds,
-                ];
-            })
-            ->filter(fn ($item) => !empty($item['time_slot_ids']))
-            ->groupBy('date')
-            ->map(function ($items, $date) {
-                $mergedSlotIds = collect($items)
-                    ->flatMap(fn ($item) => $item['time_slot_ids'])
-                    ->map(fn ($id) => (int) $id)
-                    ->unique()
-                    ->sort()
-                    ->values()
-                    ->all();
-
-                return [
-                    'date' => (string) $date,
-                    'time_slot_ids' => $mergedSlotIds,
-                ];
-            })
-            ->values();
-
-        if ($selectionRows->isEmpty()) {
-            return back()->withErrors([
-                'selections' => '請至少選擇一筆借用日期與時段。',
-            ]);
-        }
-
-        $selectionConflict = $this->findSelectionConflict(
-            (int) $requestData['classroom_id'],
-            $selectionRows->all()
-        );
-
-        if ($selectionConflict) {
-            return back()->withErrors([
-                'selections' => sprintf(
-                    '時段衝突：%s 第 %s 節已被預約。',
-                    $selectionConflict['date'],
-                    implode('、', $selectionConflict['slot_names'])
-                ),
-            ]);
-        }
-
-        $firstSelection = $selectionRows->first();
+        $requestData = $request->validated();
 
         try {
-            $booking = DB::transaction(function () use ($requestData, $borrower, $applicantData, $selectionRows, $firstSelection) {
-            $conflictInTx = $this->findSelectionConflict(
-                (int) $requestData['classroom_id'],
-                $selectionRows->all(),
-                true
-            );
-
-            if ($conflictInTx) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'selections' => '所選時段已有其他申請，請重新整理後再試。',
-                ]);
-            }
-
-            $booking = new Booking();
-            $booking->classroom_id = $requestData['classroom_id'];
-            $booking->borrower_id = $borrower->id;
-            $booking->reason = $applicantData['reason'] ?? null;
-            $booking->teacher = $applicantData['teacher'] ?? null;
-            $booking->status_enum = Booking::STATUS_PENDING;
-            $booking->level = Booking::levelForStatus(Booking::STATUS_PENDING);
-            $booking->save();
-
-            foreach ($selectionRows as $selection) {
-                $bookingDate = $booking->bookingDates()->create([
-                    'date' => $selection['date'],
-                ]);
-                $bookingDate->timeSlots()->sync($selection['time_slot_ids']);
-            }
-
-            $this->bookingSlotLockService->syncForBooking($booking);
-
-            $booking->load(['classroom', 'borrower', 'bookingDates.timeSlots']);
-
-            return $booking;
-            });
-        } catch (\Illuminate\Database\QueryException $e) {
+            $result = $this->bookingCreationService->create($requestData);
+            $booking = $result['booking'];
+            $selectionRows = $result['selection_rows'];
+            $borrower = $result['borrower'];
+        } catch (QueryException $e) {
             $sqlState = (string) ($e->errorInfo[0] ?? '');
             if ($sqlState === '23000') {
                 return back()->withErrors([
@@ -245,6 +120,8 @@ class HomeController extends Controller
 
             throw $e;
         }
+
+        $firstSelection = $selectionRows->first();
 
         $roomCode = $requestData['classroom_code'];
         $date = $firstSelection['date'];
@@ -276,9 +153,9 @@ class HomeController extends Controller
             ]);
     }
 
-    public function showCancelConfirmation(Request $request, string $booking)
+    public function showCancelConfirmation(CancelBookingRequest $request, string $booking)
     {
-        $bookingModel = $this->findBookingForCancellation($booking);
+        $bookingModel = $this->bookingCancellationService->findBookingForCancellation($booking);
 
         if (! $bookingModel) {
             return Inertia::render('BookingCancellation', [
@@ -293,15 +170,15 @@ class HomeController extends Controller
         return Inertia::render('BookingCancellation', [
             'mode' => 'confirm',
             'state' => $bookingModel->status_enum === 'pending' ? 'confirm' : ($bookingModel->status_enum === 'cancelled' ? 'cancelled' : 'locked'),
-            'summary' => $this->formatBookingSummary($bookingModel),
+            'summary' => $this->bookingCancellationService->formatBookingSummary($bookingModel),
             'cancelActionUrl' => URL::signedRoute('bookings.cancel.destroy', ['booking' => $bookingModel->id]),
             'homeUrl' => route('home.index'),
         ]);
     }
 
-    public function destroy(Request $request, string $booking)
+    public function destroy(CancelBookingRequest $request, string $booking)
     {
-        $bookingModel = $this->findBookingForCancellation($booking);
+        $bookingModel = $this->bookingCancellationService->findBookingForCancellation($booking);
 
         if (! $bookingModel) {
             return Inertia::render('BookingCancellation', [
@@ -313,7 +190,7 @@ class HomeController extends Controller
             ]);
         }
 
-        $summary = $this->formatBookingSummary($bookingModel);
+        $summary = $this->bookingCancellationService->formatBookingSummary($bookingModel);
 
         if ($bookingModel->status_enum !== 'pending') {
             return Inertia::render('BookingCancellation', [
@@ -325,10 +202,7 @@ class HomeController extends Controller
             ]);
         }
 
-        $bookingModel->status_enum = Booking::STATUS_CANCELLED;
-        $bookingModel->level = Booking::levelForStatus(Booking::STATUS_CANCELLED);
-        $bookingModel->save();
-        $this->bookingSlotLockService->syncForBooking($bookingModel);
+        $this->bookingCancellationService->cancelPendingBooking($bookingModel);
 
         return Inertia::render('BookingCancellation', [
             'mode' => 'result',
@@ -338,99 +212,4 @@ class HomeController extends Controller
             'homeUrl' => route('home.index'),
         ]);
     }
-
-    protected function findBookingForCancellation(string $bookingId): ?Booking
-    {
-        return Booking::with(['classroom', 'borrower', 'bookingDates.timeSlots'])
-            ->find($bookingId);
-    }
-
-    protected function formatBookingSummary(Booking $booking): array
-    {
-        $booking->loadMissing(['bookingDates.timeSlots']);
-        $dateSummary = $booking->getDateSummaryData('Y年m月d日', true)['summary'];
-
-        return [
-            'borrower_name' => $booking->borrower?->name ?? '未提供',
-            'classroom_name' => trim(($booking->classroom?->code ?? '') . ' ' . ($booking->classroom?->name ?? '')),
-            'date' => $dateSummary,
-            'teacher' => $booking->teacher ?: '未填寫',
-            'reason' => $booking->reason ?: '未填寫',
-            'time_slots' => $booking->bookingDates
-                ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
-                ->unique('id')
-                ->sortBy('start_time')
-                ->map(fn ($timeSlot) => sprintf('%s (%s-%s)', $timeSlot->name, substr((string) $timeSlot->start_time, 0, 5), substr((string) $timeSlot->end_time, 0, 5)))
-                ->values()
-                ->all(),
-        ];
-    }
-
-    private function findSelectionConflict(int $classroomId, array $selectionRows, bool $forUpdate = false): ?array
-    {
-        $pairs = collect($selectionRows)
-            ->flatMap(function ($selection) {
-                $date = (string) ($selection['date'] ?? '');
-                $slotIds = collect($selection['time_slot_ids'] ?? [])
-                    ->map(fn ($id) => (int) $id)
-                    ->filter(fn ($id) => $id > 0)
-                    ->unique()
-                    ->values();
-
-                if ($date === '' || $slotIds->isEmpty()) {
-                    return [];
-                }
-
-                return $slotIds->map(fn ($slotId) => [
-                    'date' => $date,
-                    'time_slot_id' => (int) $slotId,
-                ])->all();
-            })
-            ->unique(fn ($pair) => $pair['date'].'#'.$pair['time_slot_id'])
-            ->values();
-
-        if ($pairs->isEmpty()) {
-            return null;
-        }
-
-        $pairKeys = $pairs
-            ->map(fn ($pair) => $pair['date'].'#'.$pair['time_slot_id'])
-            ->values()
-            ->all();
-
-        $query = DB::table('booking_slot_locks as bsl')
-            ->join('time_slots as ts', 'ts.id', '=', 'bsl.time_slot_id')
-            ->select(['bsl.date', 'bsl.time_slot_id', 'ts.name as slot_name', 'ts.start_time'])
-            ->where('bsl.classroom_id', $classroomId)
-            ->whereIn(
-                DB::raw("CONCAT(DATE_FORMAT(bsl.date, '%Y-%m-%d'), '#', bsl.time_slot_id)"),
-                $pairKeys
-            );
-
-        if ($forUpdate) {
-            $query->lockForUpdate();
-        }
-
-        $conflicts = $query
-            ->orderBy('bsl.date')
-            ->orderBy('ts.start_time')
-            ->get();
-
-        if ($conflicts->isEmpty()) {
-            return null;
-        }
-
-        $firstDate = (string) $conflicts->first()->date;
-
-        return [
-            'date' => $firstDate,
-            'slot_names' => $conflicts
-                ->where('date', $firstDate)
-                ->pluck('slot_name')
-                ->unique()
-                ->values()
-                ->all(),
-        ];
-    }
-
 }
