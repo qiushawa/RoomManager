@@ -23,6 +23,12 @@ export const BORROWING_RECORD_STATUS_TABS: StatusTabOption[] = [
     { label: '已取消', value: '3' },
 ];
 
+export const CLASSROOM_STATUS_TABS: StatusTabOption[] = [
+    { label: '全部', value: 'all' },
+    { label: '啟用', value: 'enabled' },
+    { label: '停用', value: 'disabled' },
+];
+
 export const BOOKING_TABLE_HEADERS: AdminTableHeader[] = [
     { label: '申請人' },
     { label: '教室' },
