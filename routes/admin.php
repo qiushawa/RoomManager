@@ -32,6 +32,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
             Route::prefix('rooms')->group(function () {
                 Route::get('/', [AdminClassroomController::class, 'rooms'])->name('rooms');
                 Route::post('/', [AdminClassroomController::class, 'storeRoom'])->name('rooms.store');
+                Route::patch('/batch', [AdminClassroomController::class, 'batchUpdateRooms'])->name('rooms.batch');
                 Route::patch('/{classroom}/toggle', [AdminClassroomController::class, 'toggleRoom'])->name('rooms.toggle');
                 Route::delete('/{classroom}', [AdminClassroomController::class, 'destroyRoom'])->name('rooms.destroy');
             });

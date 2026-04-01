@@ -69,6 +69,104 @@ class AdminManagementFlowTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_batch_update_classrooms_and_rename_single_room(): void
+    {
+        $admin = $this->createAdmin();
+        $this->createCurrentSemester();
+
+        $roomA = Classroom::factory()->create([
+            'code' => 'GC201',
+            'name' => 'Room A',
+            'is_active' => false,
+        ]);
+        $roomB = Classroom::factory()->create([
+            'code' => 'GC202',
+            'name' => 'Room B',
+            'is_active' => true,
+        ]);
+
+        $enableResponse = $this
+            ->actingAs($admin, 'admin')
+            ->patch(route('admin.rooms.batch'), [
+                'action' => 'enable',
+                'selected_ids' => [$roomA->id, $roomB->id],
+            ]);
+
+        $enableResponse->assertRedirect();
+        $this->assertDatabaseHas('classrooms', ['id' => $roomA->id, 'is_active' => 1]);
+        $this->assertDatabaseHas('classrooms', ['id' => $roomB->id, 'is_active' => 1]);
+
+        $disableResponse = $this
+            ->actingAs($admin, 'admin')
+            ->patch(route('admin.rooms.batch'), [
+                'action' => 'disable',
+                'selected_ids' => [$roomA->id, $roomB->id],
+            ]);
+
+        $disableResponse->assertRedirect();
+        $this->assertDatabaseHas('classrooms', ['id' => $roomA->id, 'is_active' => 0]);
+        $this->assertDatabaseHas('classrooms', ['id' => $roomB->id, 'is_active' => 0]);
+
+        $renameResponse = $this
+            ->actingAs($admin, 'admin')
+            ->patch(route('admin.rooms.batch'), [
+                'action' => 'rename',
+                'selected_ids' => [$roomA->id],
+                'name' => 'Room A Updated',
+            ]);
+
+        $renameResponse->assertRedirect();
+        $this->assertDatabaseHas('classrooms', [
+            'id' => $roomA->id,
+            'name' => 'Room A Updated',
+        ]);
+
+        $invalidRenameResponse = $this
+            ->actingAs($admin, 'admin')
+            ->from(route('admin.rooms'))
+            ->patch(route('admin.rooms.batch'), [
+                'action' => 'rename',
+                'selected_ids' => [$roomA->id, $roomB->id],
+                'name' => 'Should Fail',
+            ]);
+
+        $invalidRenameResponse->assertRedirect(route('admin.rooms'));
+        $invalidRenameResponse->assertSessionHasErrors('operation');
+    }
+
+    public function test_admin_can_filter_classrooms_by_status_and_search(): void
+    {
+        $admin = $this->createAdmin();
+        $this->createCurrentSemester();
+
+        Classroom::factory()->create([
+            'code' => 'GC301',
+            'name' => 'Enabled Room',
+            'is_active' => true,
+        ]);
+        Classroom::factory()->create([
+            'code' => 'GC302',
+            'name' => 'Disabled Room',
+            'is_active' => false,
+        ]);
+
+        $statusResponse = $this
+            ->actingAs($admin, 'admin')
+            ->get(route('admin.rooms', ['status' => 'enabled']));
+
+        $statusResponse->assertOk();
+        $statusResponse->assertSee('GC301');
+        $statusResponse->assertDontSee('GC302');
+
+        $searchResponse = $this
+            ->actingAs($admin, 'admin')
+            ->get(route('admin.rooms', ['search' => 'Disabled Room']));
+
+        $searchResponse->assertOk();
+        $searchResponse->assertSee('Disabled Room');
+        $searchResponse->assertDontSee('Enabled Room');
+    }
+
     public function test_admin_can_add_borrower_to_blacklist_with_reasons(): void
     {
         $admin = $this->createAdmin();
