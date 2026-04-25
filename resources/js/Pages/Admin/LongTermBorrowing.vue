@@ -39,6 +39,13 @@
             <section v-if="activeMode === 'manual'" class="flex flex-col gap-8">
                 <div class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
                     <form class="space-y-8" @submit.prevent="handleManualSubmit">
+                        <div
+                            v-if="manualForm.errors.semester || manualForm.errors.periods"
+                            class="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500"
+                        >
+                            {{ manualForm.errors.semester || manualForm.errors.periods }}
+                        </div>
+
                         <fieldset class="space-y-5">
                             <legend class="w-full border-b border-a-divider pb-2 text-xs font-medium uppercase tracking-widest text-a-text-muted">
                                 基本資訊
@@ -51,6 +58,9 @@
                                         type="text"
                                         class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                                     />
+                                    <p v-if="manualForm.errors.teacher_name" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.teacher_name }}
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">課程名稱</label>
@@ -59,6 +69,9 @@
                                         type="text"
                                         class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                                     />
+                                    <p v-if="manualForm.errors.course_name" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.course_name }}
+                                    </p>
                                 </div>
                             </div>
                         </fieldset>
@@ -80,6 +93,9 @@
                                             {{ room.code }} - {{ room.name }}
                                         </option>
                                     </select>
+                                    <p v-if="manualForm.errors.classroom_id" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.classroom_id }}
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">開始日期</label>
@@ -88,6 +104,9 @@
                                         type="date"
                                         class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                                     />
+                                    <p v-if="manualForm.errors.start_date" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.start_date }}
+                                    </p>
                                 </div>
                                 <div>
                                     <div class="mb-2 flex items-center justify-between">
@@ -106,6 +125,9 @@
                                         type="date"
                                         class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
                                     />
+                                    <p v-if="manualForm.errors.end_date" class="mt-1 text-xs text-red-400">
+                                        {{ manualForm.errors.end_date }}
+                                    </p>
                                 </div>
                             </div>
 
@@ -127,6 +149,9 @@
                                         @occupied-click="handleManualOccupiedClick"
                                     />
                                 </div>
+                                <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">
+                                    {{ manualForm.errors.periods }}
+                                </p>
                             </div>
                         </fieldset>
 
@@ -568,8 +593,6 @@ const unresolvedConflictSlots = computed<string[]>(() => {
 
     return Array.from(unresolvedSlotKeys);
 });
-
-const remainingConflictCount = computed(() => unresolvedConflictSlots.value.length);
 
 function restoreManualDraft() {
     if (typeof window === 'undefined') return;

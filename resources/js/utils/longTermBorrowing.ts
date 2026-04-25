@@ -2,10 +2,10 @@ import type { BuildingCode, ClassroomOption } from '@/types';
 
 export function inferBuildingCode(code: string): BuildingCode | null {
     const upper = String(code).toUpperCase();
-    if (upper.includes('AIA') || upper.includes('IA')) return 'AIA';
-    if (upper.includes('BCB') || upper.includes('CB')) return 'BCB';
-    if (upper.includes('BGC') || upper.includes('GC')) return 'BGC';
-    if (upper.includes('BRA') || upper.includes('RA')) return 'BRA';
+    if (upper.startsWith('AIA') || upper.startsWith('IA')) return 'AIA';
+    if (upper.startsWith('BCB') || upper.startsWith('CB')) return 'BCB';
+    if (upper.startsWith('BGC') || upper.startsWith('GC')) return 'BGC';
+    if (upper.startsWith('BRA') || upper.startsWith('RA')) return 'BRA';
     return null;
 }
 
