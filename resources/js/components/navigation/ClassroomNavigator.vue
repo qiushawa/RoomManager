@@ -38,15 +38,15 @@
                 </button>
             </div>
 
-            <div class="mb-4 flex items-center gap-2">
+            <div v-if="hasVisibleBuildings" class="mb-4 flex items-center gap-2">
                 <div class="h-px flex-1 bg-white/10"></div>
                 <span class="text-[10px] font-medium tracking-[0.15em] text-white/30 uppercase">Buildings</span>
                 <div class="h-px flex-1 bg-white/10"></div>
             </div>
 
-            <div class="sidebar-scroll -mr-1 flex-1 overflow-y-auto overscroll-contain pr-1">
+            <div v-if="hasVisibleBuildings" class="sidebar-scroll -mr-1 flex-1 overflow-y-auto overscroll-contain pr-1">
                 <div class="flex flex-col gap-5 pb-2">
-                    <div v-for="(building, bIndex) in buildings" :key="bIndex">
+                    <div v-for="(building, bIndex) in visibleBuildings" :key="bIndex">
                         <div class="mb-2 flex items-center gap-2">
                             <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-white/10 text-[10px] font-bold text-white/60">
                                 {{ bIndex + 1 }}
@@ -104,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { SidebarBase } from '@/layouts';
 import type { Building, Room } from '@/types';
 import buildingBg from '@img/building-g3.png';
@@ -111,7 +112,7 @@ import logoImg from '@img/2339815.jpg';
 
 const appVersion = __APP_VERSION__;
 
-withDefaults(
+const props = withDefaults(
     defineProps<{
         buildings: Building[];
         activeRoomCode?: string | null;
@@ -122,6 +123,12 @@ withDefaults(
         isOverviewActive: false,
     },
 );
+
+const visibleBuildings = computed(() =>
+    props.buildings.filter((building) => building.rooms.length > 0),
+);
+
+const hasVisibleBuildings = computed(() => visibleBuildings.value.length > 0);
 
 defineEmits<{
     (e: 'select-room', room: Room): void;

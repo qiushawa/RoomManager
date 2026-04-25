@@ -87,8 +87,18 @@ class AdminLongTermBorrowingController extends Controller
                 ->toArray();
         }
 
+        $buildingOptions = collect(config('school.buildings', []))
+            ->filter(fn ($item) => ! empty($item['code']) && ! empty($item['label']))
+            ->map(fn ($item) => [
+                'code' => strtoupper((string) $item['code']),
+                'label' => (string) $item['label'],
+            ])
+            ->values()
+            ->all();
+
         return Inertia::render('Admin/LongTermBorrowing', [
             'classrooms' => $classrooms,
+            'buildingOptions' => $buildingOptions,
             'timeSlots' => $timeSlots,
             'manualRecords' => $manualRecords,
             'semesterEndDate' => $currentSemester?->end_date?->format('Y-m-d'),

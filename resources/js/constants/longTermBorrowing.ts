@@ -1,11 +1,12 @@
 import type { BuildingCode, WeekdayOption } from '@/types';
 
-export const LONG_TERM_BUILDING_ORDER: BuildingCode[] = ['CB', 'GC', 'RA'];
+export const LONG_TERM_BUILDING_ORDER: BuildingCode[] = ['BCB', 'BGC', 'BRA', 'AIA'];
 
 export const LONG_TERM_BUILDING_LABELS: Record<BuildingCode, string> = {
-    CB: '跨領域',
-    GC: '綜三館',
-    RA: '科研大樓',
+    BCB: '跨領域',
+    BGC: '綜三館',
+    BRA: '科研大樓',
+    AIA: '資訊大樓',
 };
 
 export const LONG_TERM_WEEKDAY_OPTIONS: WeekdayOption[] = [

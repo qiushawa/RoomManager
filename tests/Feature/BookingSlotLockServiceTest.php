@@ -68,6 +68,41 @@ class BookingSlotLockServiceTest extends TestCase
         ]);
     }
 
+    public function test_store_booking_requires_teacher_and_returns_validation_error(): void
+    {
+        $classroom = Classroom::factory()->create(['code' => 'BGC102']);
+        $slotA = TimeSlot::factory()->create(['name' => '1', 'start_time' => '08:10:00', 'end_time' => '09:00:00']);
+        $date = now()->addDay()->toDateString();
+
+        $response = $this
+            ->from('/Home')
+            ->post(route('home.store'), [
+                'classroom_id' => $classroom->id,
+                'classroom_code' => $classroom->code,
+                'selections' => [
+                    [
+                        'date' => $date,
+                        'time_slot_ids' => [$slotA->id],
+                    ],
+                ],
+                'applicant' => [
+                    'name' => 'Test User',
+                    'identity_code' => 'A1234567',
+                    'email' => 'test-user@example.com',
+                    'phone' => '0912345678',
+                    'department' => '資訊工程系',
+                    'teacher' => '',
+                    'reason' => '單元測試',
+                ],
+            ]);
+
+        $response->assertRedirect('/Home');
+        $response->assertSessionHasErrors([
+            'applicant.teacher' => '請填寫指導老師。',
+        ]);
+        $response->assertSessionDoesntHaveErrors('selections');
+    }
+
     public function test_cancel_booking_removes_slot_locks(): void
     {
         $booking = $this->createPendingBookingWithLocks();
