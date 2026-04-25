@@ -1,4 +1,4 @@
-export type BuildingCode = 'CB' | 'GC' | 'RA';
+export type BuildingCode = 'BCB' | 'BGC' | 'BRA' | 'AIA' | string;
 export type LongTermScheduleType = 'course' | 'manual' | 'borrowed';
 export type ManualConflictKind = 'schedule' | 'short_term_approved' | 'short_term_pending';
 export type ShortTermResolution = 'review_pending' | 'reject_and_override';
@@ -23,6 +23,11 @@ export interface ClassroomOption {
     name: string;
     has_imported?: boolean;
     building_code?: BuildingCode | null;
+}
+
+export interface BuildingOption {
+    code: BuildingCode;
+    label: string;
 }
 
 export interface TimeSlotOption {

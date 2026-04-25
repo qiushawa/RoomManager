@@ -31,7 +31,7 @@ class StoreBookingRequest extends FormRequest
             'applicant.email' => 'required|email|max:255',
             'applicant.phone' => 'nullable|string|max:10',
             'applicant.department' => 'nullable|string|max:50',
-            'applicant.teacher' => 'nullable|string|max:50',
+            'applicant.teacher' => 'required|string|max:50',
             'applicant.reason' => 'nullable|string|max:255',
         ];
     }
@@ -42,6 +42,7 @@ class StoreBookingRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'applicant.teacher.required' => '請填寫指導老師。',
             'applicant.identity_code.regex' => '學號/員工編號僅可輸入英文與數字。',
         ];
     }

@@ -35,5 +35,6 @@ export {
 	ConflictActionModal,
 	ImportBuildingPanel,
 	ImportPreviewTable,
+	LongTermImportSection,
 	ManualRecordList,
 } from './long-term-borrowing';

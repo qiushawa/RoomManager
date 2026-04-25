@@ -5,7 +5,6 @@ namespace App\Services\Admin;
 use App\Models\Classroom;
 use App\Models\CourseSchedule;
 use App\Models\Semester;
-use App\Models\Setting;
 use App\Models\TimeSlot;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
@@ -15,6 +14,48 @@ use Illuminate\Support\Str;
 
 class LongTermCourseScheduleService
 {
+    /**
+     * @return array<int, array{code:string,match_prefixes:array<int,string>,category:string,building:string,label:string}>
+     */
+    private function importMappings(): array
+    {
+        $rawMappings = config('school.buildings', []);
+        if (! is_array($rawMappings)) {
+            return [];
+        }
+
+        return collect($rawMappings)
+            ->filter(fn ($item) => is_array($item) && ! empty($item['code']) && ! empty($item['category']) && ! empty($item['building']))
+            ->map(function ($item) {
+                $prefixes = collect($item['match_prefixes'] ?? [])
+                    ->filter(fn ($prefix) => is_string($prefix) && $prefix !== '')
+                    ->map(fn ($prefix) => strtoupper($prefix))
+                    ->values()
+                    ->all();
+
+                return [
+                    'code' => strtoupper((string) $item['code']),
+                    'match_prefixes' => $prefixes,
+                    'category' => strtoupper((string) $item['category']),
+                    'building' => strtoupper((string) $item['building']),
+                    'label' => (string) ($item['label'] ?? ''),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{code:string,match_prefixes:array<int,string>,category:string,building:string,label:string}|null
+     */
+    private function findImportMappingByBuildingCode(string $buildingCode): ?array
+    {
+        $normalized = strtoupper($buildingCode);
+
+        return collect($this->importMappings())
+            ->first(fn ($mapping) => $mapping['code'] === $normalized);
+    }
+
     public function resolveCurrentOrNearestFutureSemester(): ?Semester
     {
         $currentSemester = Semester::findByDate(now());
@@ -51,9 +92,11 @@ class LongTermCourseScheduleService
     public function extractBuildingCode(string $roomCode): ?string
     {
         $upper = strtoupper($roomCode);
-        foreach (['CB', 'GC', 'RA'] as $buildingCode) {
-            if (str_contains($upper, $buildingCode)) {
-                return $buildingCode;
+        foreach ($this->importMappings() as $mapping) {
+            foreach ($mapping['match_prefixes'] as $prefix) {
+                if (str_starts_with($upper, $prefix)) {
+                    return $mapping['code'];
+                }
             }
         }
 
@@ -71,24 +114,30 @@ class LongTermCourseScheduleService
             ->groupBy(fn ($room) => $this->extractBuildingCode((string) $room->code) ?? '__UNKNOWN_BUILDING__');
 
         if ($groupedClassrooms->has('__UNKNOWN_BUILDING__')) {
-            throw new \RuntimeException('教室代碼無法判斷大樓，僅支援 CB、GC、RA。');
+            $supported = collect($this->importMappings())
+                ->pluck('code')
+                ->implode('、');
+            throw new \RuntimeException("教室代碼無法判斷大樓，目前支援：{$supported}。");
         }
 
         $year = (int) $semester->academic_year;
         $seme = (int) $semester->semester;
-        $category = (string) Setting::get('course_import_category', 'B');
         $importUrl = config('services.nfu_schedule_import.url');
 
         $allRows = [];
 
         foreach ($groupedClassrooms as $buildingCode => $roomsInBuilding) {
             $roomsInBuilding = $roomsInBuilding->values();
+            $mapping = $this->findImportMappingByBuildingCode((string) $buildingCode);
+            if (! $mapping) {
+                throw new \RuntimeException('找不到匯入大樓映射設定：' . (string) $buildingCode);
+            }
 
             $payload = [
                 'year' => $year,
                 'seme' => $seme,
-                'category' => $category,
-                'building' => $this->resolveImportBuildingValue((string) $buildingCode),
+                'category' => $mapping['category'],
+                'building' => $mapping['building'],
                 'classrooms' => $roomsInBuilding
                     ->map(fn ($room) => "{$room->code},{$room->code}-{$room->name}")
                     ->values()
@@ -263,15 +312,4 @@ class LongTermCourseScheduleService
         return $result;
     }
 
-    private function resolveImportBuildingValue(string $buildingCode): string
-    {
-        $default = (string) Setting::get('course_import_building', 'GC,粽三館');
-
-        return match (strtoupper($buildingCode)) {
-            'CB' => 'CB,跨領域',
-            'GC' => 'GC,粽三館',
-            'RA' => 'RA,科研大樓',
-            default => $default,
-        };
-    }
 }

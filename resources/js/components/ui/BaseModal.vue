@@ -3,13 +3,15 @@
         <Transition name="modal" appear>
             <div
                 v-if="show"
+                :data-admin-theme="resolvedTheme"
                 class="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
                 <!-- Backdrop -->
                 <Transition name="backdrop" appear>
                     <div
                         v-if="show"
-                        class="absolute inset-0 bg-black/50"
+                        class="absolute inset-0"
+                        :class="isDarkTheme ? 'bg-black/50' : 'bg-slate-900/30'"
                         @click="$emit('close')"
                     ></div>
                 </Transition>
@@ -18,7 +20,7 @@
                 <Transition name="dialog" appear>
                     <div
                         v-if="show"
-                        class="relative z-10 w-full overflow-hidden rounded-2xl bg-white shadow-2xl will-change-transform"
+                        class="relative z-10 w-full overflow-hidden rounded-2xl border border-a-border-card bg-a-bg text-a-text shadow-2xl will-change-transform"
                         :class="sizeClass"
                     >
                         <slot></slot>
@@ -31,6 +33,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useAdminTheme } from '@/composables';
 
 const props = withDefaults(
     defineProps<{
@@ -45,6 +48,16 @@ const props = withDefaults(
 defineEmits<{
     (e: 'close'): void;
 }>();
+
+const { theme, isDark } = useAdminTheme();
+
+const isAdminRoute = computed(() => {
+    if (typeof window === 'undefined') return false;
+    return window.location.pathname.startsWith('/admin');
+});
+
+const resolvedTheme = computed<'dark' | 'light'>(() => (isAdminRoute.value ? theme.value : 'light'));
+const isDarkTheme = computed(() => isAdminRoute.value && isDark.value);
 
 const sizeClass = computed(() => {
     const sizes = {

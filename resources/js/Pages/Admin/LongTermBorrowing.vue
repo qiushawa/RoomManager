@@ -2,132 +2,115 @@
     <Head title="長期借用管理 | Admin" />
     <AdminLayout title="長期借用管理">
         <div class="admin-page-container">
-
-            <!-- 成功訊息 -->
-            <p v-if="$page.props.flash?.success"
-                class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400">
+            <p
+                v-if="$page.props.flash?.success"
+                class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm text-emerald-400"
+            >
                 {{ $page.props.flash.success }}
             </p>
 
-            <!-- 模式切換 Tab -->
             <div class="flex gap-1 border-b border-a-border-2">
-                <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-                    :class="activeMode === 'manual'
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'"
-                    @click="activeMode = 'manual'">
+                <button
+                    type="button"
+                    class="-mb-px border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+                    :class="activeMode === 'manual' ? 'border-primary text-primary' : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'manual'"
+                >
                     手動新增
                 </button>
-                <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-                    :class="activeMode === 'import'
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'"
-                    @click="activeMode = 'import'">
+                <button
+                    type="button"
+                    class="-mb-px border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+                    :class="activeMode === 'import' ? 'border-primary text-primary' : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'import'"
+                >
                     教室課表匯入
                 </button>
-                <button type="button" class="px-5 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px"
-                    :class="activeMode === 'records'
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-a-text-muted hover:text-a-text'"
-                    @click="activeMode = 'records'">
+                <button
+                    type="button"
+                    class="-mb-px border-b-2 px-5 py-2.5 text-sm font-medium transition-colors"
+                    :class="activeMode === 'records' ? 'border-primary text-primary' : 'border-transparent text-a-text-muted hover:text-a-text'"
+                    @click="activeMode = 'records'"
+                >
                     已儲存記錄
                 </button>
             </div>
 
-            <!-- ── 手動新增 ── -->
             <section v-if="activeMode === 'manual'" class="flex flex-col gap-8">
                 <div class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
-
-                    <div v-if="manualForm.errors.semester || manualForm.errors.periods"
-                        class="mb-6 flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-500">
-                        <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                            stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                        <p>{{ manualForm.errors.semester || manualForm.errors.periods }}</p>
-                    </div>
-
                     <form class="space-y-8" @submit.prevent="handleManualSubmit">
-
-                        <!-- ── 基本資訊 ── -->
                         <fieldset class="space-y-5">
                             <legend class="w-full border-b border-a-divider pb-2 text-xs font-medium uppercase tracking-widest text-a-text-muted">
                                 基本資訊
                             </legend>
-
                             <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">指導老師</label>
-                                    <input v-model.trim="manualForm.teacher_name" type="text" placeholder="如：王大明"
-                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
-                                    <p v-if="manualForm.errors.teacher_name" class="mt-1 text-xs text-red-400">
-                                        {{ manualForm.errors.teacher_name }}
-                                    </p>
+                                    <input
+                                        v-model.trim="manualForm.teacher_name"
+                                        type="text"
+                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                    />
                                 </div>
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">課程名稱</label>
-                                    <input v-model.trim="manualForm.course_name" type="text" placeholder="如：資料結構"
-                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none" />
-                                    <p v-if="manualForm.errors.course_name" class="mt-1 text-xs text-red-400">
-                                        {{ manualForm.errors.course_name }}
-                                    </p>
+                                    <input
+                                        v-model.trim="manualForm.course_name"
+                                        type="text"
+                                        class="w-full rounded-xl border border-a-border-2 bg-transparent px-4 py-2.5 text-sm text-a-text-body transition focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                                    />
                                 </div>
                             </div>
                         </fieldset>
 
-                        <!-- ── 借用時段 ── -->
                         <fieldset class="space-y-5">
                             <legend class="w-full border-b border-a-divider pb-2 text-xs font-medium uppercase tracking-widest text-a-text-muted">
                                 借用時段
                             </legend>
 
-                            <!-- 教室 + 開始日期 + 結束日期（同一行） -->
                             <div class="grid grid-cols-1 gap-5 sm:grid-cols-[minmax(160px,220px)_1fr_1fr]">
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">教室</label>
-                                    <select v-model="manualForm.classroom_id"
-                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-4 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary">
+                                    <select
+                                        v-model="manualForm.classroom_id"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-4 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                    >
                                         <option value="">請選擇教室</option>
                                         <option v-for="room in classrooms" :key="room.id" :value="room.id">
                                             {{ room.code }} - {{ room.name }}
                                         </option>
                                     </select>
-                                    <p v-if="manualForm.errors.classroom_id" class="mt-1 text-xs text-red-400">
-                                        {{ manualForm.errors.classroom_id }}
-                                    </p>
                                 </div>
-
                                 <div>
                                     <label class="mb-2 block text-sm font-medium text-a-text-body">開始日期</label>
-                                    <input v-model="manualForm.start_date" type="date"
-                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
-                                    <p v-if="manualForm.errors.start_date" class="mt-1 text-xs text-red-400">
-                                        {{ manualForm.errors.start_date }}
-                                    </p>
+                                    <input
+                                        v-model="manualForm.start_date"
+                                        type="date"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
                                 </div>
-
                                 <div>
                                     <div class="mb-2 flex items-center justify-between">
                                         <label class="text-sm font-medium text-a-text-body">結束日期</label>
-                                        <button type="button" :disabled="!props.semesterEndDate"
+                                        <button
+                                            type="button"
+                                            :disabled="!props.semesterEndDate"
                                             class="text-xs font-medium text-primary hover:underline disabled:text-a-text-muted disabled:no-underline"
-                                            @click="applyQuickDateRange">
+                                            @click="applyQuickDateRange"
+                                        >
                                             帶入至學期末
                                         </button>
                                     </div>
-                                    <input v-model="manualForm.end_date" type="date"
-                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary" />
-                                    <p v-if="manualForm.errors.end_date" class="mt-1 text-xs text-red-400">
-                                        {{ manualForm.errors.end_date }}
-                                    </p>
+                                    <input
+                                        v-model="manualForm.end_date"
+                                        type="date"
+                                        class="w-full rounded-xl border border-a-border-2 bg-a-surface px-3 py-2.5 text-sm text-a-text-body outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
+                                    />
                                 </div>
                             </div>
 
-                            <!-- 節次選取（獨立一行） -->
                             <div>
                                 <label class="mb-3 block text-sm font-medium text-a-text-body">節次選取</label>
-                                <!-- overflow-visible 確保 tooltip 不被容器裁切 -->
                                 <div class="overflow-visible rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm">
                                     <ScheduleGrid
                                         :week-dates="manualWeekDates"
@@ -144,113 +127,49 @@
                                         @occupied-click="handleManualOccupiedClick"
                                     />
                                 </div>
-                                <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">
-                                    {{ manualForm.errors.periods }}
-                                </p>
                             </div>
                         </fieldset>
 
-                        <!-- ── 衝突狀態 + 送出 ── -->
                         <div class="flex items-center justify-between border-t border-a-divider pt-6">
                             <div class="flex items-center gap-2 text-sm">
-                                <span class="h-2 w-2 rounded-full transition-colors"
-                                    :class="manualConflictLoading
-                                        ? 'animate-pulse bg-primary'
-                                        : manualConflictSummary
-                                            ? 'bg-emerald-500'
-                                            : 'bg-a-text-muted/40'">
-                                </span>
-                                <span v-if="manualConflictLoading" class="text-a-text-muted">衝突檢查中…</span>
-                                <span v-else-if="manualConflictError" class="text-amber-400">{{ manualConflictError }}</span>
-                                <span v-else-if="manualConflictSummary && remainingConflictCount > 0" class="text-amber-400">
-                                    偵測到衝突，請依格內符號提示調整後再送出
-                                </span>
-                                <span v-else-if="manualConflictSummary" class="text-emerald-400">無衝突，可直接送出</span>
-                                <span v-else class="text-a-text-muted">尚未檢查</span>
+                                <span class="h-2 w-2 rounded-full transition-colors" :class="manualConflictLoading ? 'animate-pulse bg-primary' : 'bg-a-text-muted/40'" />
+                                <span class="text-a-text-muted">{{ manualConflictLoading ? '衝突檢查中…' : '尚未檢查' }}</span>
                             </div>
-
-                            <button type="submit" :disabled="!canSubmitManual || manualForm.processing"
-                                class="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-primary/90 hover:shadow-lg focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-a-divider disabled:text-a-text-muted disabled:shadow-none">
-                                <svg v-if="manualForm.processing" class="h-4 w-4 animate-spin"
-                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
-                                        stroke-width="4" />
-                                    <path class="opacity-75" fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
+                            <button
+                                type="submit"
+                                :disabled="!canSubmitManual || manualForm.processing"
+                                class="inline-flex items-center gap-2 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-white shadow-md transition-all hover:bg-primary/90 hover:shadow-lg disabled:cursor-not-allowed disabled:bg-a-divider disabled:text-a-text-muted"
+                            >
                                 {{ manualForm.processing ? '處理中…' : '確認新增記錄' }}
                             </button>
                         </div>
-
                     </form>
                 </div>
 
-                                <ConflictActionModal
-                                        :show="conflictActionModalOpen"
-                                        :loading="manualConflictLoading"
-                                        :active-conflict-slot="activeConflictSlot"
-                                        :weekday-name-map="WEEKDAY_NAME_MAP"
-                                        :period-label-text="periodLabelText"
-                                        @close="closeConflictActionModal"
-                                        @action="applyConflictAction"
-                                />
+                <ConflictActionModal
+                    :show="conflictActionModalOpen"
+                    :loading="manualConflictLoading"
+                    :active-conflict-slot="activeConflictSlot"
+                    :weekday-name-map="WEEKDAY_NAME_MAP"
+                    :period-label-text="periodLabelText"
+                    @close="closeConflictActionModal"
+                    @action="applyConflictAction"
+                />
             </section>
 
-            <!-- ── 已儲存記錄 ── -->
-            <section v-else-if="activeMode === 'records'"
-                class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
+            <section v-else-if="activeMode === 'records'" class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
                 <div class="mb-5 border-b border-a-divider pb-4">
                     <h3 class="text-base font-bold text-a-text">已儲存記錄</h3>
                     <p class="mt-1 text-sm text-a-text-muted">可在此檢視與撤回本學期手動新增的長期借用。</p>
                 </div>
-                <ManualRecordList
-                    :manual-records="manualRecords"
-                    @revoke="revokeManualRecord"
-                />
+                <ManualRecordList :manual-records="manualRecords" @revoke="revokeManualRecord" />
             </section>
 
-            <!-- ── 教室課表匯入 ── -->
-            <section v-else-if="activeMode === 'import'" class="flex flex-col gap-5">
-
-                <p v-if="importErrorMessage || importForm.errors.classroom_ids || importServerError || previewError"
-                    class="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400">
-                    {{ importErrorMessage || importForm.errors.classroom_ids || importServerError || previewError }}
-                </p>
-
-                <div class="space-y-4">
-                    <ImportBuildingPanel v-for="buildingCode in buildingOrder" :key="buildingCode"
-                        :building-code="buildingCode" :building-label="buildingLabels[buildingCode]"
-                        :rooms="classroomsByBuilding[buildingCode]"
-                        :selected-classroom-set="selectedClassroomSet"
-                        @select-all="selectAllInBuilding"
-                        @toggle-room="toggleClassroomSelection"
-                        @revoke-room="revokeImport" />
-                </div>
-
-                <div v-if="isAwaitingImportConfirmation"
-                    class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
-                    已完成預覽，請確認內容後再次按下「確認匯入」。
-                </div>
-
-                <div class="flex flex-wrap items-center justify-between gap-3 border-t border-a-border-2 pt-4">
-                    <button type="button"
-                        class="text-xs text-a-text-muted underline-offset-2 hover:text-a-text hover:underline"
-                        @click="clearSelectedClassrooms">
-                        清空選取
-                    </button>
-                    <div class="flex items-center gap-2">
-                        <button type="button"
-                            :disabled="previewLoading || importForm.processing || selectedClassroomIds.length === 0"
-                            class="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
-                            @click="handleImportAction">
-                            {{ importActionLabel }}
-                        </button>
-                    </div>
-                </div>
-
-                <ImportPreviewTable :classrooms="classrooms" :preview-schedules="previewSchedules" />
-            </section>
-
+            <LongTermImportSection
+                v-else-if="activeMode === 'import'"
+                :classrooms="classrooms"
+                :building-options="buildingOptions"
+            />
         </div>
     </AdminLayout>
 </template>
@@ -261,13 +180,9 @@ import { AdminLayout } from '@/layouts';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ScheduleGrid } from '@/components';
 import { useAdminTheme } from '@/composables';
-import {
-    LONG_TERM_BUILDING_LABELS,
-    LONG_TERM_BUILDING_ORDER,
-} from '@/constants';
-import { ConflictActionModal, ImportBuildingPanel, ImportPreviewTable, ManualRecordList } from '@/components/admin';
+import { ConflictActionModal, LongTermImportSection, ManualRecordList } from '@/components/admin';
 import type {
-    BuildingCode,
+    BuildingOption,
     ClassroomOption,
     ImportConfig,
     ManualConflictItem,
@@ -277,16 +192,16 @@ import type {
     ManualRecord,
     OccupiedData,
     Period,
-    PreviewSchedule,
     SelectedSlot,
     SlotResolutionAction,
     TimeSlotOption,
     WeekDate,
 } from '@/types';
-import { formatDateToYYYYMMDD, getRoomBuildingCode } from '@/utils';
+import { formatDateToYYYYMMDD } from '@/utils';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
+    buildingOptions: BuildingOption[];
     timeSlots: TimeSlotOption[];
     manualRecords: ManualRecord[];
     semesterEndDate: string | null;
@@ -297,9 +212,6 @@ const { isDark } = useAdminTheme();
 const adminScheduleGridTheme = computed<'light' | 'dark'>(() => (isDark.value ? 'dark' : 'light'));
 
 // ── 常數 ──────────────────────────────────────────────
-const buildingOrder = LONG_TERM_BUILDING_ORDER;
-const buildingLabels = LONG_TERM_BUILDING_LABELS;
-
 const WEEKDAY_NAME_MAP: Record<number, string> = {
     1: '一',
     2: '二',
@@ -359,12 +271,6 @@ interface ManualDraftPayload {
 
 // ── 狀態 ──────────────────────────────────────────────
 const activeMode = ref<'manual' | 'import' | 'records'>('manual');
-const selectedClassroomIds = ref<number[]>([]);
-const importErrorMessage = ref('');
-const previewLoading = ref(false);
-const previewError = ref('');
-const previewSchedules = ref<PreviewSchedule[]>([]);
-const isAwaitingImportConfirmation = ref(false);
 
 // ── 手動表單 ──────────────────────────────────────────
 const manualForm = useForm<ManualFormData>({
@@ -1174,144 +1080,4 @@ function revokeManualRecord(record: ManualRecord) {
     });
 }
 
-// ── 匯入功能 ──────────────────────────────────────────
-const importForm = useForm<{ classroom_ids: number[] }>({
-    classroom_ids: [],
-});
-
-const selectedClassroomSet = computed(() => new Set(selectedClassroomIds.value.map((id) => Number(id))));
-
-const importActionLabel = computed(() => {
-    if (previewLoading.value) return '預覽中...';
-    if (importForm.processing) return '匯入中...';
-    if (isAwaitingImportConfirmation.value) return '確認匯入';
-    return `匯入 ${selectedClassroomIds.value.length} 間教室`;
-});
-
-const classroomsByBuilding = computed<Record<BuildingCode, ClassroomOption[]>>(() => ({
-    CB: props.classrooms.filter((room) => getRoomBuildingCode(room) === 'CB'),
-    GC: props.classrooms.filter((room) => getRoomBuildingCode(room) === 'GC'),
-    RA: props.classrooms.filter((room) => getRoomBuildingCode(room) === 'RA'),
-}));
-
-const importServerError = computed(() => {
-    const errors = importForm.errors as Record<string, string | undefined>;
-    return errors.import ?? '';
-});
-
-watch(selectedClassroomIds, () => {
-    previewSchedules.value = [];
-    previewError.value = '';
-    isAwaitingImportConfirmation.value = false;
-});
-
-function toggleClassroomSelection(room: ClassroomOption) {
-    importErrorMessage.value = '';
-    const selected = new Set(selectedClassroomIds.value);
-    if (selected.has(room.id)) {
-        selected.delete(room.id);
-        selectedClassroomIds.value = Array.from(selected);
-        return;
-    }
-    selected.add(room.id);
-    selectedClassroomIds.value = Array.from(selected);
-}
-
-function selectAllInBuilding(buildingCode: BuildingCode) {
-    importErrorMessage.value = '';
-    const ids = classroomsByBuilding.value[buildingCode].map((room) => room.id);
-    selectedClassroomIds.value = Array.from(new Set([...selectedClassroomIds.value, ...ids]));
-}
-
-function clearSelectedClassrooms() {
-    selectedClassroomIds.value = [];
-    importErrorMessage.value = '';
-    previewSchedules.value = [];
-    previewError.value = '';
-    isAwaitingImportConfirmation.value = false;
-}
-
-async function previewImport() {
-    importErrorMessage.value = '';
-    previewError.value = '';
-    if (selectedClassroomIds.value.length === 0) {
-        previewError.value = '請至少選擇一間教室。';
-        return;
-    }
-    previewLoading.value = true;
-    previewSchedules.value = [];
-    isAwaitingImportConfirmation.value = false;
-    try {
-        const payloadIds = selectedClassroomIds.value.map((id) => Number(id));
-        const response = await window.axios.post('/admin/long-term-borrowing/preview', {
-            classroom_ids: payloadIds,
-        });
-        const schedules = (response?.data?.schedules ?? []) as PreviewSchedule[];
-        previewSchedules.value = schedules;
-        if (schedules.length === 0) {
-            previewError.value = '預覽成功，但未取得可匯入課表。';
-            return;
-        }
-        isAwaitingImportConfirmation.value = true;
-    } catch (error: any) {
-        const backendMessage =
-            error?.response?.data?.errors?.import?.[0]
-            || error?.response?.data?.errors?.classroom_ids?.[0]
-            || error?.response?.data?.message;
-        previewError.value = backendMessage || '預覽失敗，請確認匯入服務與參數設定。';
-    } finally {
-        previewLoading.value = false;
-    }
-}
-
-async function handleImportAction() {
-    importErrorMessage.value = '';
-
-    if (selectedClassroomIds.value.length === 0) {
-        importErrorMessage.value = '請至少選擇一間教室。';
-        return;
-    }
-
-    if (isAwaitingImportConfirmation.value && previewSchedules.value.length > 0) {
-        submitImport();
-        return;
-    }
-
-    await previewImport();
-}
-
-function submitImport() {
-    importErrorMessage.value = '';
-    if (selectedClassroomIds.value.length === 0) {
-        importErrorMessage.value = '請至少選擇一間教室。';
-        return;
-    }
-    if (previewSchedules.value.length === 0) {
-        importErrorMessage.value = '請先完成課表預覽，再進行匯入。';
-        return;
-    }
-    importForm.classroom_ids = selectedClassroomIds.value.map((id) => Number(id));
-    importForm.post('/admin/long-term-borrowing/import', {
-        preserveScroll: true,
-        onSuccess: () => {
-            selectedClassroomIds.value = [];
-            previewSchedules.value = [];
-            previewError.value = '';
-            isAwaitingImportConfirmation.value = false;
-        },
-        onError: () => {
-            importErrorMessage.value = '匯入失敗，請確認匯入服務與參數設定。';
-            isAwaitingImportConfirmation.value = false;
-        },
-    });
-}
-
-function revokeImport(room: ClassroomOption) {
-    if (!confirm(`確定要撤回「${room.code}」的課表匯入嗎？此操作將刪除該教室本學期所有匯入的課表記錄。`)) {
-        return;
-    }
-    router.delete(`/admin/long-term-borrowing/import/${room.id}`, {
-        preserveScroll: true,
-    });
-}
 </script>

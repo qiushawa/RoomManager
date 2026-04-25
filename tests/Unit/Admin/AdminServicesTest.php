@@ -72,9 +72,10 @@ class AdminServicesTest extends TestCase
         $courseService = app(LongTermCourseScheduleService::class);
         $conflictService = app(ManualLongTermConflictService::class);
 
-        $this->assertSame('GC', $courseService->extractBuildingCode('bgc102'));
-        $this->assertSame('CB', $courseService->extractBuildingCode('CB-501'));
-        $this->assertSame('RA', $courseService->extractBuildingCode('ra301'));
+        $this->assertSame('BGC', $courseService->extractBuildingCode('bgc102'));
+        $this->assertSame('BCB', $courseService->extractBuildingCode('CB-501'));
+        $this->assertSame('BRA', $courseService->extractBuildingCode('ra301'));
+        $this->assertSame('AIA', $courseService->extractBuildingCode('aia301'));
         $this->assertNull($courseService->extractBuildingCode('XH101'));
 
         $this->assertSame('course', $conflictService->resolveScheduleType('course'));
