@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\BookingStatusUpdated;
 use App\Models\Booking;
 use App\Models\BookingDate;
 use App\Models\TimeSlot;
 use App\Services\BookingSlotLockService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
 class AdminBookingController extends Controller
@@ -163,6 +165,12 @@ class AdminBookingController extends Controller
             $booking->refresh();
             $bookingSlotLockService->syncForBooking($booking);
         });
+
+        $booking->loadMissing(['borrower', 'classroom', 'bookingDates.timeSlots']);
+
+        if (! empty($booking->borrower?->email)) {
+            Mail::to($booking->borrower->email)->send(new BookingStatusUpdated($booking));
+        }
 
         return back()->with('success', '預約狀態已更新。');
     }
