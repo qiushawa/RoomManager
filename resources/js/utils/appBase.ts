@@ -4,24 +4,52 @@
 
 const APP_URL_META_NAME = 'app-url';
 
+let cachedAppUrl: string | null = null;
+let hasCachedAppUrl = false;
+
+let cachedAppBasePath: string | null = null;
+let hasCachedAppBasePath = false;
+
 export function getAppUrl(): string {
-    if (typeof document === 'undefined') return '';
-    const meta = document.querySelector(`meta[name="${APP_URL_META_NAME}"]`) as HTMLMetaElement | null;
-    return (meta?.content || '').trim();
+    if (!hasCachedAppUrl) {
+        if (typeof document === 'undefined') {
+            cachedAppUrl = '';
+        } else {
+            const meta = document.querySelector(`meta[name="${APP_URL_META_NAME}"]`) as HTMLMetaElement | null;
+            cachedAppUrl = (meta?.content || '').trim();
+        }
+        hasCachedAppUrl = true;
+    }
+
+    return cachedAppUrl ?? '';
 }
 
 export function getAppBasePath(): string {
-    if (typeof window === 'undefined') return '';
-    const appUrl = getAppUrl();
-    if (!appUrl) return '';
-    try {
-        const url = new URL(appUrl, window.location.origin);
-        const path = url.pathname || '';
-        if (path === '/' || path === '') return '';
-        return path.endsWith('/') ? path.slice(0, -1) : path;
-    } catch {
-        return '';
+    if (!hasCachedAppBasePath) {
+        if (typeof window === 'undefined') {
+            cachedAppBasePath = '';
+        } else {
+            const appUrl = getAppUrl();
+            if (!appUrl) {
+                cachedAppBasePath = '';
+            } else {
+                try {
+                    const url = new URL(appUrl, window.location.origin);
+                    const path = url.pathname || '';
+                    if (path === '/' || path === '') {
+                        cachedAppBasePath = '';
+                    } else {
+                        cachedAppBasePath = path.endsWith('/') ? path.slice(0, -1) : path;
+                    }
+                } catch {
+                    cachedAppBasePath = '';
+                }
+            }
+        }
+        hasCachedAppBasePath = true;
     }
+
+    return cachedAppBasePath ?? '';
 }
 
 export function withBase(path: string): string {

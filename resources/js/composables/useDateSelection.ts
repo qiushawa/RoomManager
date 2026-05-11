@@ -88,7 +88,7 @@ export function useDateSelection(options: UseDateSelectionOptions) {
         }
 
         router.get(
-            API_ENDPOINTS.home,
+            API_ENDPOINTS.home(),
             query,
             {
                 preserveState: true,

@@ -58,10 +58,10 @@ export const ANIMATION_DURATION = {
 
 /** API 端點 */
 export const API_ENDPOINTS = {
-    home: withBase('/Home'),
-    bookings: withBase('/bookings'),
-    adminLogin: withBase('/admin/login'),
-    bookingsSearch: withBase('/bookings/search'),
+    home: () => withBase('/Home'),
+    bookings: () => withBase('/bookings'),
+    adminLogin: () => withBase('/admin/login'),
+    bookingsSearch: () => withBase('/bookings/search'),
 } as const;
 
 export {
