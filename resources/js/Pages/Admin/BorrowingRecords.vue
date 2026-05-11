@@ -47,6 +47,7 @@ import { Head } from '@inertiajs/vue3';
 import { AdminLayout } from '@/layouts';
 import { BORROWING_RECORD_STATUS_TABS, RECORD_TABLE_HEADERS } from '@/constants';
 import { usePreviewModal, useTableFilters } from '@/composables';
+import { withBase } from '@/utils';
 import {
     AdminDataTable,
     AdminPagination,
@@ -67,7 +68,7 @@ const statusTabs = BORROWING_RECORD_STATUS_TABS;
 const tableHeaders = RECORD_TABLE_HEADERS;
 
 const { searchInput, filterStatus, applyFilters, setStatusAndApply } = useTableFilters({
-    route: '/admin/borrowing-records',
+    route: withBase('/admin/borrowing-records'),
     initialSearch: props.filters.search,
     initialStatus: props.filters.status,
 });

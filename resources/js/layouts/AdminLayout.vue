@@ -12,7 +12,7 @@
             </div>
 
             <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-1 z-10 relative">
-                <Link href="/admin/dashboard" :class="[
+                <Link :href="withBase('/admin/dashboard')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/dashboard') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -24,7 +24,7 @@
                     總覽
                 </Link>
 
-                <Link href="/admin/reviews" :class="[
+                <Link :href="withBase('/admin/reviews')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/reviews') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -36,7 +36,7 @@
                     審核列表
                 </Link>
 
-                <Link href="/admin/borrowing-records" :class="[
+                <Link :href="withBase('/admin/borrowing-records')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/borrowing-records') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -48,7 +48,7 @@
                     短期借用紀錄
                 </Link>
 
-                <Link href="/admin/rooms" :class="[
+                <Link :href="withBase('/admin/rooms')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/rooms') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -60,7 +60,7 @@
                     教室管理
                 </Link>
 
-                <Link href="/admin/users" :class="[
+                <Link :href="withBase('/admin/users')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/users') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -73,7 +73,7 @@
                 </Link>
                 <!-- 長期借用管理 -->
                 <!-- 長期借用管理 -->
-                <Link href="/admin/long-term-borrowing" :class="[
+                <Link :href="withBase('/admin/long-term-borrowing')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/long-term-borrowing') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -86,7 +86,7 @@
 
                     長期借用管理
                 </Link>
-                <Link href="/admin/settings" :class="[
+                <Link :href="withBase('/admin/settings')" :class="[
                     'flex items-center px-3 py-2.5 text-sm font-medium rounded-lg group transition-colors',
                     isActive('/admin/settings') ? 'text-white bg-primary/40 shadow-sm' : 'text-slate-300 hover:text-white hover:bg-white/10'
                 ]">
@@ -102,7 +102,7 @@
             </nav>
 
             <div class="p-4 border-t border-slate-700/50 z-10 relative">
-                <Link href="/admin/logout" method="post" as="button" type="button"
+                <Link :href="withBase('/admin/logout')" method="post" as="button" type="button"
                     class="w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-red-400 hover:bg-red-500/10 group transition-colors">
                     <svg class="mr-3 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
@@ -173,7 +173,7 @@
                                         class="px-4 py-8 text-center text-sm text-a-text-dim">
                                         目前沒有待審核的申請
                                     </div>
-                                    <Link v-for="item in notifItems" :key="item.id" href="/admin/reviews"
+                                    <Link v-for="item in notifItems" :key="item.id" :href="withBase('/admin/reviews')"
                                         class="flex gap-3 px-4 py-3 hover:bg-a-surface-hover transition-colors border-b border-a-divider last:border-b-0">
                                         <div
                                             class="shrink-0 mt-0.5 h-8 w-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center">
@@ -197,7 +197,7 @@
                                         </div>
                                     </Link>
                                 </div>
-                                <Link v-if="notifCount > 0" href="/admin/reviews"
+                                <Link v-if="notifCount > 0" :href="withBase('/admin/reviews')"
                                     class="block px-4 py-2.5 text-center text-xs font-medium text-primary-light hover:bg-a-surface-hover transition-colors border-t border-a-border">
                                     查看全部待審核申請
                                 </Link>
@@ -222,6 +222,7 @@
 import { Link, usePage } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useAdminTheme } from '@/composables';
+import { withBase } from '@/utils';
 import sidebarBg from '../../img/2339815.jpg';
 
 defineProps<{
@@ -231,9 +232,7 @@ defineProps<{
 const page = usePage();
 const { theme, isDark, toggleTheme } = useAdminTheme();
 
-const isActive = (path: string) => {
-    return page.url.startsWith(path);
-};
+const isActive = (path: string) => page.url.startsWith(withBase(path));
 
 // --- 通知功能 ---
 interface NotifItem {
@@ -254,7 +253,7 @@ const notifRef = ref<HTMLElement | null>(null);
 
 async function fetchNotifications() {
     try {
-        const res = await window.axios.get('/admin/notifications');
+        const res = await window.axios.get(withBase('/admin/notifications'));
         notifCount.value = res.data.count;
         notifItems.value = res.data.items;
     } catch {

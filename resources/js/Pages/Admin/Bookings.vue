@@ -51,6 +51,7 @@ import { Head, router } from '@inertiajs/vue3';
 import { AdminLayout } from '@/layouts';
 import { BOOKING_STATUS_TABS, BOOKING_TABLE_HEADERS } from '@/constants';
 import { usePreviewModal, useTableFilters } from '@/composables';
+import { withBase } from '@/utils';
 import {
     AdminDataTable,
     AdminPagination,
@@ -71,7 +72,7 @@ const statusTabs = BOOKING_STATUS_TABS;
 const tableHeaders = BOOKING_TABLE_HEADERS;
 
 const { searchInput, filterStatus, applyFilters, setStatusAndApply } = useTableFilters({
-    route: '/admin/bookings',
+    route: withBase('/admin/bookings'),
     initialSearch: props.filters.search,
     initialStatus: props.filters.status,
 });
@@ -79,7 +80,7 @@ const { searchInput, filterStatus, applyFilters, setStatusAndApply } = useTableF
 const { previewOpen, previewItem: previewBooking, openPreview, closePreview } = usePreviewModal<AdminBookingItem>();
 
 function updateStatus(bookingId: number, status: number) {
-    router.patch(`/admin/bookings/${bookingId}/status`, { status }, {
+    router.patch(withBase(`/admin/bookings/${bookingId}/status`), { status }, {
         preserveScroll: true,
     });
 }

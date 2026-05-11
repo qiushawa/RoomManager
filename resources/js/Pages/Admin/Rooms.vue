@@ -157,6 +157,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import { AdminSearchBar, AdminStatusTabs } from '@/components/admin';
 import { CLASSROOM_STATUS_TABS } from '@/constants';
 import { useTableFilters } from '@/composables';
+import { withBase } from '@/utils';
 import { AdminLayout } from '@/layouts';
 import type { AdminClassroomItem } from '@/types';
 
@@ -177,7 +178,7 @@ const selectedRoomIds = ref<number[]>([]);
 const renameName = ref('');
 
 const { searchInput, filterStatus, applyFilters, setStatusAndApply } = useTableFilters({
-    route: '/admin/rooms',
+    route: withBase('/admin/rooms'),
     initialSearch: props.filters.search,
     initialStatus: props.filters.status,
 });
@@ -193,7 +194,7 @@ const allSelected = computed(() =>
 );
 
 function addRoom() {
-    createForm.post('/admin/rooms', {
+    createForm.post(withBase('/admin/rooms'), {
         preserveScroll: true,
         onSuccess: () => createForm.reset(),
     });
@@ -232,7 +233,7 @@ function applyBatchAction(action: 'enable' | 'disable' | 'rename') {
         action,
         selected_ids: selectedRoomIds.value,
         name: action === 'rename' ? renameName.value.trim() : undefined,
-    })).patch('/admin/rooms/batch', {
+    })).patch(withBase('/admin/rooms/batch'), {
         preserveScroll: true,
         onSuccess: () => {
             selectedRoomIds.value = [];

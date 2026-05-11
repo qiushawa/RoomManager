@@ -222,7 +222,7 @@ import type {
     TimeSlotOption,
     WeekDate,
 } from '@/types';
-import { formatDateToYYYYMMDD } from '@/utils';
+import { formatDateToYYYYMMDD, withBase } from '@/utils';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
@@ -705,7 +705,7 @@ async function applyConflictAction(action: SlotResolutionAction) {
         }
         saveManualDraft();
         closeConflictActionModal();
-        window.location.href = '/admin/reviews?from=long-term-borrowing';
+        window.location.href = withBase('/admin/reviews?from=long-term-borrowing');
         return;
     }
 
@@ -763,7 +763,7 @@ async function applyConflictAction(action: SlotResolutionAction) {
 
         manualConflictLoading.value = true;
         try {
-            await window.axios.post('/admin/long-term-borrowing/manual/resolve-conflict', {
+            await window.axios.post(withBase('/admin/long-term-borrowing/manual/resolve-conflict'), {
                 action,
                 booking_id: bookingId,
             });
@@ -991,7 +991,7 @@ async function previewManualConflicts(): Promise<boolean> {
             periods_by_day: buildManualPeriodsByDay(),
         };
 
-        const response = await window.axios.post('/admin/long-term-borrowing/manual/conflicts', payload);
+        const response = await window.axios.post(withBase('/admin/long-term-borrowing/manual/conflicts'), payload);
         manualConflicts.value = (response?.data?.conflicts ?? []) as ManualConflictItem[];
         manualConflictSummary.value = (response?.data?.summary ?? null) as ManualConflictSummary | null;
         return true;
@@ -1059,7 +1059,7 @@ function submitManual() {
         ...data,
         periods_by_day: buildManualPeriodsByDay(),
         slot_resolutions: { ...slotResolutionMap.value },
-    })).post('/admin/long-term-borrowing/manual', {
+    })).post(withBase('/admin/long-term-borrowing/manual'), {
         preserveScroll: true,
         onSuccess: () => {
             manualForm.reset();
@@ -1098,7 +1098,7 @@ function revokeManualRecord(record: ManualRecord) {
         return;
     }
 
-    router.delete(`/admin/long-term-borrowing/manual/${record.id}`, {
+    router.delete(withBase(`/admin/long-term-borrowing/manual/${record.id}`), {
         preserveScroll: true,
     });
 }
