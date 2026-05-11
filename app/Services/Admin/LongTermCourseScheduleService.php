@@ -123,6 +123,7 @@ class LongTermCourseScheduleService
         $year = (int) $semester->academic_year;
         $seme = (int) $semester->semester;
         $importCommand = (string) config('services.nfu_schedule_import.command');
+        $importScript = (string) config('services.nfu_schedule_import.script');
 
         $allRows = [];
 
@@ -144,11 +145,11 @@ class LongTermCourseScheduleService
                     ->all(),
             ];
 
-            if ($importCommand === '') {
-                throw new \RuntimeException('課表匯入指令尚未設定，請確認 services.nfu_schedule_import.command。');
+            if ($importCommand === '' || $importScript === '') {
+                throw new \RuntimeException('課表匯入指令尚未設定，請確認 services.nfu_schedule_import.command 與 services.nfu_schedule_import.script。');
             }
 
-            $process = Process::fromShellCommandline($importCommand . ' --input-json');
+            $process = new Process([$importCommand, $importScript, '--input-json']);
             $process->setTimeout(45);
             $process->setWorkingDirectory(base_path());
             $process->setEnv(array_merge($_ENV, [

@@ -116,7 +116,6 @@ class AdminLongTermBorrowingController extends Controller
     {
         Log::info('previewCourseSchedules request payload', [
             'classroom_ids' => $request->input('classroom_ids'),
-            'request_all' => $request->all(),
         ]);
 
         $validated = $request->validate([
