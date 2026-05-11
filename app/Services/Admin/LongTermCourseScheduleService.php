@@ -14,6 +14,29 @@ use Symfony\Component\Process\Process;
 
 class LongTermCourseScheduleService
 {
+    private function resolveCliPath(string $value, bool $mustExist = false): string
+    {
+        $trimmed = trim($value);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $hasSeparator = str_contains($trimmed, '/') || str_contains($trimmed, '\\') || str_starts_with($trimmed, '.');
+        if (! $hasSeparator) {
+            return $trimmed;
+        }
+
+        $normalized = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $trimmed);
+        $isAbsolute = (bool) preg_match('/^[A-Za-z]:\\\\/', $normalized) || str_starts_with($normalized, DIRECTORY_SEPARATOR);
+        $resolved = $isAbsolute ? $normalized : base_path($normalized);
+
+        if ($mustExist && ! file_exists($resolved)) {
+            return '';
+        }
+
+        return $resolved;
+    }
+
     /**
      * @return array<int, array{code:string,match_prefixes:array<int,string>,category:string,building:string,label:string}>
      */
@@ -145,11 +168,14 @@ class LongTermCourseScheduleService
                     ->all(),
             ];
 
-            if ($importCommand === '' || $importScript === '') {
+            $resolvedCommand = $this->resolveCliPath($importCommand);
+            $resolvedScript = $this->resolveCliPath($importScript, true);
+
+            if ($resolvedCommand === '' || $resolvedScript === '') {
                 throw new \RuntimeException('課表匯入指令尚未設定，請確認 services.nfu_schedule_import.command 與 services.nfu_schedule_import.script。');
             }
 
-            $process = new Process([$importCommand, $importScript, '--input-json']);
+            $process = new Process([$resolvedCommand, $resolvedScript, '--input-json']);
             $process->setTimeout(45);
             $process->setWorkingDirectory(base_path());
             $process->setEnv(array_merge($_ENV, [
