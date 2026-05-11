@@ -34,6 +34,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useAdminTheme } from '@/composables';
+import { withBase } from '@/utils';
 
 const props = withDefaults(
     defineProps<{
@@ -53,7 +54,7 @@ const { theme, isDark } = useAdminTheme();
 
 const isAdminRoute = computed(() => {
     if (typeof window === 'undefined') return false;
-    return window.location.pathname.startsWith('/admin');
+    return window.location.pathname.startsWith(withBase('/admin'));
 });
 
 const resolvedTheme = computed<'dark' | 'light'>(() => (isAdminRoute.value ? theme.value : 'light'));

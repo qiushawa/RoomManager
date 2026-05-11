@@ -2,6 +2,8 @@
  * 應用程式全域常數配置
  */
 
+import { withBase } from '@/utils';
+
 /** 是否顯示垂直步驟進度 (開發/除錯用) */
 export const SHOW_STEP_PROGRESS_VERTICAL = 0;
 
@@ -56,10 +58,10 @@ export const ANIMATION_DURATION = {
 
 /** API 端點 */
 export const API_ENDPOINTS = {
-    home: '/Home',
-    bookings: '/bookings',
-    adminLogin: '/admin/login',
-    bookingsSearch: '/bookings/search',
+    home: withBase('/Home'),
+    bookings: withBase('/bookings'),
+    adminLogin: withBase('/admin/login'),
+    bookingsSearch: withBase('/bookings/search'),
 } as const;
 
 export {

@@ -145,7 +145,7 @@ import type {
     ClassroomOption,
     PreviewSchedule,
 } from '@/types';
-import { getRoomBuildingCode } from '@/utils';
+import { getRoomBuildingCode, withBase } from '@/utils';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
@@ -252,7 +252,7 @@ async function previewImport() {
     isAwaitingImportConfirmation.value = false;
     try {
         const payloadIds = selectedClassroomIds.value.map((id) => Number(id));
-        const response = await window.axios.post('/admin/long-term-borrowing/preview', {
+        const response = await window.axios.post(withBase('/admin/long-term-borrowing/preview'), {
             classroom_ids: payloadIds,
         });
         const schedules = (response?.data?.schedules ?? []) as PreviewSchedule[];
@@ -301,7 +301,7 @@ function submitImport() {
         return;
     }
     importForm.classroom_ids = selectedClassroomIds.value.map((id) => Number(id));
-    importForm.post('/admin/long-term-borrowing/import', {
+    importForm.post(withBase('/admin/long-term-borrowing/import'), {
         preserveScroll: true,
         onSuccess: () => {
             selectedClassroomIds.value = [];
@@ -336,7 +336,7 @@ async function revokeSelectedImports() {
     const failedCodes: string[] = [];
     for (const room of targetRooms) {
         try {
-            await window.axios.delete(`/admin/long-term-borrowing/import/${room.id}`);
+            await window.axios.delete(withBase(`/admin/long-term-borrowing/import/${room.id}`));
         } catch {
             failedCodes.push(room.code);
         }

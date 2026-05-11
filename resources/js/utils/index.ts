@@ -2,6 +2,13 @@
  * 工具函式統一匯出
  */
 
+// App URL base helpers
+export {
+    getAppBasePath,
+    getAppUrl,
+    withBase,
+} from './appBase';
+
 // 日期相關
 export {
     DAYS_LOOKUP,
