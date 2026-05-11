@@ -1,26 +1,22 @@
+import argparse
 import asyncio
-import re
 import json
+import re
+import sys
+from typing import List, Optional
+
 import httpx
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from bs4 import BeautifulSoup
-from typing import List
-
-app = FastAPI()
-
-# --- 資料模型定義 ---
-
-class ScheduleRequest(BaseModel):
-    year: int = 114
-    seme: int = 2
-    category: str = "B"
-    building: str = "GC,綜三館"
-    classrooms: List[str]  # 接收字串列表，例如 ["BGC0513,BGC0513-生物資訊實驗室"]
 
 # --- 邏輯處理 ---
 
 BASE_URL = "https://m.nfu.edu.tw/plab/"
+
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7",
+}
 
 def parse_html(html: str):
     """解析 HTML 並回傳濃縮後的字典結構"""
@@ -56,12 +52,12 @@ def parse_html(html: str):
     except Exception:
         return None
 
-async def fetch_task(client, req: ScheduleRequest, classroom_str: str, token: str):
+async def fetch_task(client, payload: dict, classroom_str: str, token: str):
     payload = {
-        'year': req.year,
-        'seme': req.seme,
-        'category': req.category,
-        'building': req.building,
+        'year': payload['year'],
+        'seme': payload['seme'],
+        'category': payload['category'],
+        'building': payload['building'],
         'classroom': classroom_str,
         'anticsrf': token,
         'submit': '查詢'
@@ -72,28 +68,87 @@ async def fetch_task(client, req: ScheduleRequest, classroom_str: str, token: st
     except Exception:
         return None
 
-# --- API 端點 ---
-
-@app.post("/batch_schedule")
-async def get_batch_schedule(req: ScheduleRequest):
+async def get_batch_schedule(payload: dict):
     # 使用 verify=False 跳過 SSL 驗證（針對學校舊式憑證）
-    async with httpx.AsyncClient(verify=False, timeout=20.0) as client:
+    async with httpx.AsyncClient(
+        verify=False,
+        timeout=20.0,
+        headers=DEFAULT_HEADERS,
+        follow_redirects=True,
+        trust_env=True,
+    ) as client:
         # 1. 取得一次性 Token
         try:
             landing = await client.get(BASE_URL)
             soup = BeautifulSoup(landing.text, 'lxml')
             token = soup.find('input', {'name': 'anticsrf'})['value']
-        except Exception:
-            raise HTTPException(status_code=500, detail="無法取得學校伺服器連線")
+        except Exception as exc:
+            raise RuntimeError(f"無法取得學校伺服器連線: {type(exc).__name__}: {exc}") from exc
 
         # 2. 建立併發任務
-        tasks = [fetch_task(client, req, c, token) for c in req.classrooms]
+        tasks = [fetch_task(client, payload, c, token) for c in payload['classrooms']]
         results = await asyncio.gather(*tasks)
-        
+
         # 3. 過濾無效結果
-        final_data = [r for r in results if r is not None]
-        return final_data
+        return [r for r in results if r is not None]
+
+
+def parse_args(argv: Optional[List[str]] = None) -> dict:
+    parser = argparse.ArgumentParser(description="NFU schedule import CLI")
+    parser.add_argument("--year", type=int, default=114)
+    parser.add_argument("--seme", type=int, default=2)
+    parser.add_argument("--category", type=str, default="B")
+    parser.add_argument("--building", type=str, default="GC,綜三館")
+    parser.add_argument("--classroom", action="append", default=[])
+    parser.add_argument("--input-json", action="store_true", help="Read JSON payload from stdin")
+
+    args = parser.parse_args(argv)
+
+    if args.input_json:
+        raw = sys.stdin.read().strip()
+        if not raw:
+            raise ValueError("stdin is empty")
+        payload = json.loads(raw)
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+        return payload
+
+    classrooms = args.classroom or []
+    payload = {
+        "year": args.year,
+        "seme": args.seme,
+        "category": args.category,
+        "building": args.building,
+        "classrooms": classrooms,
+    }
+
+    return payload
+
+
+def validate_payload(payload: dict) -> dict:
+    required = ["year", "seme", "category", "building", "classrooms"]
+    for key in required:
+        if key not in payload:
+            raise ValueError(f"missing field: {key}")
+
+    classrooms = payload.get("classrooms")
+    if not isinstance(classrooms, list) or not classrooms:
+        raise ValueError("classrooms must be a non-empty list")
+
+    return payload
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+    try:
+        payload = parse_args(argv)
+        payload = validate_payload(payload)
+        result = asyncio.run(get_batch_schedule(payload))
+        sys.stdout.write(json.dumps(result, ensure_ascii=False))
+        return 0
+    except Exception as exc:
+        sys.stderr.write(str(exc))
+        return 1
+
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    raise SystemExit(main())

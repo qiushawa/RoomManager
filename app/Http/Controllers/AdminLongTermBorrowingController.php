@@ -16,6 +16,7 @@ use App\Services\Admin\ManualLongTermBorrowingService;
 use App\Services\Admin\ManualLongTermConflictService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
@@ -113,6 +114,11 @@ class AdminLongTermBorrowingController extends Controller
 
     public function previewCourseSchedules(Request $request)
     {
+        Log::info('previewCourseSchedules request payload', [
+            'classroom_ids' => $request->input('classroom_ids'),
+            'request_all' => $request->all(),
+        ]);
+
         $validated = $request->validate([
             'classroom_ids' => ['required', 'array', 'min:1'],
             'classroom_ids.*' => ['integer', 'exists:classrooms,id'],
@@ -149,6 +155,18 @@ class AdminLongTermBorrowingController extends Controller
                 $periodToSlotId
             );
         } catch (\Throwable $e) {
+            Log::error('previewCourseSchedules failed', [
+                'message' => $e->getMessage(),
+                'classroom_ids' => $classroomIds->all(),
+            ]);
+
+            if ($request->expectsJson()) {
+                $safeMessage = '課表匯入失敗，請確認匯入指令與 Python 環境。';
+                return response()->json([
+                    'message' => $safeMessage,
+                ], 422);
+            }
+
             return back()->withErrors([
                 'import' => $e->getMessage(),
             ]);
