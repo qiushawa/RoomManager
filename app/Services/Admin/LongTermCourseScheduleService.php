@@ -9,8 +9,8 @@ use App\Models\TimeSlot;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
 
 class LongTermCourseScheduleService
 {
@@ -122,7 +122,7 @@ class LongTermCourseScheduleService
 
         $year = (int) $semester->academic_year;
         $seme = (int) $semester->semester;
-        $importUrl = config('services.nfu_schedule_import.url');
+        $importCommand = (string) config('services.nfu_schedule_import.command');
 
         $allRows = [];
 
@@ -144,24 +144,37 @@ class LongTermCourseScheduleService
                     ->all(),
             ];
 
-            try {
-                $response = Http::timeout(45)
-                    ->acceptJson()
-                    ->post($importUrl, $payload);
-            } catch (\Throwable $e) {
+            if ($importCommand === '') {
+                throw new \RuntimeException('課表匯入指令尚未設定，請確認 services.nfu_schedule_import.command。');
+            }
+
+            $process = Process::fromShellCommandline($importCommand . ' --input-json');
+            $process->setTimeout(45);
+            $process->setWorkingDirectory(base_path());
+            $process->setEnv(array_merge($_ENV, [
+                'PYTHONIOENCODING' => 'utf-8',
+                'PYTHONUTF8' => '1',
+            ]));
+            $process->setInput(json_encode($payload, JSON_UNESCAPED_UNICODE));
+            $process->run();
+
+            if (! $process->isSuccessful()) {
+                $errorOutput = trim($process->getErrorOutput());
+                $message = $errorOutput !== '' ? $errorOutput : '課表匯入指令執行失敗。';
                 throw new \RuntimeException(
-                    sprintf('課表匯入服務連線失敗（%s 棟），請確認匯入服務是否啟動。', strtoupper((string) $buildingCode))
+                    sprintf('課表匯入失敗（%s 棟）：%s', strtoupper((string) $buildingCode), $message)
                 );
             }
 
-            if (! $response->successful()) {
+            $decoded = json_decode($process->getOutput(), true);
+            if (! is_array($decoded)) {
                 throw new \RuntimeException(
-                    sprintf('課表匯入服務回應錯誤（%s 棟）：HTTP %d', strtoupper((string) $buildingCode), $response->status())
+                    sprintf('課表匯入回應解析失敗（%s 棟）。', strtoupper((string) $buildingCode))
                 );
             }
 
             $rows = $this->normalizeImportedSchedules(
-                $response->json(),
+                $decoded,
                 $semester,
                 $roomsInBuilding,
                 $periodToSlotId

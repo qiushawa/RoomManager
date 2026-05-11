@@ -37,6 +37,7 @@ return [
 
     'nfu_schedule_import' => [
         'url' => env('NFU_SCHEDULE_IMPORT_URL', 'http://127.0.0.1:8000/batch_schedule'),
+        'command' => env('NFU_SCHEDULE_IMPORT_COMMAND', 'python scheduleAPI.py'),
     ],
 
 ];
