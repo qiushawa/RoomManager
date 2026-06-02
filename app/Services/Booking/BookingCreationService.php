@@ -37,9 +37,9 @@ class BookingCreationService
         $borrower = Borrower::firstOrCreate(
             [
                 'identity_code' => (string) $applicantData['identity_code'],
-                'email' => (string) $applicantData['email'],
             ],
             [
+                'email' => (string) $applicantData['email'],
                 'name' => (string) $applicantData['name'],
                 'phone' => $applicantData['phone'] ?? null,
                 'department' => $applicantData['department'] ?? null,
