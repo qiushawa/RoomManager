@@ -12,6 +12,8 @@ use App\Services\BookingSlotLockService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use App\Mail\BookingStatusUpdated;
+use App\Mail\BookingSubmitted;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
@@ -52,6 +54,8 @@ class BookingSlotLockServiceTest extends TestCase
         $response->assertRedirect();
 
         $booking = Booking::query()->latest('id')->firstOrFail();
+
+        Mail::assertQueued(BookingSubmitted::class);
 
         $this->assertDatabaseHas('booking_slot_locks', [
             'booking_id' => $booking->id,
@@ -121,6 +125,7 @@ class BookingSlotLockServiceTest extends TestCase
 
     public function test_review_approve_keeps_slot_locks(): void
     {
+        Mail::fake();
         Semester::query()->create([
             'academic_year' => 114,
             'semester' => 2,
@@ -150,11 +155,15 @@ class BookingSlotLockServiceTest extends TestCase
         $this->assertSame('approved', $booking->status_enum);
         $this->assertSame($manager->id, $booking->approved_by);
         $this->assertSame($beforeCount, DB::table('booking_slot_locks')->where('booking_id', $booking->id)->count());
+
+        Mail::assertQueued(BookingStatusUpdated::class);
     }
 
     private function createPendingBookingWithLocks(): Booking
     {
-        $borrower = Borrower::factory()->create();
+        $borrower = Borrower::factory()->create([
+            'email' => 'borrower-test@example.com',
+        ]);
         $classroom = Classroom::factory()->create();
         $slotA = TimeSlot::factory()->create(['name' => '3', 'start_time' => '10:10:00', 'end_time' => '11:00:00']);
         $slotB = TimeSlot::factory()->create(['name' => '4', 'start_time' => '11:10:00', 'end_time' => '12:00:00']);
