@@ -10,10 +10,10 @@ use App\Models\Booking;
 use App\Services\Booking\BookingCancellationService;
 use App\Services\Booking\BookingCreationService;
 use App\Services\RoomAvailabilityService;
-use App\Mail\BookingSubmitted;
+use App\Events\BookingCreatedEvent;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Carbon\Carbon;
@@ -151,7 +151,10 @@ class HomeController extends Controller
                 ->pluck('name')
                 ->toArray();
 
-            Mail::to($borrower->email)->send(new BookingSubmitted($booking, $slots));
+            $bookingId = $booking->getKey();
+            DB::afterCommit(function () use ($bookingId, $slots): void {
+                event(new BookingCreatedEvent($bookingId, $slots));
+            });
         }
 
         $selectionCount = $selectionRows->count();
