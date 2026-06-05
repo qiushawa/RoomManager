@@ -27,6 +27,8 @@ class BookingSubmitted extends Mailable
      * 借用時段明細
      */
     public array $timeSlotDetails;
+    public string $timeSlotSummary;
+
 
     /**
      * 取消申請連結
@@ -43,6 +45,7 @@ class BookingSubmitted extends Mailable
         $this->cancelUrl = $booking->exists
             ? URL::temporarySignedRoute('bookings.cancel.confirm', now()->addDays(7), ['booking' => $booking->getKey()])
             : null;
+
         $this->timeSlotDetails = $booking->bookingDates
             ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
             ->unique('id')
@@ -57,6 +60,18 @@ class BookingSubmitted extends Mailable
                 ];
             })
             ->all();
+
+        $this->timeSlotSummary = $booking->bookingDates
+            ->sortBy('date')
+            ->map(function ($bookingDate) {
+                $slotNames = $bookingDate->timeSlots
+                    ->sortBy('start_time')
+                    ->pluck('name')
+                    ->implode('、');
+
+                return $bookingDate->date . ' [' . $slotNames . ']';
+            })
+            ->implode(', ');
     }
 
     protected function formatTime(?string $time): string
@@ -89,6 +104,7 @@ class BookingSubmitted extends Mailable
                 'booking' => $this->booking,
                 'timeSlots' => $this->timeSlots,
                 'timeSlotDetails' => $this->timeSlotDetails,
+                'timeSlotSummary' => $this->timeSlotSummary,  // 新增
                 'cancelUrl' => $this->cancelUrl,
             ],
         );
