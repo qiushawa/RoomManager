@@ -80,24 +80,17 @@ Artisan::command('booking:test-mail
     $booking->setRelation('classroom', $classroom);
     $booking->setRelation('bookingDates', collect([$bookingDate]));
 
-    $mailable = new BookingSubmitted($booking, $timeSlots->pluck('name')->all());
-    $html = $mailable->render();
-    $subject = $mailable->envelope()->subject;
+    // Queue the mail to keep all email delivery job-based and consistent.
+    Mail::to($email)->queue(new BookingSubmitted($booking, $timeSlots->pluck('name')->all()));
 
-    Mail::send([], [], function ($message) use ($email, $html, $subject) {
-        $message->to($email)
-            ->subject($subject)
-            ->html($html);
-    });
-
-    $this->info('測試信已送出。');
+    $this->info('測試信已加入寄送佇列。');
     $this->line('收件者: ' . $email);
     $this->line('教室: ' . $classroom->code . ' ' . $classroom->name);
     $this->line('日期: ' . $date);
     $this->line('時段: ' . $timeSlots->pluck('name')->implode('、'));
 
     return self::SUCCESS;
-})->purpose('Send a booking submission test email without creating a booking');
+})->purpose('Queue a booking submission test email without creating a booking');
 
 Artisan::command('system:check-conflicts {--date-from=} {--date-to=}', function () {
     $from = (string) ($this->option('date-from') ?: now()->subMonths(3)->toDateString());

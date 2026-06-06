@@ -23,13 +23,24 @@ export interface WeekDate {
     fullDate: string;
 }
 
-export type OccupiedStatus = 'approved' | 'pending' | 'course' | 'holiday';
+export type OccupiedStatus =
+    | 'approved'
+    | 'pending'
+    | 'course'
+    | 'holiday'
+    | 'conflict_short_term_pending'
+    | 'conflict_short_term_approved'
+    | 'conflict_schedule';
 
 export interface OccupiedItem {
     status: OccupiedStatus;
     title?: string;
     instructor?: string;
     applicant?: string;
+    marker?: string;
+    remaining_count?: number;
+    conflict_key?: string;
+    booking_id?: number;
 }
 
 export type OccupiedData = Record<string, Record<string, OccupiedItem | OccupiedStatus>>;

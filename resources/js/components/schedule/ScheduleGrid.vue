@@ -14,8 +14,8 @@
             >
                 <tr class="flex w-full">
                     <th
-                        class="flex w-24 shrink-0 items-center justify-center border-r py-2 text-xs"
-                        :class="isDarkTheme ? 'border-slate-600 text-slate-300' : 'border-gray-300 text-gray-500'"
+                        class="flex shrink-0 items-center justify-center border-r py-2 text-xs"
+                        :class="[periodColumnWidthClass, isDarkTheme ? 'border-slate-600 text-slate-300' : 'border-gray-300 text-gray-500']"
                     >
                         節次
                     </th>
@@ -36,20 +36,20 @@
             </thead>
 
             <tbody
-                class="no-scrollbar flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
+                class="no-scrollbar relative isolate flex min-h-0 w-full flex-1 flex-col overflow-y-auto"
             >
                 <tr
                     v-for="(period, pIndex) in periods"
                     :key="period.code"
-                    class="flex min-h-[40px] w-full flex-1 border-b transition-colors last:border-b-0"
+                    class="relative z-0 flex min-h-[40px] w-full flex-1 border-b transition-colors last:border-b-0 hover:z-[140]"
                     :class="isDarkTheme ? 'border-slate-600 hover:bg-sky-900/20' : 'border-gray-300 hover:bg-blue-50/30'"
                 >
                     <td
-                        class="flex w-24 shrink-0 flex-col items-center justify-center border-r px-1"
-                        :class="isDarkTheme ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-gray-50'"
+                        class="flex shrink-0 flex-col items-center justify-center border-r px-1"
+                        :class="[periodColumnWidthClass, isDarkTheme ? 'border-slate-600 bg-slate-800' : 'border-gray-300 bg-gray-50']"
                     >
-                        <span class="text-sm font-bold" :class="isDarkTheme ? 'text-slate-100' : 'text-gray-700'">{{ formatPeriodLabel(period.label) }}</span>
-                        <span v-if="period.start_time && period.end_time" class="text-[10px]" :class="isDarkTheme ? 'text-slate-400' : 'text-gray-400'">
+                        <span class="text-sm font-bold whitespace-nowrap" :class="isDarkTheme ? 'text-slate-100' : 'text-gray-700'">{{ formatPeriodLabel(period.label) }}</span>
+                        <span v-if="showPeriodTime && period.start_time && period.end_time" class="text-[10px]" :class="isDarkTheme ? 'text-slate-400' : 'text-gray-400'">
                             {{ formatTime(period.start_time) }}~{{ formatTime(period.end_time) }}
                         </span>
                     </td>
@@ -57,12 +57,20 @@
                     <td
                         v-for="(day, dIndex) in weekDates"
                         :key="dIndex"
-                        class="relative flex-1 border-r p-0 last:border-r-0"
+                        class="group relative z-0 flex-1 overflow-visible border-r p-0 last:border-r-0 hover:z-[120]"
                         :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
+                        <div
+                            v-if="isNonSelectablePeriod(period.code)"
+                            class="absolute inset-0 flex items-center justify-center text-xs font-medium"
+                            :class="isDarkTheme ? 'bg-slate-700/40 text-slate-300' : 'bg-gray-100 text-gray-500'"
+                        >
+                            不可選
+                        </div>
+
                         <!-- 佔用狀態格子 -->
                         <div
-                            v-if="getOccupiedStatus(day.fullDate, period.code)"
+                            v-else-if="getOccupiedStatus(day.fullDate, period.code) && !allowOccupiedSelection"
                             class="group absolute inset-0 flex items-center justify-center text-xs text-white cursor-not-allowed z-10 hover:z-[60]"
                             :class="[
                                 getStatusClass(getOccupiedStatus(day.fullDate, period.code)),
@@ -70,6 +78,28 @@
                             ]"
                         >
                             <!-- Hover 資訊預覽元件 -->
+                            <OccupiedTooltip
+                                :item="getOccupiedItem(day.fullDate, period.code)"
+                                :show-below="pIndex < 3"
+                            />
+                        </div>
+
+                        <div
+                            v-else-if="getOccupiedStatus(day.fullDate, period.code) && allowOccupiedSelection"
+                            class="absolute inset-0 z-10 flex cursor-pointer items-center justify-center text-sm font-extrabold text-white"
+                            :class="[
+                                getStatusClass(getOccupiedStatus(day.fullDate, period.code)),
+                                isHighlighted(day.fullDate, period.code) ? 'ring-2 ring-offset-1 ring-orange-500 animate-pulse-once' : ''
+                            ]"
+                            @click="handleOccupiedClick(day.fullDate, period.code)"
+                        >
+                            {{ getOccupiedMarker(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code)) }}
+                            <span
+                                v-if="getOccupiedBadgeCount(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code))"
+                                class="absolute top-0.5 right-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-none text-white"
+                            >
+                                {{ getOccupiedBadgeCount(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code)) }}
+                            </span>
                             <OccupiedTooltip
                                 :item="getOccupiedItem(day.fullDate, period.code)"
                                 :show-below="pIndex < 3"
@@ -144,7 +174,11 @@ const props = withDefaults(
         modelValue?: SelectedSlot[];
         highlightInfo?: HighlightInfo | null;
         showHeaderDate?: boolean;
+        showPeriodTime?: boolean;
+        periodColumnWidthClass?: string;
         allowCrossDateSelection?: boolean;
+        allowOccupiedSelection?: boolean;
+        nonSelectablePeriodCodes?: string[];
         theme?: 'auto' | 'light' | 'dark';
     }>(),
     {
@@ -152,13 +186,18 @@ const props = withDefaults(
         modelValue: () => [],
         highlightInfo: null,
         showHeaderDate: true,
+        showPeriodTime: true,
+        periodColumnWidthClass: 'w-24',
         allowCrossDateSelection: false,
+        allowOccupiedSelection: false,
+        nonSelectablePeriodCodes: () => [],
         theme: 'auto',
     },
 );
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: SelectedSlot[]): void;
+    (e: 'occupied-click', payload: { date: string; period: string; item: unknown }): void;
 }>();
 
 const {
@@ -184,7 +223,48 @@ const isDarkTheme = computed(() => {
     return prefersDark.value;
 });
 
+const nonSelectablePeriodCodeSet = computed(() => new Set(props.nonSelectablePeriodCodes));
+
+const isNonSelectablePeriod = (periodCode: string): boolean => nonSelectablePeriodCodeSet.value.has(periodCode);
+
 const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
+
+const getOccupiedMarker = (item: unknown, status: OccupiedStatus | null): string => {
+    const itemData = item && typeof item === 'object' ? (item as { marker?: string; remaining_count?: number }) : null;
+    return itemData?.marker
+        ?? (status === 'conflict_schedule'
+            ? '✗'
+            : status === 'conflict_short_term_pending'
+                ? '!'
+                : status === 'conflict_short_term_approved'
+                    ? '◆'
+                    : '!');
+};
+
+const getOccupiedBadgeCount = (item: unknown, status: OccupiedStatus | null): number | null => {
+    if (status !== 'conflict_short_term_pending' && status !== 'conflict_short_term_approved') {
+        return null;
+    }
+
+    const itemData = item && typeof item === 'object' ? (item as { remaining_count?: number }) : null;
+    const count = itemData?.remaining_count ?? 1;
+    if (count <= 1) {
+        return null;
+    }
+
+    return count;
+};
+
+const handleOccupiedClick = (date: string, period: string) => {
+    const item = getOccupiedItem(date, period);
+    if (!item) return;
+
+    emit('occupied-click', {
+        date,
+        period,
+        item,
+    });
+};
 
 const isHighlighted = (dateStr: string, code: string): boolean => {
     if (!props.highlightInfo) return false;
@@ -199,6 +279,10 @@ const currentDragDate = ref('');
 const preventDragDefault = (e: DragEvent) => e.preventDefault();
 
 const handleMouseDown = (day: WeekDate, period: Period) => {
+    if (isNonSelectablePeriod(period.code)) {
+        return;
+    }
+
     const targetDate = day.fullDate;
     const targetCode = period.code;
 
@@ -220,6 +304,7 @@ const handleMouseDown = (day: WeekDate, period: Period) => {
 
 const handleMouseEnter = (day: WeekDate, period: Period) => {
     if (!isDragging.value) return;
+    if (isNonSelectablePeriod(period.code)) return;
     if (!props.allowCrossDateSelection && currentDragDate.value !== day.fullDate) return;
 
     const  currentSlots = [...props.modelValue];

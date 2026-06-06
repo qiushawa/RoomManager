@@ -99,7 +99,7 @@
 
 <script setup lang="ts">
 import { toRefs } from 'vue';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { BarChart, DashboardChartCard, DoughnutChart, MetricCard } from '@/components/admin';
 import type { AdminChartData } from '@/types';
 

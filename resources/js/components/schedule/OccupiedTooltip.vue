@@ -1,6 +1,6 @@
 <template>
     <div
-        class="pointer-events-none absolute left-1/2 z-50 flex w-44 -translate-x-1/2 flex-col rounded-md bg-gray-800/95 p-2.5 text-white shadow-xl backdrop-blur-sm transition-opacity duration-200 opacity-0 group-hover:opacity-100 box-border"
+        class="pointer-events-none absolute left-1/2 z-[9999] flex w-44 -translate-x-1/2 flex-col rounded-md bg-gray-800/95 p-2.5 text-white shadow-xl backdrop-blur-sm transition-opacity duration-200 opacity-0 group-hover:opacity-100 box-border"
         :class="showBelow ? 'top-full mt-1.5' : 'bottom-full mb-1.5'"
     >
         <div class="shrink-0 border-b border-gray-600/70 pb-1.5 text-center text-xs font-bold text-gray-100 tracking-wider">
@@ -10,21 +10,21 @@
         <div class="flex flex-1 flex-col justify-start gap-2 pt-2 text-left overflow-hidden">
             <template v-if="isObject">
                 <div v-if="displayTitle" class="flex flex-col">
-                    <span class="text-[10px] font-medium leading-tight text-gray-400">課程</span>
+                    <span class="text-[10px] font-medium leading-tight text-gray-400">{{ titleLabel }}</span>
                     <span class="truncate text-xs text-gray-100" :title="displayTitle">
                         {{ displayTitle }}
                     </span>
                 </div>
 
                 <div class="flex flex-col">
-                    <span class="text-[10px] font-medium leading-tight text-gray-400">指導老師</span>
+                    <span class="text-[10px] font-medium leading-tight text-gray-400">{{ instructorLabel }}</span>
                     <span class="truncate text-xs text-gray-100" :title="itemData?.instructor">
                         {{ itemData?.instructor || '-' }}
                     </span>
                 </div>
 
                 <div v-if="itemData?.applicant" class="flex flex-col">
-                    <span class="text-[10px] font-medium leading-tight text-gray-400">申請人</span>
+                    <span class="text-[10px] font-medium leading-tight text-gray-400">{{ applicantLabel }}</span>
                     <span class="truncate text-xs text-gray-100" :title="itemData?.applicant">
                         {{ itemData.applicant || '-' }}
                     </span>
@@ -72,8 +72,24 @@ const statusLabel = computed(() => {
     return STATUS_LABELS[status.value] || '已佔用';
 });
 
+const isConflictStatus = computed(() => (
+    status.value === 'conflict_short_term_pending'
+    || status.value === 'conflict_short_term_approved'
+    || status.value === 'conflict_schedule'
+));
+
+const isScheduleConflict = computed(() => status.value === 'conflict_schedule');
+
+const titleLabel = computed(() => (isConflictStatus.value ? '衝突類型' : '課程'));
+const instructorLabel = computed(() => {
+    if (!isConflictStatus.value) return '指導老師';
+    return isScheduleConflict.value ? '課程名稱' : '日期';
+});
+const applicantLabel = computed(() => (isConflictStatus.value ? '對方借用人/指導老師' : '申請人'));
+
 const displayTitle = computed(() => {
     if (!itemData.value) return '-';
+    if (isConflictStatus.value) return itemData.value.title || '-';
     // 若是「已借出(approved)」，則隱藏事由 (這會涉及隱私所以不公開顯示)
     if (status.value !== 'course') return '';
     return itemData.value.title || '-';

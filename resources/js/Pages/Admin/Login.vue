@@ -55,7 +55,7 @@
 
                 <!-- Back -->
                 <div class="text-center pt-4">
-                    <a href="/Home" class="text-sm font-medium text-a-text-muted hover:text-a-text-body transition-colors">
+                    <a :href="withBase('/Home')" class="text-sm font-medium text-a-text-muted hover:text-a-text-body transition-colors">
                         返回首頁
                     </a>
                 </div>
@@ -68,6 +68,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { withBase } from '@/utils';
 
 const showPassword = ref(false);
 
@@ -78,7 +79,7 @@ const form = useForm({
 });
 
 const submitForm = () => {
-    form.post('/admin/login', {
+    form.post(withBase('/admin/login'), {
         onFinish: () => form.reset('password'),
     });
 };

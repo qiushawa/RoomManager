@@ -3,76 +3,52 @@
 namespace App\Mail;
 
 use App\Models\Booking;
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\URL;
 
-class BookingSubmitted extends Mailable implements ShouldQueue
+class BookingSubmitted extends Mailable
 {
-    use Queueable, SerializesModels;
+    use SerializesModels;
 
-    /**
-     * 預約資料
-     */
     public Booking $booking;
 
     /**
-     * 借用時段名稱
+     * @var array<int, string>
      */
     public array $timeSlots;
 
     /**
-     * 借用時段明細
+     * @var array<string, mixed>
      */
-    public array $timeSlotDetails;
+    public array $dateSummary;
 
     /**
-     * 取消申請連結
+     * @var array<int, array{date:string,slot_summary:string,slots:array<int,array{name:string,start_time:string,end_time:string}>}>
      */
+    public array $dateSchedules;
+
+    public int $totalSlotCount;
+
     public ?string $cancelUrl;
 
-    /**
-     * Create a new message instance.
-     */
-    public function __construct(Booking $booking, array $timeSlots)
+    public function __construct(Booking $booking, array $timeSlots = [])
     {
+        $booking->loadMissing(['borrower', 'classroom', 'bookingDates.timeSlots']);
+
         $this->booking = $booking;
         $this->timeSlots = $timeSlots;
+        $this->dateSummary = $booking->getDateSummaryData('Y年m月d日', true);
+        $this->dateSchedules = $booking->getDateSlotSchedules('Y年m月d日');
+        $this->totalSlotCount = collect($this->dateSchedules)
+            ->sum(fn (array $schedule) => count($schedule['slots']));
         $this->cancelUrl = $booking->exists
             ? URL::temporarySignedRoute('bookings.cancel.confirm', now()->addDays(7), ['booking' => $booking->getKey()])
             : null;
-        $this->timeSlotDetails = $booking->bookingDates
-            ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
-            ->unique('id')
-            ->sortBy('start_time')
-            ->values()
-            ->map(function ($timeSlot, int $index) {
-                return [
-                    'sequence' => $index + 1,
-                    'name' => $timeSlot->name,
-                    'start_time' => $this->formatTime($timeSlot->start_time),
-                    'end_time' => $this->formatTime($timeSlot->end_time),
-                ];
-            })
-            ->all();
     }
 
-    protected function formatTime(?string $time): string
-    {
-        if (! $time) {
-            return '-';
-        }
-
-        return substr($time, 0, 5);
-    }
-
-    /**
-     * Get the message envelope.
-     */
     public function envelope(): Envelope
     {
         return new Envelope(
@@ -80,9 +56,6 @@ class BookingSubmitted extends Mailable implements ShouldQueue
         );
     }
 
-    /**
-     * Get the message content definition.
-     */
     public function content(): Content
     {
         return new Content(
@@ -90,17 +63,14 @@ class BookingSubmitted extends Mailable implements ShouldQueue
             with: [
                 'booking' => $this->booking,
                 'timeSlots' => $this->timeSlots,
-                'timeSlotDetails' => $this->timeSlotDetails,
+                'dateSummary' => $this->dateSummary,
+                'dateSchedules' => $this->dateSchedules,
+                'totalSlotCount' => $this->totalSlotCount,
                 'cancelUrl' => $this->cancelUrl,
             ],
         );
     }
 
-    /**
-     * Get the attachments for the message.
-     *
-     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
-     */
     public function attachments(): array
     {
         return [];

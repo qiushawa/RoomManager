@@ -46,9 +46,10 @@
 
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { REVIEW_TABLE_HEADERS } from '@/constants';
 import { usePreviewModal, useTableFilters } from '@/composables';
+import { withBase } from '@/utils';
 import {
     AdminDataTable,
     AdminPagination,
@@ -67,7 +68,7 @@ const props = defineProps<{
 const tableHeaders = REVIEW_TABLE_HEADERS.filter((header) => header.label !== '操作');
 
 const { searchInput, applyFilters } = useTableFilters({
-    route: '/admin/reviews',
+    route: withBase('/admin/reviews'),
     initialSearch: props.filters.search,
     includeStatus: false,
 });
@@ -75,7 +76,7 @@ const { searchInput, applyFilters } = useTableFilters({
 const { previewOpen, previewItem: previewBooking, openPreview, closePreview } = usePreviewModal<AdminBookingItem>();
 
 function updateStatus(bookingId: number, status: number) {
-    router.patch(`/admin/bookings/${bookingId}/status`, { status }, {
+    router.patch(withBase(`/admin/bookings/${bookingId}/status`), { status }, {
         preserveScroll: true,
     });
 }

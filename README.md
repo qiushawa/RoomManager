@@ -68,6 +68,16 @@ php artisan key:generate
 php artisan migrate --seed
 ```
 
+### 測試環境隔離（建議）
+
+為避免測試資料影響主環境資料庫，請使用獨立 testing 設定：
+
+```bash
+cp .env.testing.example .env.testing
+php artisan key:generate --env=testing --force
+php artisan config:clear
+php artisan test
+```
 
 
 ### 5. 啟動服務
@@ -76,17 +86,6 @@ php artisan migrate --seed
 php artisan serve
 npm run dev
 ```
-
-
-
-## 系統規則
-
-### 學期資料檢查
-
-當目前日期不屬於任何學期時：
-
-* 系統將禁止後台操作
-* 管理員需先建立學期資料
 
 
 ## 操作教學

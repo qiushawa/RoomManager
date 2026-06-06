@@ -131,23 +131,9 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import AdminLayout from '@/layouts/AdminLayout.vue';
+import { AdminLayout } from '@/layouts';
 import { AdminDataTable, AdminPagination } from '@/components/admin';
-import type { PaginatedData } from '@/types';
-
-interface BlacklistReasonOption {
-    id: number;
-    reason: string;
-}
-
-interface BlacklistListItem {
-    id: number;
-    borrower_identity_code: string;
-    borrower_name: string | null;
-    borrower_department: string | null;
-    banned_until: string | null;
-    reasons: string[];
-}
+import type { BlacklistListItem, BlacklistReasonOption, PaginatedData } from '@/types';
 
 const props = defineProps<{
     blacklists: PaginatedData<BlacklistListItem>;

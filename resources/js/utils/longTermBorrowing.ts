@@ -2,16 +2,28 @@ import type { BuildingCode, ClassroomOption } from '@/types';
 
 export function inferBuildingCode(code: string): BuildingCode | null {
     const upper = String(code).toUpperCase();
-    if (upper.includes('CB')) return 'CB';
-    if (upper.includes('GC')) return 'GC';
-    if (upper.includes('RA')) return 'RA';
+    if (upper.startsWith('AIA') || upper.startsWith('IA')) return 'AIA';
+    if (upper.startsWith('BCB') || upper.startsWith('CB')) return 'BCB';
+    if (upper.startsWith('BGC') || upper.startsWith('GC')) return 'BGC';
+    if (upper.startsWith('BRA') || upper.startsWith('RA')) return 'BRA';
     return null;
 }
 
 export function getRoomBuildingCode(room: ClassroomOption): BuildingCode | null {
-    if (room.building_code === 'CB' || room.building_code === 'GC' || room.building_code === 'RA') {
-        return room.building_code;
+    const rawCode = String(room.building_code ?? '').toUpperCase();
+    if (rawCode === 'BCB' || rawCode === 'BGC' || rawCode === 'BRA' || rawCode === 'AIA') {
+        return rawCode;
     }
+    if (rawCode === 'CB') {
+        return 'BCB';
+    }
+    if (rawCode === 'GC') {
+        return 'BGC';
+    }
+    if (rawCode === 'RA') {
+        return 'BRA';
+    }
+
     return inferBuildingCode(room.code);
 }
 

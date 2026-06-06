@@ -69,7 +69,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
         resetForm();
         onReset?.();
         // url
-        router.visit(API_ENDPOINTS.home, { preserveState: true, preserveScroll: true });
+        router.visit(API_ENDPOINTS.home(), { preserveState: true, preserveScroll: true });
     };
 
     // 進入下一步
@@ -160,7 +160,7 @@ export function useBookingFlow(options: UseBookingFlowOptions) {
             applicant: { ...applicantForm },
         };
 
-        router.post(API_ENDPOINTS.bookings, payload, {
+        router.post(API_ENDPOINTS.bookings(), payload, {
             preserveState: true,
             preserveScroll: true,
             onSuccess: () => {

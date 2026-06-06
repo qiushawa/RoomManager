@@ -22,7 +22,9 @@ class ClassroomSeeder extends Seeder
             ['code' => 'BGC0601', 'name' => 'IC設計實驗室', 'is_active' => true],
             ['code' => 'BGC0614', 'name' => '數位學習實驗室', 'is_active' => true],
             ['code' => 'BCB0303', 'name' => '資工科普通教室', 'is_active' => true],
-            ['code'=>  'BCB0305', 'name' => '數位邏輯實驗室', 'is_active' => true]
+            ['code'=>  'BCB0305', 'name' => '數位邏輯實驗室', 'is_active' => true],
+            ['code' => 'BRA0102', 'name' => '人工智慧創新實驗室', 'is_active' => true],
+            ['code' => 'BRA0201', 'name' => '智慧運算與資訊安全實驗室', 'is_active' => true]
         ]);
     }
 }

@@ -129,14 +129,9 @@
 import { computed, ref, watch } from 'vue';
 import { Head, useForm, usePage } from '@inertiajs/vue3';
 import { BaseModal } from '@/components';
-import AdminLayout from '@/layouts/AdminLayout.vue';
-
-interface SemesterItem {
-    id: number;
-    display_name: string;
-    start_date: string;
-    end_date: string;
-}
+import { AdminLayout } from '@/layouts';
+import type { SemesterItem } from '@/types';
+import { withBase } from '@/utils';
 
 defineProps<{
     currentSemester: string | null;
@@ -181,7 +176,7 @@ const form = useForm<{
 });
 
 const submitSemester = () => {
-    form.post('/admin/settings/semesters', {
+    form.post(withBase('/admin/settings/semesters'), {
         preserveScroll: true,
         onSuccess: () => {
             form.reset('start_date', 'end_date');

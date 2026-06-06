@@ -16,7 +16,7 @@
                     </svg>
                     使用導覽
                 </a>
-                <a href="/admin/login"
+                <a :href="withBase('/admin/login')"
                     class="flex items-center gap-1.5 rounded-lg border border-transparent px-3 py-2 text-sm font-medium text-gray-500 transition-all hover:bg-gray-50 hover:text-primary">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -146,6 +146,7 @@
 </template>
 
 <script setup lang="ts">
+import { withBase } from '@/utils';
 /**
  * WelcomeGuide - 歡迎導覽頁面
  *
