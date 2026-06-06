@@ -14,7 +14,17 @@ class BookingStatusUpdated extends Mailable
 
     public Booking $booking;
 
-    public array $timeSlotDetails;
+    /**
+     * @var array<string, mixed>
+     */
+    public array $dateSummary;
+
+    /**
+     * @var array<int, array{date:string,slot_summary:string,slots:array<int,array{name:string,start_time:string,end_time:string}>}>
+     */
+    public array $dateSchedules;
+
+    public int $totalSlotCount;
 
     public string $statusLabel;
 
@@ -22,33 +32,15 @@ class BookingStatusUpdated extends Mailable
 
     public function __construct(Booking $booking)
     {
+        $booking->loadMissing(['borrower', 'classroom', 'bookingDates.timeSlots']);
+
         $this->booking = $booking;
         $this->statusLabel = $this->resolveStatusLabel($booking->status_enum);
         $this->statusColor = $this->resolveStatusColor($booking->status_enum);
-
-        $this->timeSlotDetails = $booking->bookingDates
-            ->flatMap(fn ($bookingDate) => $bookingDate->timeSlots)
-            ->unique('id')
-            ->sortBy('start_time')
-            ->values()
-            ->map(function ($timeSlot, int $index) {
-                return [
-                    'sequence' => $index + 1,
-                    'name' => $timeSlot->name,
-                    'start_time' => $this->formatTime($timeSlot->start_time),
-                    'end_time' => $this->formatTime($timeSlot->end_time),
-                ];
-            })
-            ->all();
-    }
-
-    protected function formatTime(?string $time): string
-    {
-        if (! $time) {
-            return '-';
-        }
-
-        return substr($time, 0, 5);
+        $this->dateSummary = $booking->getDateSummaryData('Y年m月d日', true);
+        $this->dateSchedules = $booking->getDateSlotSchedules('Y年m月d日');
+        $this->totalSlotCount = collect($this->dateSchedules)
+            ->sum(fn (array $schedule) => count($schedule['slots']));
     }
 
     protected function resolveStatusLabel(?string $statusEnum): string
@@ -86,7 +78,9 @@ class BookingStatusUpdated extends Mailable
                 'booking' => $this->booking,
                 'statusLabel' => $this->statusLabel,
                 'statusColor' => $this->statusColor,
-                'timeSlotDetails' => $this->timeSlotDetails,
+                'dateSummary' => $this->dateSummary,
+                'dateSchedules' => $this->dateSchedules,
+                'totalSlotCount' => $this->totalSlotCount,
             ],
         );
     }

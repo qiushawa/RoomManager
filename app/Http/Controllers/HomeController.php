@@ -146,14 +146,9 @@ class HomeController extends Controller
         $date = $firstSelection['date'];
 
         if ($borrower->email) {
-            $slots = TimeSlot::whereIn('id', $firstSelection['time_slot_ids'])
-                ->orderBy('start_time')
-                ->pluck('name')
-                ->toArray();
-
             $bookingId = $booking->getKey();
-            DB::afterCommit(function () use ($bookingId, $slots): void {
-                event(new BookingCreatedEvent($bookingId, $slots));
+            DB::afterCommit(function () use ($bookingId): void {
+                event(new BookingCreatedEvent($bookingId));
             });
         }
 

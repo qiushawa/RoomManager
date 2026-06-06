@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Events\BookingCreatedEvent;
 use App\Mail\BookingSubmitted;
+use App\Mail\AdminBookingSubmitted;
 use App\Models\Booking;
 use Illuminate\Support\Facades\Mail;
 
@@ -14,7 +15,7 @@ class SendBookingCreatedEmailListener
         $booking = Booking::with(['borrower', 'classroom', 'bookingDates.timeSlots'])
             ->find($event->bookingId);
 
-        if (! $booking || empty($booking->borrower?->email)) {
+        if (! $booking) {
             return;
         }
 
@@ -29,7 +30,15 @@ class SendBookingCreatedEmailListener
                 ->all();
         }
 
-        Mail::to($booking->borrower->email)
-            ->queue(new BookingSubmitted($booking, $timeSlotNames));
+        if (! empty($booking->borrower?->email)) {
+            Mail::to($booking->borrower->email)
+                ->queue(new BookingSubmitted($booking, $timeSlotNames));
+        }
+
+        $adminEmail = env('MAIL_TO');
+        if (! empty($adminEmail)) {
+            Mail::to($adminEmail)
+                ->queue(new AdminBookingSubmitted($booking, $timeSlotNames));
+        }
     }
 }

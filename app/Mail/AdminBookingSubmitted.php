@@ -3,15 +3,16 @@
 namespace App\Mail;
 
 use App\Models\Booking;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\URL;
 
-class BookingSubmitted extends Mailable
+class AdminBookingSubmitted extends Mailable implements ShouldQueue
 {
-    use SerializesModels;
+    use Queueable, SerializesModels;
 
     public Booking $booking;
 
@@ -32,8 +33,9 @@ class BookingSubmitted extends Mailable
 
     public int $totalSlotCount;
 
-    public ?string $cancelUrl;
-
+    /**
+     * Create a new message instance.
+     */
     public function __construct(Booking $booking, array $timeSlots = [])
     {
         $booking->loadMissing(['borrower', 'classroom', 'bookingDates.timeSlots']);
@@ -44,33 +46,40 @@ class BookingSubmitted extends Mailable
         $this->dateSchedules = $booking->getDateSlotSchedules('Y年m月d日');
         $this->totalSlotCount = collect($this->dateSchedules)
             ->sum(fn (array $schedule) => count($schedule['slots']));
-        $this->cancelUrl = $booking->exists
-            ? URL::temporarySignedRoute('bookings.cancel.confirm', now()->addDays(7), ['booking' => $booking->getKey()])
-            : null;
     }
 
+    /**
+     * Get the message envelope.
+     */
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: '【教室借用系統】您的借用申請已送出',
+            subject: '【系統通知】有新的教室借用申請',
         );
     }
 
+    /**
+     * Get the message content definition.
+     */
     public function content(): Content
     {
         return new Content(
-            markdown: 'emails.booking.submitted',
+            markdown: 'emails.admin.booking-submitted',
             with: [
                 'booking' => $this->booking,
                 'timeSlots' => $this->timeSlots,
                 'dateSummary' => $this->dateSummary,
                 'dateSchedules' => $this->dateSchedules,
                 'totalSlotCount' => $this->totalSlotCount,
-                'cancelUrl' => $this->cancelUrl,
             ],
         );
     }
 
+    /**
+     * Get the attachments for the message.
+     *
+     * @return array<int, \Illuminate\Mail\Mailables\Attachment>
+     */
     public function attachments(): array
     {
         return [];

@@ -19,7 +19,7 @@ class BookingCreatedEvent
     /**
      * @param array<int, string> $timeSlotNames
      */
-    public function __construct(int $bookingId, array $timeSlotNames)
+    public function __construct(int $bookingId, array $timeSlotNames = [])
     {
         $this->bookingId = $bookingId;
         $this->timeSlotNames = $timeSlotNames;

@@ -22,6 +22,45 @@ class BookingSlotLockServiceTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_create_booking_queues_single_submission_email(): void
+    {
+        Mail::fake();
+
+        $classroom = Classroom::factory()->create(['code' => 'BGC103']);
+        $slotA = TimeSlot::factory()->create(['name' => '1', 'start_time' => '08:10:00', 'end_time' => '09:00:00']);
+        $slotB = TimeSlot::factory()->create(['name' => '2', 'start_time' => '09:10:00', 'end_time' => '10:00:00']);
+        $dateA = now()->addDays(2)->toDateString();
+        $dateB = now()->addDays(3)->toDateString();
+
+        $response = $this->post(route('home.store'), [
+            'classroom_id' => $classroom->id,
+            'classroom_code' => $classroom->code,
+            'selections' => [
+                ['date' => $dateA, 'time_slot_ids' => [$slotA->id]],
+                ['date' => $dateB, 'time_slot_ids' => [$slotB->id]],
+            ],
+            'applicant' => [
+                'name' => 'Cross Day User',
+                'identity_code' => 'B1234567',
+                'email' => 'cross-day@example.com',
+                'phone' => '0912345678',
+                'department' => '資訊工程系',
+                'teacher' => '王老師',
+                'reason' => '跨日借用測試',
+            ],
+        ]);
+
+        $response->assertRedirect();
+
+        Mail::assertQueued(BookingSubmitted::class, 1);
+        Mail::assertQueued(BookingSubmitted::class, function (BookingSubmitted $mail) use ($dateA, $dateB): bool {
+            return count($mail->dateSchedules) === 2
+                && $mail->totalSlotCount === 2
+                && $mail->dateSchedules[0]['date'] !== $mail->dateSchedules[1]['date']
+                && $mail->dateSummary['is_multi_day'] === true;
+        });
+    }
+
     public function test_create_booking_writes_slot_locks(): void
     {
         Mail::fake();
@@ -55,7 +94,7 @@ class BookingSlotLockServiceTest extends TestCase
 
         $booking = Booking::query()->latest('id')->firstOrFail();
 
-        Mail::assertQueued(BookingSubmitted::class);
+        Mail::assertQueued(BookingSubmitted::class, 1);
 
         $this->assertDatabaseHas('booking_slot_locks', [
             'booking_id' => $booking->id,
