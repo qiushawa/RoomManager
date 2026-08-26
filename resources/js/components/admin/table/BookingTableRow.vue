@@ -71,13 +71,19 @@
                 <template v-if="mode === 'bookings'">
                     <template v-if="booking.status === 0">
                         <button
-                            class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 transition-colors hover:bg-emerald-500/20"
+                            class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                            :class="isDark
+                                ? 'border-emerald-800/40 bg-emerald-950/8 text-emerald-300 hover:bg-emerald-900/12'
+                                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'"
                             @click="emit('approve', booking.id)"
                         >
                             核准
                         </button>
                         <button
-                            class="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/20"
+                            class="rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
+                            :class="isDark
+                                ? 'border-rose-900/40 bg-rose-950/30 text-rose-300 hover:bg-rose-900/35'
+                                : 'border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20'"
                             @click="emit('reject', booking.id)"
                         >
                             拒絕
@@ -85,6 +91,7 @@
                     </template>
                     <StatusBadge v-else :status="booking.status" />
                 </template>
+
                 <StatusBadge v-else :status="booking.status" />
             </div>
         </td>
@@ -93,7 +100,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h } from 'vue';
-import { useBookingStatus } from '@/composables';
+import { useBookingStatus, useAdminTheme } from '@/composables';
 import { formatPeriodLabel } from '@/utils';
 
 interface BookingBorrower {
@@ -131,6 +138,7 @@ const props = defineProps<{
 const emit = defineEmits(['open-preview', 'approve', 'reject']);
 
 const { statusLabel, statusStyle } = useBookingStatus();
+const { isDark } = useAdminTheme();
 
 // 內聯狀態徽章元件，加上圓點指示器
 const StatusBadge = defineComponent({

@@ -399,6 +399,13 @@ CourseSchedule ──N:M──→ TimeSlot（透過 course_schedule_time_slots�
 
 ## 郵件
 
+## 近期變更
+
+- 2026-08-26: 前端新增「取消核准」操作（由 Admin 預覽彈窗觸發），並使用現有的後端 `PATCH /admin/bookings/{booking}/status`（status=3）完成狀態變更與鎖同步。
+  - 前端修改：`resources/js/components/admin/preview/RequestPreviewModal.vue`, `resources/js/Pages/Admin/BorrowingRecords.vue`, `resources/js/components/admin/table/BookingTableRow.vue`
+  - 後端說明：`App\Http\Controllers\AdminBookingController::updateBookingStatus` 已接受 `status=3`（對應 `cancelled`），並在更新後同步 slot locks 並發送通知。
+
+
 ### BookingSubmitted
 
 | 項目 | 說明 |

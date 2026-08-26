@@ -91,18 +91,63 @@
                             <p class="text-sm text-a-text-muted">
                                 審核後將自動通知申請人
                             </p>
-                            <div class="flex items-center gap-2">
+                                <div class="flex items-center gap-2">
                                 <button
-                                    class="rounded-md border border-a-divider bg-a-surface px-4 py-2 text-sm font-medium text-a-text-2 transition-colors hover:bg-a-surface-hover"
+                                    class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                                    :class="isDark
+                                        ? 'border-rose-900/40 bg-rose-950/30 text-rose-300 hover:bg-rose-900/35'
+                                        : 'border-rose-200 bg-white text-rose-700 hover:bg-rose-50'"
                                     @click="handleReject"
                                 >
                                     ✗ 不通過
                                 </button>
                                 <button
-                                    class="rounded-md border border-a-divider bg-a-surface px-4 py-2 text-sm font-medium text-a-text-2 transition-colors hover:bg-a-surface-hover"
+                                    class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                                    :class="isDark
+                                        ? 'border-emerald-800/40 bg-emerald-950/8 text-emerald-300 hover:bg-emerald-900/12'
+                                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20'"
                                     @click="handleApprove"
                                 >
                                     ✓ 通過
+                                </button>
+                            </div>
+                        </div>
+                        <div
+                            v-else-if="request.status === 1"
+                            class="flex items-center justify-between border-t border-a-border bg-a-header px-5 py-3"
+                        >
+                            <p class="text-sm text-a-text-muted">
+                                取消核准並駁回申請後，將通知申請人
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                                    :class="isDark
+                                        ? 'border-rose-900/40 bg-rose-950/30 text-rose-300 hover:bg-rose-900/35'
+                                        : 'border-rose-200 bg-red-50 text-rose-700 hover:bg-red-100'"
+                                    @click="handleReject"
+                                >
+                                    取消核准並拒絕
+                                </button>
+                            </div>
+                        </div>
+
+                        <div
+                            v-else-if="request.status === 2"
+                            class="flex items-center justify-between border-t border-a-border bg-a-header px-5 py-3"
+                        >
+                            <p class="text-sm text-a-text-muted">
+                                取消駁回並核准申請後，將通知申請人
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="rounded-md px-4 py-2 text-sm font-medium transition-colors"
+                                    :class="isDark
+                                        ? 'border-emerald-800/40 bg-emerald-950/8 text-emerald-300 hover:bg-emerald-900/12'
+                                        : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/20'"
+                                    @click="handleApprove"
+                                >
+                                    取消拒絕並核准
                                 </button>
                             </div>
                         </div>

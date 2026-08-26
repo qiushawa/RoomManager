@@ -141,3 +141,11 @@ import { formatPeriodLabel } from '@/utils';
 2. 新增共用元件或 composable。
 3. 調整 barrel 匯入規範。
 4. 新增或搬移核心型別/常數/工具。
+
+## 8. 變更紀錄
+
+- 2026-08-26: 新增「取消核准」功能（僅在 Admin 借用預覽彈窗中），並同步更新列表 UI：
+   - `resources/js/components/admin/preview/RequestPreviewModal.vue`: 新增已核准時的「取消核准」按鈕與 emit
+   - `resources/js/Pages/Admin/BorrowingRecords.vue`: 使用本地 reactive `localBookings`，並在 PATCH 成功後同步更新該列的 `status`/`status_enum`（讓 UI 即時反映變更）
+   - `resources/js/components/admin/table/BookingTableRow.vue`: 移除列表列上的「取消核准」按鈕（僅在預覽彈窗提供取消功能）
+
