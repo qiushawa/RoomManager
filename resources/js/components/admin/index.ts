@@ -36,5 +36,6 @@ export {
 	ImportBuildingPanel,
 	ImportPreviewTable,
 	LongTermImportSection,
+	LongTermRecordsSection,
 	ManualRecordList,
 } from './long-term-borrowing';

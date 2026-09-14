@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminBookingController;
 use App\Http\Controllers\AdminClassroomController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminLongTermBorrowingController;
+use App\Http\Controllers\AdminLongTermRecordController;
 use App\Http\Controllers\AdminSettingsController;
 use App\Http\Middleware\EnsureCurrentSemesterConfigured;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,18 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('/settings', [AdminSettingsController::class, 'settings'])->name('settings');
         Route::post('/settings/semesters', [AdminSettingsController::class, 'storeSemester'])->name('settings.semesters.store');
+
+        Route::get('/long-term-borrowing', [AdminLongTermBorrowingController::class, 'longTermBorrowing'])->name('longTermBorrowing');
+        Route::post('/long-term-borrowing/import', [AdminLongTermBorrowingController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');
+        Route::post('/long-term-borrowing/preview', [AdminLongTermBorrowingController::class, 'previewCourseSchedules'])->name('longTermBorrowing.preview');
+        Route::post('/long-term-borrowing/manual/conflicts', [AdminLongTermBorrowingController::class, 'previewManualLongTermBorrowingConflicts'])->name('longTermBorrowing.manual.conflicts');
+        Route::post('/long-term-borrowing/manual/resolve-conflict', [AdminLongTermBorrowingController::class, 'resolveManualLongTermConflict'])->name('longTermBorrowing.manual.resolveConflict');
+        Route::post('/long-term-borrowing/manual', [AdminLongTermBorrowingController::class, 'storeManualLongTermBorrowing'])->name('longTermBorrowing.manual');
+        Route::delete('/long-term-borrowing/manual/{schedule}', [AdminLongTermBorrowingController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
+        Route::delete('/long-term-borrowing/import/{classroom}', [AdminLongTermBorrowingController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');
+        Route::get('/long-term-borrowing/records', [AdminLongTermRecordController::class, 'index'])->name('longTermBorrowing.records');
+        Route::patch('/long-term-borrowing/records/{schedule}', [AdminLongTermRecordController::class, 'update'])->name('longTermBorrowing.records.update');
+        Route::delete('/long-term-borrowing/records/{schedule}', [AdminLongTermRecordController::class, 'destroy'])->name('longTermBorrowing.records.destroy');
 
         Route::middleware(EnsureCurrentSemesterConfigured::class)->group(function () {
             Route::get('/dashboard', [AdminDashboardController::class, 'dashboard'])->name('dashboard');
@@ -42,14 +55,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
                 Route::post('/blacklist', [AdminBlacklistController::class, 'storeBlacklist'])->name('users.blacklist.store');
             });
 
-            Route::get('/long-term-borrowing', [AdminLongTermBorrowingController::class, 'longTermBorrowing'])->name('longTermBorrowing');
-            Route::post('/long-term-borrowing/import', [AdminLongTermBorrowingController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');
-            Route::post('/long-term-borrowing/preview', [AdminLongTermBorrowingController::class, 'previewCourseSchedules'])->name('longTermBorrowing.preview');
-            Route::post('/long-term-borrowing/manual/conflicts', [AdminLongTermBorrowingController::class, 'previewManualLongTermBorrowingConflicts'])->name('longTermBorrowing.manual.conflicts');
-            Route::post('/long-term-borrowing/manual/resolve-conflict', [AdminLongTermBorrowingController::class, 'resolveManualLongTermConflict'])->name('longTermBorrowing.manual.resolveConflict');
-            Route::post('/long-term-borrowing/manual', [AdminLongTermBorrowingController::class, 'storeManualLongTermBorrowing'])->name('longTermBorrowing.manual');
-            Route::delete('/long-term-borrowing/manual/{schedule}', [AdminLongTermBorrowingController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
-            Route::delete('/long-term-borrowing/import/{classroom}', [AdminLongTermBorrowingController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');
         });
     });
 });

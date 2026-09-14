@@ -27,6 +27,7 @@ export interface AdminBookingDateItem {
 }
 
 export interface AdminBookingItem {
+    status_enum?: 'pending' | 'approved' | 'rejected' | 'cancelled';
     id: number;
     date: string;
     date_summary?: string;

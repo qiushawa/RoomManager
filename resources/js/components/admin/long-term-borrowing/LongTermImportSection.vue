@@ -1,5 +1,12 @@
 <template>
-    <section class="flex flex-col gap-5">
+    <section class="flex flex-col gap-5 text-a-text">
+        <label class="block text-sm font-medium">匯入學期
+            <select v-model="semesterId" :disabled="importForm.processing || revokingImports" class="mt-2 block rounded-lg border border-a-border-2 bg-a-surface px-3 py-2">
+                <option value="">請選擇學期</option>
+                <option v-for="semester in semesters" :key="semester.id" :value="semester.id">{{ semester.label }}（{{ semester.start_date }}～{{ semester.end_date }}）</option>
+            </select>
+        </label>
+        <p v-if="!semesterId" class="text-amber-500">沒有預設學期，請選擇學期；若清單為空，請先至系統設定建立。</p>
         <Transition name="fade">
             <div
                 v-if="importErrorMessage || importForm.errors.classroom_ids || importServerError || previewError"
@@ -54,7 +61,7 @@
 
                 <button
                     type="button"
-                    :disabled="revokingImports || selectedImportedClassrooms.length === 0"
+                    :disabled="!semesterId || previewLoading || importForm.processing || revokingImports || selectedImportedClassrooms.length === 0"
                     class="flex items-center gap-1.5 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-500 transition-colors hover:border-red-500/40 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
                     @click="revokeSelectedImports"
                 >
@@ -77,7 +84,7 @@
 
                 <button
                     type="button"
-                    :disabled="previewLoading || importForm.processing || selectedClassroomIds.length === 0"
+                    :disabled="!semesterId || revokingImports || previewLoading || importForm.processing || selectedClassroomIds.length === 0"
                     class="flex items-center gap-2 rounded-xl bg-primary px-5 py-2 text-sm font-medium text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary-dark hover:shadow-primary/30 disabled:cursor-not-allowed disabled:opacity-40"
                     @click="handleImportAction"
                 >
@@ -102,7 +109,8 @@
                 :class="isDark ? 'bg-a-surface-2' : 'bg-transparent'"
             >
                 <h3 class="text-base font-bold text-a-text">匯入課表預覽</h3>
-                <p class="mt-1 text-sm text-a-text-muted">共 {{ previewSchedules.length }} 筆，確認內容後再正式匯入。</p>
+                <p v-if="importErrorMessage || importServerError" role="alert" class="mt-2 text-red-500">{{ importErrorMessage || importServerError }}</p>
+                <p class="mt-1 text-sm text-a-text-muted">{{ selectedSemester?.label }} · 共 {{ previewSchedules.length }} 筆。重新匯入將覆寫所選教室的匯入課表及其人工修改，手動借用會保留。未取得課表的教室保留原紀錄，若需清空請使用撤回。</p>
             </div>
 
             <div class="max-h-[70vh] overflow-y-auto px-6 py-4">
@@ -134,7 +142,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import { router, useForm } from '@inertiajs/vue3';
 import { BaseModal } from '@/components';
 import { ImportBuildingPanel, ImportPreviewTable } from '@/components/admin';
@@ -144,15 +152,25 @@ import type {
     BuildingOption,
     ClassroomOption,
     PreviewSchedule,
+    SemesterOption,
 } from '@/types';
+import { requestError } from '@/composables/useLongTermRecords';
 import { getRoomBuildingCode, withBase } from '@/utils';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
     buildingOptions: BuildingOption[];
+    semesters: SemesterOption[];
+    defaultSemesterId: number | null;
 }>();
 
 const { isDark } = useAdminTheme();
+const semesterId = ref<number | ''>(props.defaultSemesterId ?? '');
+const selectedSemester = computed(() => props.semesters.find(s => s.id === Number(semesterId.value)));
+const classrooms = computed(() => props.classrooms.map(room => ({ ...room, has_imported: room.imported_semester_ids?.includes(Number(semesterId.value)) ?? false })));
+let previewVersion = 0;
+onBeforeUnmount(() => { previewVersion++; });
+watch(semesterId, () => { clearSelectedClassrooms(); });
 
 const selectedClassroomIds = ref<number[]>([]);
 const importErrorMessage = ref('');
@@ -171,13 +189,14 @@ const buildingLabels = computed<Record<string, string>>(() => {
     }, {});
 });
 
-const importForm = useForm<{ classroom_ids: number[] }>({
+const importForm = useForm<{ classroom_ids: number[]; semester_id: number | '' }>({
+    semester_id: semesterId.value,
     classroom_ids: [],
 });
 
 const selectedClassroomSet = computed(() => new Set(selectedClassroomIds.value.map((id) => Number(id))));
 const selectedImportedClassrooms = computed(() => {
-    return props.classrooms.filter((room) => selectedClassroomSet.value.has(room.id) && room.has_imported);
+    return classrooms.value.filter((room) => selectedClassroomSet.value.has(room.id) && room.has_imported);
 });
 
 const importActionLabel = computed(() => {
@@ -191,7 +210,7 @@ const classroomsByBuilding = computed<Record<string, ClassroomOption[]>>(() => {
     const grouped: Record<string, ClassroomOption[]> = {};
 
     for (const code of buildingOrder.value) {
-        grouped[code] = props.classrooms.filter((room) => getRoomBuildingCode(room) === code);
+        grouped[code] = classrooms.value.filter((room) => getRoomBuildingCode(room) === code);
     }
 
     return grouped;
@@ -199,10 +218,12 @@ const classroomsByBuilding = computed<Record<string, ClassroomOption[]>>(() => {
 
 const importServerError = computed(() => {
     const errors = importForm.errors as Record<string, string | undefined>;
-    return errors.import ?? '';
+    return errors.semester_id || errors.conflict || errors.import || '';
 });
 
 watch(selectedClassroomIds, () => {
+    previewVersion++;
+    previewLoading.value = false;
     previewSchedules.value = [];
     previewError.value = '';
     isAwaitingImportConfirmation.value = false;
@@ -210,6 +231,7 @@ watch(selectedClassroomIds, () => {
 });
 
 function toggleClassroomSelection(room: ClassroomOption) {
+    if (importForm.processing || revokingImports.value) return;
     importErrorMessage.value = '';
     const selected = new Set(selectedClassroomIds.value);
     if (selected.has(room.id)) {
@@ -222,12 +244,15 @@ function toggleClassroomSelection(room: ClassroomOption) {
 }
 
 function selectAllInBuilding(buildingCode: BuildingCode) {
+    if (importForm.processing || revokingImports.value) return;
     importErrorMessage.value = '';
     const ids = classroomsByBuilding.value[buildingCode].map((room) => room.id);
     selectedClassroomIds.value = Array.from(new Set([...selectedClassroomIds.value, ...ids]));
 }
 
 function clearSelectedClassrooms() {
+    if (importForm.processing || revokingImports.value) return;
+    previewVersion++; previewLoading.value = false;
     selectedClassroomIds.value = [];
     importErrorMessage.value = '';
     previewSchedules.value = [];
@@ -241,6 +266,8 @@ function closeImportPreviewModal() {
 }
 
 async function previewImport() {
+    if (!semesterId.value) { previewError.value = '請先選擇學期。'; return; }
+    const version = ++previewVersion;
     importErrorMessage.value = '';
     previewError.value = '';
     if (selectedClassroomIds.value.length === 0) {
@@ -253,8 +280,10 @@ async function previewImport() {
     try {
         const payloadIds = selectedClassroomIds.value.map((id) => Number(id));
         const response = await window.axios.post(withBase('/admin/long-term-borrowing/preview'), {
+            semester_id: semesterId.value,
             classroom_ids: payloadIds,
         });
+        if (version !== previewVersion) return;
         const schedules = (response?.data?.schedules ?? []) as PreviewSchedule[];
         previewSchedules.value = schedules;
         if (schedules.length === 0) {
@@ -263,14 +292,10 @@ async function previewImport() {
         }
         isAwaitingImportConfirmation.value = true;
         importPreviewModalOpen.value = true;
-    } catch (error: any) {
-        const backendMessage =
-            error?.response?.data?.errors?.import?.[0]
-            || error?.response?.data?.errors?.classroom_ids?.[0]
-            || error?.response?.data?.message;
-        previewError.value = backendMessage || '預覽失敗，請確認匯入服務與參數設定。';
+    } catch (error: unknown) {
+        if (version === previewVersion) previewError.value = requestError(error);
     } finally {
-        previewLoading.value = false;
+        if (version === previewVersion) previewLoading.value = false;
     }
 }
 
@@ -291,15 +316,17 @@ async function handleImportAction() {
 }
 
 function submitImport() {
+    if (importForm.processing) return;
     importErrorMessage.value = '';
     if (selectedClassroomIds.value.length === 0) {
         importErrorMessage.value = '請至少選擇一間教室。';
         return;
     }
-    if (previewSchedules.value.length === 0) {
+    if (!semesterId.value || previewSchedules.value.length === 0) {
         importErrorMessage.value = '請先完成課表預覽，再進行匯入。';
         return;
     }
+    importForm.semester_id = semesterId.value;
     importForm.classroom_ids = selectedClassroomIds.value.map((id) => Number(id));
     importForm.post(withBase('/admin/long-term-borrowing/import'), {
         preserveScroll: true,
@@ -310,8 +337,8 @@ function submitImport() {
             isAwaitingImportConfirmation.value = false;
             importPreviewModalOpen.value = false;
         },
-        onError: () => {
-            importErrorMessage.value = '匯入失敗，請確認匯入服務與參數設定。';
+        onError: (errors) => {
+            importErrorMessage.value = Object.values(errors).join('；') || '匯入失敗，請稍後再試。';
             isAwaitingImportConfirmation.value = false;
             importPreviewModalOpen.value = true;
         },
@@ -326,7 +353,7 @@ async function revokeSelectedImports() {
     }
 
     const roomCodes = targetRooms.map((room) => room.code).join('、');
-    if (!confirm(`確定要撤回以下教室的課表匯入嗎？\n${roomCodes}\n此操作將刪除其本學期所有匯入記錄。`)) {
+    if (!confirm(`確定要撤回以下教室的課表匯入嗎？\n${roomCodes}\n此操作將刪除其 ${selectedSemester.value?.label} 所有匯入記錄。`)) {
         return;
     }
 
@@ -336,7 +363,7 @@ async function revokeSelectedImports() {
     const failedCodes: string[] = [];
     for (const room of targetRooms) {
         try {
-            await window.axios.delete(withBase(`/admin/long-term-borrowing/import/${room.id}`));
+            await window.axios.delete(withBase(`/admin/long-term-borrowing/import/${room.id}`), { data: { semester_id: semesterId.value } });
         } catch {
             failedCodes.push(room.code);
         }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\Process\Process;
 
 class LongTermCourseScheduleService
@@ -127,8 +128,8 @@ class LongTermCourseScheduleService
     }
 
     /**
-     * @param Collection<int, Classroom> $classrooms
-     * @param array<int, int> $periodToSlotId
+     * @param  Collection<int, Classroom>  $classrooms
+     * @param  array<int, int>  $periodToSlotId
      * @return array<int, array<string, mixed>>
      */
     public function fetchImportedSchedulesForClassrooms(Semester $semester, Collection $classrooms, array $periodToSlotId): array
@@ -148,13 +149,14 @@ class LongTermCourseScheduleService
         $importCommand = (string) config('services.nfu_schedule_import.command');
         $importScript = (string) config('services.nfu_schedule_import.script');
 
+
         $allRows = [];
 
         foreach ($groupedClassrooms as $buildingCode => $roomsInBuilding) {
             $roomsInBuilding = $roomsInBuilding->values();
             $mapping = $this->findImportMappingByBuildingCode((string) $buildingCode);
             if (! $mapping) {
-                throw new \RuntimeException('找不到匯入大樓映射設定：' . (string) $buildingCode);
+                throw new \RuntimeException('找不到匯入大樓映射設定：'.(string) $buildingCode);
             }
 
             $payload = [
@@ -170,7 +172,6 @@ class LongTermCourseScheduleService
 
             $resolvedCommand = $this->resolveCliPath($importCommand);
             $resolvedScript = $this->resolveCliPath($importScript, true);
-
             if ($resolvedCommand === '' || $resolvedScript === '') {
                 throw new \RuntimeException('課表匯入指令尚未設定，請確認 services.nfu_schedule_import.command 與 services.nfu_schedule_import.script。');
             }
@@ -182,6 +183,7 @@ class LongTermCourseScheduleService
                 'PYTHONIOENCODING' => 'utf-8',
                 'PYTHONUTF8' => '1',
             ]));
+
             $process->setInput(json_encode($payload, JSON_UNESCAPED_UNICODE));
             $process->run();
 
@@ -214,14 +216,34 @@ class LongTermCourseScheduleService
     }
 
     /**
-     * @param Collection<int, int> $classroomIds
-     * @param array<int, array<string, mixed>> $rows
+     * @param  Collection<int, int>  $classroomIds
+     * @param  array<int, array<string, mixed>>  $rows
      */
+    public function assertImportAvailable(Semester $semester, array $rows): void
+    {
+        if (! $rows) {
+            throw ValidationException::withMessages(['import' => '未取得課表，既有資料不會清除；如需清空請使用撤回。']);
+        }
+        $management = app(LongTermScheduleManagementService::class);
+        foreach ($rows as $row) {
+            $management->assertAvailable($row, $semester, null, true);
+        }
+    }
+
     public function replaceSemesterSchedulesForClassrooms(Semester $semester, Collection $classroomIds, array $rows): void
     {
         DB::transaction(function () use ($semester, $classroomIds, $rows): void {
+            Classroom::whereIn('id', $classroomIds)->orderBy('id')->lockForUpdate()->get();
+            foreach ($rows as $row) {
+                if ((int) $row['semester_id'] !== (int) $semester->id || ! $classroomIds->contains((int) $row['classroom_id'])
+                    || $row['start_date'] < $semester->start_date->toDateString() || $row['end_date'] > $semester->end_date->toDateString()) {
+                    throw ValidationException::withMessages(['import' => '課表超出所選學期或教室範圍。']);
+                }
+            }
+            $this->assertImportAvailable($semester, $rows);
             CourseSchedule::where('semester_id', (int) $semester->id)
-                ->whereIn('classroom_id', $classroomIds->all())
+                ->whereIn('classroom_id', collect($rows)->pluck('classroom_id')->unique()->all())
+                ->where('type', 'course')
                 ->delete();
 
             if (! empty($rows)) {
@@ -237,9 +259,9 @@ class LongTermCourseScheduleService
     }
 
     /**
-     * @param mixed $raw
-     * @param EloquentCollection<int, Classroom> $classrooms
-     * @param array<int, int> $periodToSlotId
+     * @param  mixed  $raw
+     * @param  EloquentCollection<int, Classroom>  $classrooms
+     * @param  array<int, int>  $periodToSlotId
      * @return array<int, array<string, mixed>>
      */
     private function normalizeImportedSchedules($raw, Semester $semester, EloquentCollection $classrooms, array $periodToSlotId): array
@@ -351,5 +373,4 @@ class LongTermCourseScheduleService
 
         return $result;
     }
-
 }

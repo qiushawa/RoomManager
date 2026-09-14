@@ -2,6 +2,14 @@
 > RoomManager 前端（Vue + Inertia）
 > 最後更新：2026-03-30
 
+## 2026-09-14 長期借用管理更新
+
+- `LongTermImportSection` 接收學期清單與預設學期；預覽、匯入、撤回都傳送明確的 `semester_id`。切換學期或教室會清除預覽，過期回應不更新畫面。
+- `LongTermRecordsSection` 統一管理匯入課表、手動課程與一般長期借用；使用後端搜尋、篩選及每頁 20 筆分頁。
+- `LongTermRecordEditor` 管理單筆資訊、星期、日期與不連續節次；所屬學期與來源類型固定。
+- `useLongTermRecords` 管理清單請求、查詢條件、網址與錯誤。編輯和刪除完成後刷新清單及匯入標記。
+- 新型別：`SemesterOption`、`LongTermRecord`，位於 `types/longTermBorrowing.ts`。
+
 ## 1. 目前分層
 
 ```
@@ -148,4 +156,3 @@ import { formatPeriodLabel } from '@/utils';
    - `resources/js/components/admin/preview/RequestPreviewModal.vue`: 新增已核准時的「取消核准」按鈕與 emit
    - `resources/js/Pages/Admin/BorrowingRecords.vue`: 使用本地 reactive `localBookings`，並在 PATCH 成功後同步更新該列的 `status`/`status_enum`（讓 UI 即時反映變更）
    - `resources/js/components/admin/table/BookingTableRow.vue`: 移除列表列上的「取消核准」按鈕（僅在預覽彈窗提供取消功能）
-

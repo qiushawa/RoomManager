@@ -31,8 +31,8 @@ class Semester extends Model
      */
     public static function findByDate($date)
     {
-        return static::where('start_date', '<=', $date)
-            ->where('end_date', '>=', $date)
+        return static::whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
             ->first();
     }
 
@@ -52,6 +52,7 @@ class Semester extends Model
     public function getDisplayNameAttribute(): string
     {
         $label = $this->semester === 1 ? '上學期' : '下學期';
+
         return "{$this->academic_year}學年 {$label}";
     }
 }

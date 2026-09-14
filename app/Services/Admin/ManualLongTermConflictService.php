@@ -9,8 +9,8 @@ use App\Models\Semester;
 class ManualLongTermConflictService
 {
     /**
-     * @param array<string,mixed> $validated
-     * @param array<int,int> $periodToSlotId
+     * @param  array<string,mixed>  $validated
+     * @param  array<int,int>  $periodToSlotId
      * @return array<string,mixed>
      */
     public function analyzeConflicts(array $validated, Semester $semester, array $periodToSlotId): array
@@ -72,7 +72,8 @@ class ManualLongTermConflictService
 
                 if ($semesterOverlapsRequest) {
                     $query->orWhere(function ($imported) {
-                        $imported->where('type', 'course');
+                        $imported->where('type', 'course')
+                            ->whereNull('start_date')->whereNull('end_date');
                     });
                 }
             })
@@ -167,8 +168,8 @@ class ManualLongTermConflictService
     }
 
     /**
-     * @param array<int,array<int,int>> $selectedSlotIdsByDay
-     * @param array<int,int> $slotIdToPeriod
+     * @param  array<int,array<int,int>>  $selectedSlotIdsByDay
+     * @param  array<int,int>  $slotIdToPeriod
      * @return array<string,mixed>
      */
     private function analyzeShortTermBookingConflicts(
@@ -284,7 +285,7 @@ class ManualLongTermConflictService
 
             $conflictSlots = collect($item['slots'])
                 ->filter(fn ($slot) => is_array($slot))
-                ->unique(fn ($slot) => ($slot['booking_date_id'] ?? '0') . ':' . ($slot['time_slot_id'] ?? '0'))
+                ->unique(fn ($slot) => ($slot['booking_date_id'] ?? '0').':'.($slot['time_slot_id'] ?? '0'))
                 ->values()
                 ->all();
 
@@ -320,8 +321,8 @@ class ManualLongTermConflictService
     }
 
     /**
-     * @param array<string,mixed> $validated
-     * @param array<int,int> $dayOfWeeks
+     * @param  array<string,mixed>  $validated
+     * @param  array<int,int>  $dayOfWeeks
      * @return array<int,array<int,int>>
      */
     private function buildSelectedPeriodsByDay(array $validated, array $dayOfWeeks): array
@@ -369,6 +370,6 @@ class ManualLongTermConflictService
 
     private function buildManualConflictSlotKey(int $dayOfWeek, int $period): string
     {
-        return $dayOfWeek . ':' . $period;
+        return $dayOfWeek.':'.$period;
     }
 }

@@ -3,3 +3,5 @@ export { default as ImportPreviewTable } from './ImportPreviewTable.vue';
 export { default as LongTermImportSection } from './LongTermImportSection.vue';
 export { default as ManualRecordList } from './ManualRecordList.vue';
 export { default as ConflictActionModal } from './ConflictActionModal.vue';
+
+export { default as LongTermRecordsSection } from './LongTermRecordsSection.vue';

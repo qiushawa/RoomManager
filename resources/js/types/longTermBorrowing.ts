@@ -18,11 +18,33 @@ export interface ImportConfig {
 }
 
 export interface ClassroomOption {
+    imported_semester_ids?: number[];
     id: number;
     code: string;
     name: string;
     has_imported?: boolean;
     building_code?: BuildingCode | null;
+}
+
+export interface SemesterOption {
+    id: number;
+    label: string;
+    start_date: string;
+    end_date: string;
+}
+
+export interface LongTermRecord {
+    id: number;
+    semester_id: number;
+    classroom_id: number;
+    type: LongTermScheduleType;
+    course_name: string;
+    teacher_name: string | null;
+    day_of_week: number;
+    start_date: string | null;
+    end_date: string | null;
+    classroom: { code: string; name: string } | null;
+    time_slots: TimeSlotOption[];
 }
 
 export interface BuildingOption {

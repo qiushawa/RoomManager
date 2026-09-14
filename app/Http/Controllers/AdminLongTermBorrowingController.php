@@ -27,14 +27,18 @@ class AdminLongTermBorrowingController extends Controller
         private readonly ManualLongTermConflictService $manualLongTermConflictService,
         private readonly ManualLongTermBorrowingService $manualLongTermBorrowingService,
         private readonly BookingRejectionService $bookingRejectionService,
-    ) {
-    }
+    ) {}
 
     public function longTermBorrowing(Request $request)
     {
         $currentSemester = Semester::findByDate(now());
         $importSemester = $this->longTermCourseScheduleService->resolveCurrentOrNearestFutureSemester();
 
+        $semesters = Semester::orderByDesc('start_date')->get()->map(fn ($semester) => [
+            'id' => $semester->id, 'label' => $semester->display_name,
+            'start_date' => $semester->start_date->toDateString(), 'end_date' => $semester->end_date->toDateString(),
+        ]);
+        $importedByRoom = CourseSchedule::where('type', 'course')->get(['classroom_id', 'semester_id'])->groupBy('classroom_id');
         $hasImportedIds = [];
         if ($importSemester) {
             $hasImportedIds = CourseSchedule::where('semester_id', $importSemester->id)
@@ -47,7 +51,8 @@ class AdminLongTermBorrowingController extends Controller
         $classrooms = Classroom::where('is_active', true)
             ->orderBy('code')
             ->get(['id', 'code', 'name'])
-            ->map(function ($room) use ($hasImportedIds) {
+            ->map(function ($room) use ($hasImportedIds, $importedByRoom) {
+                $room->imported_semester_ids = ($importedByRoom->get($room->id) ?? collect())->pluck('semester_id')->unique()->values()->all();
                 $room->has_imported = in_array($room->id, $hasImportedIds);
                 $room->building_code = $this->longTermCourseScheduleService->extractBuildingCode((string) $room->code);
 
@@ -98,6 +103,9 @@ class AdminLongTermBorrowingController extends Controller
             ->all();
 
         return Inertia::render('Admin/LongTermBorrowing', [
+            'semesters' => $semesters,
+            'defaultSemesterId' => $importSemester?->id,
+            'recordClassrooms' => Classroom::orderBy('code')->get(['id', 'code', 'name']),
             'classrooms' => $classrooms,
             'buildingOptions' => $buildingOptions,
             'timeSlots' => $timeSlots,
@@ -119,6 +127,7 @@ class AdminLongTermBorrowingController extends Controller
         ]);
 
         $validated = $request->validate([
+            'semester_id' => ['required', 'integer', 'exists:semesters,id'],
             'classroom_ids' => ['required', 'array', 'min:1'],
             'classroom_ids.*' => ['integer', 'exists:classrooms,id'],
         ]);
@@ -135,7 +144,7 @@ class AdminLongTermBorrowingController extends Controller
             return back()->withErrors(['classroom_ids' => '找不到可預覽的教室。']);
         }
 
-        $semester = $this->longTermCourseScheduleService->resolveCurrentOrNearestFutureSemester();
+        $semester = Semester::findOrFail($validated['semester_id']);
         if (! $semester) {
             return back()->withErrors([
                 'import' => '找不到目前或未來學期，請先建立學期資料。',
@@ -161,6 +170,7 @@ class AdminLongTermBorrowingController extends Controller
 
             if ($request->expectsJson()) {
                 $safeMessage = '課表匯入失敗，請確認匯入指令與 Python 環境。';
+
                 return response()->json([
                     'message' => $safeMessage,
                 ], 422);
@@ -170,6 +180,8 @@ class AdminLongTermBorrowingController extends Controller
                 'import' => $e->getMessage(),
             ]);
         }
+
+        $this->longTermCourseScheduleService->assertImportAvailable($semester, $importedSchedules);
 
         $semesterStartDate = $semester->start_date?->format('Y-m-d');
         $semesterEndDate = $semester->end_date?->format('Y-m-d');
@@ -195,6 +207,7 @@ class AdminLongTermBorrowingController extends Controller
     public function importCourseSchedules(Request $request)
     {
         $validated = $request->validate([
+            'semester_id' => ['required', 'integer', 'exists:semesters,id'],
             'classroom_ids' => ['required', 'array', 'min:1'],
             'classroom_ids.*' => ['integer', 'exists:classrooms,id'],
         ]);
@@ -211,7 +224,7 @@ class AdminLongTermBorrowingController extends Controller
             return back()->withErrors(['classroom_ids' => '找不到可匯入的教室。']);
         }
 
-        $semester = $this->longTermCourseScheduleService->resolveCurrentOrNearestFutureSemester();
+        $semester = Semester::findOrFail($validated['semester_id']);
         if (! $semester) {
             return back()->withErrors([
                 'import' => '找不到目前或未來學期，請先建立學期資料。',
@@ -237,7 +250,7 @@ class AdminLongTermBorrowingController extends Controller
 
         $this->longTermCourseScheduleService->replaceSemesterSchedulesForClassrooms($semester, $classroomIds, $rows);
 
-        return back()->with('success', '課表匯入完成，共新增 ' . count($rows) . ' 筆課程。');
+        return back()->with('success', '課表匯入完成，共新增 '.count($rows).' 筆課程。');
     }
 
     public function previewManualLongTermBorrowingConflicts(PreviewManualLongTermBorrowingConflictsRequest $request)
@@ -332,19 +345,20 @@ class AdminLongTermBorrowingController extends Controller
             return back()->withErrors($e->errors());
         }
 
-        $message = '長期借用記錄已新增，共 ' . $result['created_count'] . ' 筆。';
+        $message = '長期借用記錄已新增，共 '.$result['created_count'].' 筆。';
         if ($result['rejected_count'] > 0) {
             $message .= $result['has_slot_resolutions']
-                ? ' 已同步駁回 ' . $result['rejected_count'] . ' 筆短期借用申請。'
-                : ' 已覆蓋並拒絕 ' . $result['rejected_count'] . ' 筆未審核短期借用。';
+                ? ' 已同步駁回 '.$result['rejected_count'].' 筆短期借用申請。'
+                : ' 已覆蓋並拒絕 '.$result['rejected_count'].' 筆未審核短期借用。';
         }
 
         return back()->with('success', $message);
     }
 
-    public function revokeClassroomImport(Classroom $classroom)
+    public function revokeClassroomImport(Request $request, Classroom $classroom)
     {
-        $targetSemester = $this->longTermCourseScheduleService->resolveCurrentOrNearestFutureSemester();
+        $validated = $request->validate(['semester_id' => ['required', 'integer', 'exists:semesters,id']]);
+        $targetSemester = Semester::findOrFail($validated['semester_id']);
         if (! $targetSemester) {
             return back()->withErrors(['revoke' => '目前沒有設定中的學期。']);
         }
@@ -354,7 +368,7 @@ class AdminLongTermBorrowingController extends Controller
             ->where('type', 'course')
             ->delete();
 
-        return back()->with('success', "已撤回 {$classroom->code} 的課表匯入，共刪除 {$deleted} 筆。");
+        return response()->json(['message' => "已撤回 {$classroom->code} 的課表匯入，共刪除 {$deleted} 筆。"]);
     }
 
     public function revokeManualLongTermBorrowing(CourseSchedule $schedule)
@@ -372,5 +386,4 @@ class AdminLongTermBorrowingController extends Controller
 
         return back()->with('success', '已撤回一筆手動長期借用記錄。');
     }
-
 }

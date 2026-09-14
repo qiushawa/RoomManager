@@ -32,13 +32,14 @@
                     :class="activeMode === 'records' ? 'border-primary text-primary' : 'border-transparent text-a-text-muted hover:text-a-text'"
                     @click="activeMode = 'records'"
                 >
-                    已儲存記錄
+                    長期借用紀錄
                 </button>
             </div>
 
             <section v-if="activeMode === 'manual'" class="flex flex-col gap-8">
                 <div class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
                     <form class="space-y-8" @submit.prevent="handleManualSubmit">
+                        <p v-if="manualConflictError" role="alert" class="text-red-500">{{ manualConflictError }}</p>
                         <div
                             v-if="manualForm.errors.semester || manualForm.errors.periods"
                             class="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-500"
@@ -182,18 +183,15 @@
                 />
             </section>
 
-            <section v-else-if="activeMode === 'records'" class="rounded-2xl border border-a-border-card bg-a-surface p-6 sm:p-8 shadow-sm">
-                <div class="mb-5 border-b border-a-divider pb-4">
-                    <h3 class="text-base font-bold text-a-text">已儲存記錄</h3>
-                    <p class="mt-1 text-sm text-a-text-muted">可在此檢視與撤回本學期手動新增的長期借用。</p>
-                </div>
-                <ManualRecordList :manual-records="manualRecords" @revoke="revokeManualRecord" />
-            </section>
+            <LongTermRecordsSection v-else-if="activeMode === 'records'"
+                :semesters="semesters" :default-semester-id="defaultSemesterId" :classrooms="recordClassrooms"
+                :building-options="buildingOptions" :time-slots="timeSlots" @changed="refreshImportStatus" />
 
             <LongTermImportSection
                 v-else-if="activeMode === 'import'"
                 :classrooms="classrooms"
                 :building-options="buildingOptions"
+                :semesters="semesters" :default-semester-id="defaultSemesterId"
             />
         </div>
     </AdminLayout>
@@ -205,7 +203,7 @@ import { AdminLayout } from '@/layouts';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ScheduleGrid } from '@/components';
 import { useAdminTheme } from '@/composables';
-import { ConflictActionModal, LongTermImportSection, ManualRecordList } from '@/components/admin';
+import { ConflictActionModal, LongTermImportSection, LongTermRecordsSection } from '@/components/admin';
 import type {
     BuildingOption,
     ClassroomOption,
@@ -214,7 +212,7 @@ import type {
     ManualConflictKind,
     ManualConflictSummary,
     ManualFormData,
-    ManualRecord,
+    SemesterOption,
     OccupiedData,
     Period,
     SelectedSlot,
@@ -228,10 +226,16 @@ const props = defineProps<{
     classrooms: ClassroomOption[];
     buildingOptions: BuildingOption[];
     timeSlots: TimeSlotOption[];
-    manualRecords: ManualRecord[];
+    semesters: SemesterOption[];
+    defaultSemesterId: number | null;
+    recordClassrooms: ClassroomOption[];
     semesterEndDate: string | null;
     importConfig: ImportConfig;
 }>();
+
+function refreshImportStatus() {
+    router.reload({ only: ['classrooms'], data: Object.fromEntries(new URL(window.location.href).searchParams) });
+}
 
 const { isDark } = useAdminTheme();
 const adminScheduleGridTheme = computed<'light' | 'dark'>(() => (isDark.value ? 'dark' : 'light'));
@@ -295,7 +299,12 @@ interface ManualDraftPayload {
 }
 
 // ── 狀態 ──────────────────────────────────────────────
-const activeMode = ref<'manual' | 'import' | 'records'>('manual');
+const initialMode = new URL(window.location.href).searchParams.get('mode');
+const activeMode = ref<'manual' | 'import' | 'records'>(initialMode === 'records' || initialMode === 'import' ? initialMode : 'manual');
+watch(activeMode, (mode) => {
+    const url = new URL(window.location.href); url.searchParams.set('mode', mode);
+    window.history.replaceState(window.history.state, '', url);
+});
 
 // ── 手動表單 ──────────────────────────────────────────
 const manualForm = useForm<ManualFormData>({
@@ -938,10 +947,6 @@ const manualConflictOccupiedData = computed<OccupiedData>(() => {
     return occupied;
 });
 
-function weekdayText(day: number): string {
-    return `週${WEEKDAY_NAME_MAP[day] ?? day}`;
-}
-
 function resetManualConflictResult() {
     manualConflictError.value = '';
     manualConflicts.value = [];
@@ -1091,16 +1096,6 @@ async function handleManualSubmit() {
     }
 
     submitManual();
-}
-
-function revokeManualRecord(record: ManualRecord) {
-    if (!confirm(`確定要撤回「${record.classroom_code} ${weekdayText(record.day_of_week)} ${record.start_slot}-${record.end_slot}」嗎？`)) {
-        return;
-    }
-
-    router.delete(withBase(`/admin/long-term-borrowing/manual/${record.id}`), {
-        preserveScroll: true,
-    });
 }
 
 </script>
