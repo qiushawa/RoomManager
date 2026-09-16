@@ -13,6 +13,7 @@ class CourseSchedule extends Model
         'semester_id',
         'classroom_id',
         'course_name',
+        'class_name',
         'teacher_name',
         'day_of_week',
         'type',

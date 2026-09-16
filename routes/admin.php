@@ -25,7 +25,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('/long-term-borrowing/import', [AdminLongTermBorrowingController::class, 'importCourseSchedules'])->name('longTermBorrowing.import');
         Route::post('/long-term-borrowing/preview', [AdminLongTermBorrowingController::class, 'previewCourseSchedules'])->name('longTermBorrowing.preview');
         Route::post('/long-term-borrowing/manual/conflicts', [AdminLongTermBorrowingController::class, 'previewManualLongTermBorrowingConflicts'])->name('longTermBorrowing.manual.conflicts');
-        Route::post('/long-term-borrowing/manual/resolve-conflict', [AdminLongTermBorrowingController::class, 'resolveManualLongTermConflict'])->name('longTermBorrowing.manual.resolveConflict');
         Route::post('/long-term-borrowing/manual', [AdminLongTermBorrowingController::class, 'storeManualLongTermBorrowing'])->name('longTermBorrowing.manual');
         Route::delete('/long-term-borrowing/manual/{schedule}', [AdminLongTermBorrowingController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
         Route::delete('/long-term-borrowing/import/{classroom}', [AdminLongTermBorrowingController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');

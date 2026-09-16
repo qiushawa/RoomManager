@@ -63,7 +63,7 @@
                     v-model="filters.search"
                     class="field"
                     maxlength="100"
-                    placeholder="教室、名稱、教師"
+                    placeholder="教室、名稱、班級、教師"
             /></label>
             <button
                 class="rounded bg-primary px-4 py-2 text-white disabled:opacity-50"
@@ -86,6 +86,7 @@
                                 '學期／類型',
                                 '教室',
                                 '名稱／教師',
+                                '開課班級',
                                 '星期／節次',
                                 '有效日期',
                                 '操作',
@@ -122,6 +123,9 @@
                             <div class="text-a-text-muted">
                                 {{ record.teacher_name }}
                             </div>
+                        </td>
+                        <td class="p-3">
+                            {{ record.class_name || '—' }}
                         </td>
                         <td class="p-3">
                             {{ weekdayLabel(record.day_of_week) }}

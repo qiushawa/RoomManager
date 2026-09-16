@@ -39,6 +39,7 @@ export interface LongTermRecord {
     classroom_id: number;
     type: LongTermScheduleType;
     course_name: string;
+    class_name: string | null;
     teacher_name: string | null;
     day_of_week: number;
     start_date: string | null;
@@ -76,6 +77,8 @@ export interface ManualRecord {
 export interface PreviewSchedule {
     classroom_id: number;
     time_slot_ids: number[];
+    time_slot_labels: string[];
+    class_name: string | null;
     day_of_week: number;
     course_name: string;
 }

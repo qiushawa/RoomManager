@@ -141,12 +141,14 @@ class LongTermScheduleManagementTest extends TestCase
     public function test_selected_semester_is_used_for_external_preview_and_import(): void
     {
         $past = Semester::create(['academic_year' => 114, 'semester' => 2, 'start_date' => '2026-02-01', 'end_date' => '2026-06-30']);
-        $rows = [$this->row(['semester_id' => $past->id, 'start_date' => '2026-02-01', 'end_date' => '2026-06-30'])];
+        $rows = [$this->row(['semester_id' => $past->id, 'start_date' => '2026-02-01', 'end_date' => '2026-06-30', 'class_name' => 'Class A'])];
         $this->partialMock(LongTermCourseScheduleService::class, function ($mock) use ($past, $rows) {
             $mock->shouldReceive('fetchImportedSchedulesForClassrooms')->twice()->withArgs(fn ($semester, $rooms, $map) => $semester->id === $past->id)->andReturn($rows);
         });
         $payload = ['semester_id' => $past->id, 'classroom_ids' => [$this->room->id]];
-        $this->postJson($this->endpoint('/preview'), $payload)->assertOk()->assertJsonPath('semester_range.start_date', '2026-02-01');
+        $this->postJson($this->endpoint('/preview'), $payload)->assertOk()->assertJsonPath('semester_range.start_date', '2026-02-01')
+            ->assertJsonPath('schedules.0.time_slot_labels', ['1'])
+            ->assertJsonPath('schedules.0.class_name', 'Class A');
         $this->post($this->endpoint('/import'), $payload)->assertRedirect()->assertSessionHasNoErrors();
         $this->assertDatabaseHas('course_schedules', ['semester_id' => $past->id]);
         $this->assertDatabaseMissing('course_schedules', ['semester_id' => $this->semester->id]);
@@ -271,5 +273,106 @@ class LongTermScheduleManagementTest extends TestCase
         $this->getJson($this->endpoint('/manual/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-20'))
             ->assertOk()->assertJsonMissing(['title' => '月底借用']);
         $this->getJson($this->endpoint('/manual/availability'))->assertUnprocessable()->assertJsonValidationErrors(['classroom_id', 'start_date', 'end_date']);
+    }
+
+    private function manualPayload(): array
+    {
+        return [
+            'classroom_id' => $this->room->id,
+            'teacher_name' => 'New teacher',
+            'course_name' => 'New borrowing',
+            'day_of_week' => [1],
+            'start_date' => '2026-09-14',
+            'end_date' => '2026-09-30',
+            'periods' => [1],
+            'periods_by_day' => [1 => [1]],
+        ];
+    }
+
+    public function test_records_sort_by_course_then_class_and_allow_class_edits(): void
+    {
+        $b = $this->schedule(['course_name' => 'A course', 'class_name' => 'B class']);
+        $a = $this->schedule(['course_name' => 'A course', 'class_name' => 'A class']);
+        $c = $this->schedule(['course_name' => 'B course', 'class_name' => 'A class']);
+        $this->getJson($this->endpoint('/records'))->assertOk()
+            ->assertJsonPath('data.0.id', $a->id)->assertJsonPath('data.1.id', $b->id)->assertJsonPath('data.2.id', $c->id);
+        $this->patchJson($this->endpoint('/records/'.$b->id), $this->row(['course_name' => 'A course', 'class_name' => 'C class']))->assertOk();
+        $this->assertSame('C class', $b->fresh()->class_name);
+        $this->getJson($this->endpoint('/records?search=C%20class'))->assertOk()->assertJsonPath('total', 1)->assertJsonPath('data.0.id', $b->id);
+        $this->patchJson($this->endpoint('/records/'.$b->id), $this->row(['class_name' => str_repeat('x', 101)]))
+            ->assertUnprocessable()->assertJsonValidationErrors('class_name');
+    }
+
+    public function test_import_saves_class_names_and_does_not_deduplicate_different_classes(): void
+    {
+        $record = ['d' => 1, 'n' => 'Same course', 'i' => 'Same teacher', 'p' => [1]];
+        $raw = [['cid' => $this->room->code, 'r' => [
+            $record + ['c' => 'Class A'], $record + ['c' => 'Class B'], $record + ['c' => 'Class A'], $record,
+        ]]];
+        $service = app(LongTermCourseScheduleService::class);
+        $method = new \ReflectionMethod($service, 'normalizeImportedSchedules');
+        $rows = $method->invoke($service, $raw, $this->semester, Classroom::whereKey($this->room->id)->get(), [1 => $this->slot->id]);
+        $this->assertCount(3, $rows);
+        $this->assertSame(['Class A', 'Class B', null], array_column($rows, 'class_name'));
+        $service->replaceSemesterSchedulesForClassrooms($this->semester, collect([$this->room->id]), $rows);
+        $this->assertDatabaseHas('course_schedules', ['course_name' => 'Same course', 'class_name' => 'Class A']);
+        $this->assertDatabaseHas('course_schedules', ['course_name' => 'Same course', 'class_name' => 'Class B']);
+    }
+
+    public function test_manual_creation_preserves_existing_long_term_occupancy(): void
+    {
+        $existing = $this->schedule(['type' => 'manual']);
+        $before = $existing->fresh()->getAttributes();
+        $this->post($this->endpoint('/manual'), $this->manualPayload())
+            ->assertRedirect()->assertSessionHasErrors('periods');
+        $this->assertSame($before, $existing->fresh()->getAttributes());
+        $this->assertSame([$this->slot->id], $existing->timeSlots()->pluck('time_slots.id')->all());
+        $this->assertDatabaseCount('course_schedules', 1);
+    }
+
+    public function test_manual_creation_cannot_reject_or_override_short_term_occupancy(): void
+    {
+        foreach ([Booking::STATUS_PENDING, Booking::STATUS_APPROVED] as $status) {
+            $booking = Booking::create([
+                'borrower_id' => Borrower::factory()->create()->id,
+                'classroom_id' => $this->room->id,
+                'reason' => 'Existing borrowing',
+                'teacher' => 'Existing teacher',
+                'status_enum' => $status,
+                'level' => Booking::levelForStatus($status),
+            ]);
+            $date = $booking->bookingDates()->create(['date' => '2026-09-28']);
+            $date->timeSlots()->sync([$this->slot->id]);
+            $before = $booking->fresh()->getAttributes();
+
+            $this->post($this->endpoint('/manual'), $this->manualPayload())
+                ->assertRedirect()->assertSessionHasErrors('periods');
+            foreach (['reject_and_override', 'override_with_long_term'] as $action) {
+                $this->postJson($this->endpoint('/manual'), $this->manualPayload() + ['slot_resolutions' => ['1:1' => $action]])
+                    ->assertUnprocessable()->assertJsonValidationErrors('slot_resolutions');
+                $this->postJson($this->endpoint('/manual/resolve-conflict'), ['action' => $action, 'booking_id' => $booking->id])
+                    ->assertStatus(405);
+            }
+            $this->postJson($this->endpoint('/manual'), $this->manualPayload() + ['conflict_resolution' => ['pending_short_term' => 'reject_and_override']])
+                ->assertUnprocessable()->assertJsonValidationErrors('conflict_resolution');
+            $this->assertSame($before, $booking->fresh()->getAttributes());
+            $this->assertSame([$this->slot->id], $date->timeSlots()->pluck('time_slots.id')->all());
+            $this->assertDatabaseCount('course_schedules', 0);
+            $booking->delete();
+        }
+    }
+
+    public function test_manual_creation_still_adds_free_recurring_slots(): void
+    {
+        $existing = $this->schedule(['day_of_week' => 2]);
+        $this->post($this->endpoint('/manual'), $this->manualPayload())
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertModelExists($existing);
+        $this->assertDatabaseHas('course_schedules', [
+            'type' => 'manual', 'course_name' => 'New borrowing',
+            'day_of_week' => 1, 'start_date' => '2026-09-14', 'end_date' => '2026-09-30',
+        ]);
+        $created = CourseSchedule::where('course_name', 'New borrowing')->firstOrFail();
+        $this->assertSame([$this->slot->id], $created->timeSlots()->pluck('time_slots.id')->all());
     }
 }

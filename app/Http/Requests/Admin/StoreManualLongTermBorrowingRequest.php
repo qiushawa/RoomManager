@@ -29,11 +29,8 @@ class StoreManualLongTermBorrowingRequest extends FormRequest
             'periods_by_day' => ['nullable', 'array'],
             'periods_by_day.*' => ['array', 'min:1'],
             'periods_by_day.*.*' => ['integer', 'min:1'],
-            'conflict_resolution' => ['nullable', 'array'],
-            'conflict_resolution.approved_short_term' => ['nullable', 'string', 'in:keep_short_term'],
-            'conflict_resolution.pending_short_term' => ['nullable', 'string', 'in:review_pending,reject_and_override'],
-            'slot_resolutions' => ['nullable', 'array'],
-            'slot_resolutions.*' => ['nullable', 'string', 'in:cancel_slot,review_pending,reject_and_override,defer_to_short_term,override_with_long_term'],
+            'conflict_resolution' => ['prohibited'],
+            'slot_resolutions' => ['prohibited'],
         ];
     }
 }

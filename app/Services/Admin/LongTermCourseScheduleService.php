@@ -338,6 +338,8 @@ class LongTermCourseScheduleService
                 }
 
                 $courseName = Str::limit(trim((string) ($record['n'] ?? '未命名課程')), 100, '');
+                $className = Str::limit(trim((string) ($record['c'] ?? '')), 100, '');
+                $className = $className === '' ? null : $className;
                 $teacherName = trim((string) ($record['i'] ?? ''));
                 $teacherName = $teacherName === '' ? null : Str::limit($teacherName, 50, '');
 
@@ -345,6 +347,7 @@ class LongTermCourseScheduleService
                     $semesterId,
                     (int) $classroom->id,
                     $courseName,
+                    $className,
                     $teacherName,
                     $dayOfWeek,
                     implode(',', $timeSlotIds),
@@ -359,6 +362,7 @@ class LongTermCourseScheduleService
                     'semester_id' => $semesterId,
                     'classroom_id' => (int) $classroom->id,
                     'course_name' => $courseName,
+                    'class_name' => $className,
                     'teacher_name' => $teacherName,
                     'day_of_week' => $dayOfWeek,
                     'type' => 'course',

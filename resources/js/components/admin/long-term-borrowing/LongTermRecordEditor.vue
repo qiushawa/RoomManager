@@ -28,6 +28,12 @@
                     class="field"
             /></label>
             <label class="block"
+                >開課班級<input
+                    v-model.trim="form.class_name"
+                    maxlength="100"
+                    class="field"
+            /></label>
+            <label class="block"
                 >教室<select v-model="form.classroom_id" class="field">
                     <option
                         v-for="room in classrooms"
@@ -111,6 +117,7 @@ const emit = defineEmits<{ close: []; saved: [] }>();
 const form = reactive({
     classroom_id: props.record.classroom_id,
     course_name: props.record.course_name,
+    class_name: props.record.class_name ?? '',
     teacher_name: props.record.teacher_name ?? '',
     day_of_week: props.record.day_of_week,
     start_date: props.record.start_date ?? props.semester?.start_date ?? '',

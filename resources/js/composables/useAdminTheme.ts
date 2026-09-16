@@ -8,7 +8,7 @@ const STORAGE_KEY = 'admin-theme';
 const theme = ref<AdminTheme>(
     (typeof localStorage !== 'undefined' &&
         (localStorage.getItem(STORAGE_KEY) as AdminTheme)) ||
-        'dark',
+        'light',
 );
 
 export function useAdminTheme() {

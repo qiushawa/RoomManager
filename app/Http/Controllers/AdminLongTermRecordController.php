@@ -59,11 +59,19 @@ class AdminLongTermRecordController extends Controller
         }
         if (! empty($filters['search'])) {
             $search = '%'.$filters['search'].'%';
-            $query->where(fn ($q) => $q->where('course_name', 'like', $search)->orWhere('teacher_name', 'like', $search)
+            $query->where(fn ($q) => $q->where('course_name', 'like', $search)->orWhere('class_name', 'like', $search)->orWhere('teacher_name', 'like', $search)
                 ->orWhereHas('classroom', fn ($r) => $r->where('code', 'like', $search)->orWhere('name', 'like', $search)));
         }
 
-        return response()->json($query->orderByDesc('semester_id')->orderByDesc('id')->paginate(20)->withQueryString());
+        return response()->json($query
+            ->orderBy('course_name')
+            ->orderBy('class_name')
+            ->orderByDesc('semester_id')
+            ->orderBy('teacher_name')
+            ->orderBy('classroom_id')
+            ->orderBy('day_of_week')
+            ->orderBy('id')
+            ->paginate(20)->withQueryString());
     }
 
     public function update(Request $request, CourseSchedule $schedule, LongTermScheduleManagementService $management)
@@ -74,6 +82,7 @@ class AdminLongTermRecordController extends Controller
         $data = $request->validate([
             'classroom_id' => ['required', 'integer', 'exists:classrooms,id'],
             'course_name' => ['required', 'string', 'max:100'],
+            'class_name' => ['nullable', 'string', 'max:100'],
             'teacher_name' => ['nullable', 'string', 'max:50'],
             'day_of_week' => ['required', 'integer', 'between:1,7'],
             'start_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$semester->start_date->toDateString(), 'before_or_equal:'.$semester->end_date->toDateString()],

@@ -4,18 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Admin\PreviewManualLongTermBorrowingConflictsRequest;
 use App\Http\Requests\Admin\StoreManualLongTermBorrowingRequest;
-use App\Models\Booking;
 use App\Models\Classroom;
 use App\Models\CourseSchedule;
 use App\Models\Semester;
 use App\Models\Setting;
 use App\Models\TimeSlot;
-use App\Services\Admin\BookingRejectionService;
 use App\Services\Admin\LongTermCourseScheduleService;
 use App\Services\Admin\ManualLongTermBorrowingService;
 use App\Services\Admin\ManualLongTermConflictService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -26,7 +23,6 @@ class AdminLongTermBorrowingController extends Controller
         private readonly LongTermCourseScheduleService $longTermCourseScheduleService,
         private readonly ManualLongTermConflictService $manualLongTermConflictService,
         private readonly ManualLongTermBorrowingService $manualLongTermBorrowingService,
-        private readonly BookingRejectionService $bookingRejectionService,
     ) {}
 
     public function longTermBorrowing(Request $request)
@@ -154,12 +150,15 @@ class AdminLongTermBorrowingController extends Controller
 
         $semesterStartDate = $semester->start_date?->format('Y-m-d');
         $semesterEndDate = $semester->end_date?->format('Y-m-d');
+        $previewTimeSlots = TimeSlot::orderBy('start_time')->get(['id', 'name']);
 
         return response()->json([
-            'schedules' => collect($importedSchedules)->map(function ($item) {
+            'schedules' => collect($importedSchedules)->map(function ($item) use ($previewTimeSlots) {
                 return [
                     'classroom_id' => $item['classroom_id'],
                     'time_slot_ids' => $item['time_slot_ids'],
+                    'time_slot_labels' => $previewTimeSlots->whereIn('id', $item['time_slot_ids'])->pluck('name')->values()->all(),
+                    'class_name' => $item['class_name'] ?? null,
                     'day_of_week' => $item['day_of_week'],
                     'course_name' => collect([$item['course_name'], $item['teacher_name']])->filter()->join(' - '),
                     'start_date' => $item['start_date'] ?? null,
@@ -255,46 +254,6 @@ class AdminLongTermBorrowingController extends Controller
         ]);
     }
 
-    public function resolveManualLongTermConflict(Request $request)
-    {
-        $validated = $request->validate([
-            'action' => ['required', 'string', 'in:cancel_slot,review_pending,reject_and_override,defer_to_short_term,override_with_long_term'],
-            'booking_id' => ['nullable', 'integer', 'min:1'],
-        ]);
-
-        $action = (string) $validated['action'];
-
-        if ($action === 'review_pending') {
-            return response()->json([
-                'message' => '請前往審核清單處理未審核短期借用。',
-                'redirect' => '/admin/reviews?from=long-term-borrowing',
-            ]);
-        }
-
-        if ($action === 'cancel_slot' || $action === 'defer_to_short_term') {
-            return response()->json([
-                'message' => '衝突處理已套用。',
-            ]);
-        }
-
-        $bookingId = (int) ($validated['booking_id'] ?? 0);
-        if ($bookingId <= 0) {
-            return response()->json([
-                'message' => '缺少短期借用識別資訊，請重新整理後再試。',
-            ], 422);
-        }
-
-        $managerId = (int) (auth()->guard('admin')->id() ?? 0);
-
-        DB::transaction(function () use ($bookingId, $managerId): void {
-            $this->bookingRejectionService->rejectBookingsByIds([$bookingId], $managerId, Booking::activeStatusEnums());
-        });
-
-        return response()->json([
-            'message' => '衝突處理已執行，該短期借用已整筆駁回。',
-        ]);
-    }
-
     public function storeManualLongTermBorrowing(StoreManualLongTermBorrowingRequest $request)
     {
         $validated = $request->validated();
@@ -307,20 +266,13 @@ class AdminLongTermBorrowingController extends Controller
         try {
             $result = $this->manualLongTermBorrowingService->create(
                 $validated,
-                $currentSemester,
-                (int) (auth()->guard('admin')->id() ?? 0)
+                $currentSemester
             );
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }
 
         $message = '長期借用記錄已新增，共 '.$result['created_count'].' 筆。';
-        if ($result['rejected_count'] > 0) {
-            $message .= $result['has_slot_resolutions']
-                ? ' 已同步駁回 '.$result['rejected_count'].' 筆短期借用申請。'
-                : ' 已覆蓋並拒絕 '.$result['rejected_count'].' 筆未審核短期借用。';
-        }
-
         return back()->with('success', $message);
     }
 

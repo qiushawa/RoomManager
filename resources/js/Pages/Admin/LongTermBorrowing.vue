@@ -133,40 +133,43 @@
                             </div>
 
                             <div>
-                                <label class="mb-3 block text-sm font-medium text-a-text-body">每週固定星期與節次</label>
-                                <p class="mb-3 text-sm text-a-text-muted">套用於 {{ manualForm.start_date || '開始日期' }}～{{ manualForm.end_date || '結束日期' }} 期間內的每個指定星期，可跨星期選取不同節次。</p>
+                                <h4 class="mb-3 font-semibold">每週固定星期與節次</h4>
+                                <p class="mb-3 text-sm text-a-text-muted">套用於 {{ manualForm.start_date || '開始日期' }}～{{ manualForm.end_date || '結束日期' }} 期間內的每個指定星期。點選或拖曳選擇節次；切換星期會重新選取。</p>
                                 <p v-if="!manualAvailabilityReady" class="mb-2 text-sm text-a-text-muted">請先選擇教室及有效日期範圍。</p>
                                 <p v-if="manualAvailabilityLoading" role="status" class="mb-2 text-sm text-a-text-muted">正在彙整整段期間的佔用資訊…</p>
                                 <p v-if="manualAvailabilityError" role="alert" class="mb-2 text-sm text-red-500">{{ manualAvailabilityError }} <button type="button" class="underline" @click="reloadManualAvailability">重試</button></p>
-                                <div class="overflow-x-auto rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm" :class="{ 'pointer-events-none opacity-50': !manualAvailabilityReady || manualAvailabilityLoading || manualAvailabilityError }">
+                                <div class="overflow-x-auto" :class="{ 'pointer-events-none opacity-50': !manualAvailabilityReady || manualAvailabilityLoading || manualAvailabilityError }" :aria-busy="manualAvailabilityLoading">
                                     <ScheduleGrid
                                         class="min-w-[660px]"
                                         :week-dates="manualWeekDates"
                                         :periods="manualGridPeriods"
-                                        :occupied-data="manualDisplayedOccupiedData"
+                                        :occupied-data="manualAvailability"
                                         :model-value="manualSelectedSlots"
                                         :show-header-date="false"
-                                        :allow-cross-date-selection="true"
-                                        :allow-occupied-selection="true"
-                                        :show-period-time="true"
                                         :show-occupied-labels="true"
                                         :non-selectable-dates="manualDisabledWeekdays"
-                                        period-column-width-class="w-16"
                                         :theme="adminScheduleGridTheme"
                                         @update:model-value="handleManualScheduleChange"
                                         @occupied-click="handleManualOccupiedClick"
                                     />
                                 </div>
-                                <p class="mt-2 text-xs text-a-text-muted">色塊代表期間內至少一次佔用，不代表每週皆被佔用。點擊色塊查看明細；選取後仍須完成原有衝突處理。</p>
-                                <div v-if="manualOccupancySelection" class="mt-3 rounded-lg border border-a-border-2 p-3 text-sm text-a-text-body">
-                                    <div class="flex justify-between"><strong>週{{ WEEKDAY_NAME_MAP[Number(manualOccupancySelection.date)] }} · {{ periodLabelText(Number(manualOccupancySelection.period)) }} 節佔用明細</strong><button type="button" @click="manualOccupancySelection = null">關閉</button></div>
-                                    <ul class="max-h-48 space-y-2 overflow-y-auto py-2"><li v-for="(detail, index) in manualOccupancySelection.item.details" :key="index">
-                                        <p>{{ detail.title }} · {{ detail.instructor || detail.applicant || '—' }}</p><p class="text-xs text-a-text-muted">{{ detail.dates.length }} 次：{{ detail.dates.join('、') }}</p>
-                                    </li></ul>
-                                    <button type="button" class="text-primary" @click="toggleManualOccupiedSelection">選取／取消此節次（送出前檢查衝突）</button>
+                                <p class="mt-2 text-xs text-a-text-muted">色塊代表期間內至少一次佔用，不代表每週皆被佔用。點擊色塊僅可查看明細，已占用節次不可選取。若需修改長期借用，請至「長期借用紀錄」。</p>
+                                <div v-if="manualOccupancySelection" class="mt-3 rounded border border-a-border-2 p-3 text-sm">
+                                    <div class="flex justify-between"><h5 class="font-semibold">週{{ WEEKDAY_NAME_MAP[Number(manualOccupancySelection.date)] }} · {{ periodLabelText(Number(manualOccupancySelection.period)) }} 節 · 期間內佔用明細</h5><button type="button" @click="manualOccupancySelection = null">關閉</button></div>
+                                    <ul class="max-h-48 space-y-3 overflow-y-auto py-2">
+                                        <li v-for="(detail, index) in manualOccupancySelection.item.details" :key="index">
+                                            <p>{{ STATUS_LABELS[detail.status] }} · {{ detail.title }}</p>
+                                            <p v-if="detail.instructor || detail.applicant" class="text-a-text-muted">教師：{{ detail.instructor || '—' }}　借用人：{{ detail.applicant || '—' }}</p>
+                                            <p class="text-xs break-words text-a-text-muted">{{ detail.dates.length }} 次：{{ detail.dates.join('、') }}</p>
+                                        </li>
+                                    </ul>
                                 </div>
-                                <div class="mt-3 flex flex-wrap gap-3 text-sm text-a-text-muted"><span v-for="(periods, weekday) in buildManualPeriodsByDay()" :key="weekday">每週{{ WEEKDAY_NAME_MAP[Number(weekday)] }}：{{ periods.map(periodLabelText).join('、') }}</span></div>
                                 <button type="button" class="mt-2 text-sm text-primary" @click="manualSelectedSlots = []; resetManualConflictResult()">清除節次選取</button>
+                                <p class="mt-3 text-sm">
+                                    目前選擇：
+                                    <span v-for="(periods, weekday) in buildManualPeriodsByDay()" :key="weekday">每週{{ WEEKDAY_NAME_MAP[Number(weekday)] }}，{{ periods.map(periodLabelText).join('、') }}</span>
+                                    <span v-if="!manualSelectedSlots.length">尚未選擇節次</span>
+                                </p>
                                 <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">
                                     {{ manualForm.errors.periods }}
                                 </p>
@@ -189,15 +192,6 @@
                     </form>
                 </div>
 
-                <ConflictActionModal
-                    :show="conflictActionModalOpen"
-                    :loading="manualConflictLoading"
-                    :active-conflict-slot="activeConflictSlot"
-                    :weekday-name-map="WEEKDAY_NAME_MAP"
-                    :period-label-text="periodLabelText"
-                    @close="closeConflictActionModal"
-                    @action="applyConflictAction"
-                />
             </section>
 
             <LongTermRecordsSection v-else-if="activeMode === 'records'"
@@ -221,21 +215,18 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ScheduleGrid } from '@/components';
 import { useManualScheduleAvailability } from '@/composables/useManualScheduleAvailability';
 import { useAdminTheme } from '@/composables';
-import { ConflictActionModal, LongTermImportSection, LongTermRecordsSection } from '@/components/admin';
+import { STATUS_LABELS } from '@/constants';
+import { LongTermImportSection, LongTermRecordsSection } from '@/components/admin';
 import type {
     BuildingOption,
     ClassroomOption,
     ImportConfig,
-    ManualConflictItem,
-    ManualConflictKind,
     ManualConflictSummary,
     ManualFormData,
     SemesterOption,
-    OccupiedData,
     OccupiedItem,
     Period,
     SelectedSlot,
-    SlotResolutionAction,
     TimeSlotOption,
     WeekDate,
 } from '@/types';
@@ -279,45 +270,6 @@ interface OccupiedClickPayload {
     item?: unknown;
 }
 
-interface ActiveConflictSlot {
-    slotKey: string;
-    dayOfWeek: number;
-    period: number;
-    kind: ManualConflictKind;
-    conflictKey?: string;
-    bookingId?: number;
-}
-
-interface ShortTermConflictEntry {
-    date: string;
-    conflictDate: string;
-    period: number;
-    dayOfWeek: number;
-    slotKey: string;
-    conflictKey: string;
-    bookingId: number;
-    kind: 'short_term_pending' | 'short_term_approved';
-    typeText: string;
-    counterpart: string;
-}
-
-interface ManualDraftPayload {
-    manualForm: {
-        classroom_id: number | '';
-        teacher_name: string;
-        course_name: string;
-        day_of_week: number[];
-        start_date: string;
-        end_date: string;
-        periods: number[];
-    };
-    manualSelectedSlots: SelectedSlot[];
-    slotResolutionMap: Record<string, SlotResolutionAction>;
-    manualConflicts: ManualConflictItem[];
-    manualConflictSummary: ManualConflictSummary | null;
-}
-
-// ── 狀態 ──────────────────────────────────────────────
 const initialMode = new URL(window.location.href).searchParams.get('mode');
 const activeMode = ref<'manual' | 'import' | 'records'>(initialMode === 'records' || initialMode === 'import' ? initialMode : 'manual');
 watch(activeMode, (mode) => {
@@ -334,19 +286,9 @@ const manualForm = useForm<ManualFormData>({
     start_date: '',
     end_date: '',
     periods: [],
-    slot_resolutions: {},
 });
 
 const manualSelectedSlots = ref<SelectedSlot[]>([]);
-const manualConflictLoading = ref(false);
-const manualConflictError = ref('');
-const manualConflicts = ref<ManualConflictItem[]>([]);
-const manualConflictSummary = ref<ManualConflictSummary | null>(null);
-const slotResolutionMap = ref<Record<string, SlotResolutionAction>>({});
-const conflictActionModalOpen = ref(false);
-const activeConflictSlot = ref<ActiveConflictSlot | null>(null);
-const isRestoringDraft = ref(false);
-
 const { occupied: manualAvailability, loading: manualAvailabilityLoading, error: manualAvailabilityError, ready: manualAvailabilityReady, reload: reloadManualAvailability } = useManualScheduleAvailability(
     () => ({ classroom_id: manualForm.classroom_id, start_date: manualForm.start_date, end_date: manualForm.end_date }),
     () => props.timeSlots,
@@ -361,24 +303,14 @@ const manualDisabledWeekdays = computed(() => {
     }).map(String);
 });
 
-const manualGridPeriods = computed<Period[]>(() => {
-    let nonLunchOrder = 0;
-
-    return props.timeSlots.map((slot, index) => {
-        const isLunch = slot.name === '午休';
-        if (!isLunch) {
-            nonLunchOrder += 1;
-        }
-
-        return {
-            id: slot.id,
-            code: String(index + 1),
-            label: isLunch ? '午休' : String(nonLunchOrder),
-            start_time: slot.start_time,
-            end_time: slot.end_time,
-        };
-    });
-});
+const manualGridPeriods = computed<Period[]>(() => props.timeSlots.map((slot, index) => ({
+    id: slot.id,
+    // Keep the chronological codes required by the manual borrowing API.
+    code: String(index + 1),
+    label: slot.name,
+    start_time: slot.start_time,
+    end_time: slot.end_time,
+})));
 
 const manualPeriodDisplayLabelByCode = computed<Record<number, string>>(() => {
     const map: Record<number, string> = {};
@@ -424,584 +356,6 @@ function isoWeekdayFromDateString(dateString: string): number | null {
     return jsWeekday === 0 ? 7 : jsWeekday;
 }
 
-// manualDateToWeekdayMap 從 manualWeekDates 直接建立，不再依賴 day_of_week
-const manualDateToWeekdayMap = computed<Record<string, number>>(() => {
-    const mapping: Record<string, number> = {};
-
-    manualWeekDates.value.forEach((day) => {
-        const weekday = isoWeekdayFromDateString(day.fullDate);
-        if (weekday) {
-            mapping[day.fullDate] = weekday;
-        }
-    });
-
-    return mapping;
-});
-
-const slotKindPriority: Record<ManualConflictKind, number> = {
-    short_term_pending: 1,
-    short_term_approved: 2,
-    schedule: 3,
-};
-
-const validActionsByKind: Record<ManualConflictKind, SlotResolutionAction[]> = {
-    schedule: ['cancel_slot'],
-    short_term_pending: ['review_pending', 'reject_and_override'],
-    short_term_approved: ['defer_to_short_term', 'override_with_long_term'],
-};
-
-function toSlotKey(dayOfWeek: number, period: number): string {
-    return `${dayOfWeek}:${period}`;
-}
-
-function toCellKey(date: string, period: number): string {
-    return `${date}|${period}`;
-}
-
-function buildShortTermConflictResolutionKey(slotKey: string, bookingDateId: number, timeSlotId: number): string {
-    return `${slotKey}|bd:${bookingDateId}|ts:${timeSlotId}`;
-}
-
-function periodLabelText(period: number): string {
-    return manualPeriodDisplayLabelByCode.value[period] ?? String(period);
-}
-
-function removeSelectedSlotByWeekdayPeriod(dayOfWeek: number, period: number) {
-    manualSelectedSlots.value = manualSelectedSlots.value.filter((slot) => {
-        const weekday = isoWeekdayFromDateString(slot.date);
-        return !(weekday === dayOfWeek && Number(slot.period) === period);
-    });
-}
-
-const conflictKindBySlot = computed<Record<string, ManualConflictKind>>(() => {
-    const mapped: Record<string, ManualConflictKind> = {};
-
-    manualConflicts.value.forEach((item) => {
-        const weekdays = item.conflict_kind === 'schedule'
-            ? [item.day_of_week]
-            : Array.from(new Set(
-                item.conflict_dates
-                    .map((date) => isoWeekdayFromDateString(date))
-                    .filter((weekday): weekday is number => !!weekday),
-            ));
-
-        weekdays.forEach((weekday) => {
-            item.overlap_periods.forEach((period) => {
-                const key = toSlotKey(weekday, period);
-                const currentKind = mapped[key];
-                if (!currentKind || slotKindPriority[item.conflict_kind] > slotKindPriority[currentKind]) {
-                    mapped[key] = item.conflict_kind;
-                }
-            });
-        });
-    });
-
-    return mapped;
-});
-
-const selectedSlotKeySet = computed<Set<string>>(() => new Set(
-    manualSelectedSlots.value
-        .map((slot) => {
-            const weekday = isoWeekdayFromDateString(slot.date);
-            const period = Number(slot.period);
-            if (!weekday || !Number.isFinite(period) || period <= 0) return null;
-            return toSlotKey(weekday, period);
-        })
-        .filter((slotKey): slotKey is string => !!slotKey),
-));
-
-const shortTermConflictEntries = computed<ShortTermConflictEntry[]>(() => {
-    const entries: ShortTermConflictEntry[] = [];
-    const dateToWeekday = manualDateToWeekdayMap.value;
-
-    const datesByWeekday = new Map<number, string[]>();
-    manualWeekDates.value.forEach((day) => {
-        const weekday = dateToWeekday[day.fullDate];
-        if (!weekday) return;
-        if (!datesByWeekday.has(weekday)) datesByWeekday.set(weekday, []);
-        datesByWeekday.get(weekday)?.push(day.fullDate);
-    });
-
-    manualConflicts.value.forEach((item) => {
-        if (item.conflict_kind !== 'short_term_pending' && item.conflict_kind !== 'short_term_approved') {
-            return;
-        }
-
-        const typeText = conflictTypeText(item.conflict_kind);
-        const counterpart = item.applicant_name || item.teacher_name || '—';
-
-        const conflictSlots = Array.isArray(item.conflict_slots) ? item.conflict_slots : [];
-        conflictSlots.forEach((slot) => {
-            const period = Number(slot.period);
-            const dayOfWeek = Number(slot.day_of_week);
-            const conflictDate = typeof slot.date === 'string' ? slot.date : '';
-            const bookingDateId = Number(slot.booking_date_id);
-            const timeSlotId = Number(slot.time_slot_id);
-            if (!Number.isFinite(period) || period <= 0) return;
-            if (!Number.isFinite(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 7) return;
-            if (!conflictDate) return;
-            if (!Number.isFinite(bookingDateId) || bookingDateId <= 0) return;
-            if (!Number.isFinite(timeSlotId) || timeSlotId <= 0) return;
-
-            const displayDate = (datesByWeekday.get(dayOfWeek) ?? [])[0];
-            if (!displayDate) return;
-
-            const slotKey = toSlotKey(dayOfWeek, period);
-            if (!selectedSlotKeySet.value.has(slotKey)) {
-                return;
-            }
-
-            entries.push({
-                date: displayDate,
-                conflictDate,
-                period,
-                dayOfWeek,
-                slotKey,
-                conflictKey: buildShortTermConflictResolutionKey(slotKey, bookingDateId, timeSlotId),
-                bookingId: Number(item.booking_id ?? 0),
-                kind: item.conflict_kind as 'short_term_pending' | 'short_term_approved',
-                typeText,
-                counterpart,
-            });
-        });
-    });
-
-    return entries;
-});
-
-const shortTermQueueByCell = computed<Record<string, ShortTermConflictEntry[]>>(() => {
-    const grouped: Record<string, ShortTermConflictEntry[]> = {};
-
-    shortTermConflictEntries.value.forEach((entry) => {
-        const action = slotResolutionMap.value[entry.conflictKey] ?? slotResolutionMap.value[entry.slotKey];
-        if (isResolvedActionForKind(entry.kind, action)) {
-            return;
-        }
-
-        const cellKey = toCellKey(entry.date, entry.period);
-        if (!grouped[cellKey]) grouped[cellKey] = [];
-        grouped[cellKey].push(entry);
-    });
-
-    Object.values(grouped).forEach((queue) => {
-        queue.sort((a, b) => {
-            if (a.conflictDate === b.conflictDate) return 0;
-            return a.conflictDate < b.conflictDate ? -1 : 1;
-        });
-    });
-
-    return grouped;
-});
-
-function isResolvedActionForKind(kind: ManualConflictKind, action: SlotResolutionAction | undefined): boolean {
-    if (!action) return false;
-    if (kind === 'schedule') return action === 'cancel_slot';
-    if (kind === 'short_term_pending') return action === 'reject_and_override' || action === 'review_pending';
-    return action === 'defer_to_short_term' || action === 'override_with_long_term';
-}
-
-const unresolvedConflictSlots = computed<string[]>(() => {
-    const unresolvedSlotKeys = new Set<string>();
-
-    Object.entries(conflictKindBySlot.value).forEach(([slotKey, kind]) => {
-        if (!selectedSlotKeySet.value.has(slotKey)) return;
-
-        if (kind === 'schedule') {
-            const action = slotResolutionMap.value[slotKey];
-            if (action !== 'cancel_slot') {
-                unresolvedSlotKeys.add(slotKey);
-            }
-        }
-    });
-
-    shortTermConflictEntries.value.forEach((entry) => {
-        const action = slotResolutionMap.value[entry.conflictKey] ?? slotResolutionMap.value[entry.slotKey];
-        if (!action || !isResolvedActionForKind(entry.kind, action)) {
-            unresolvedSlotKeys.add(`${entry.slotKey}|${entry.conflictKey}`);
-        }
-    });
-
-    return Array.from(unresolvedSlotKeys);
-});
-
-function restoreManualDraft() {
-    if (typeof window === 'undefined') return;
-
-    try {
-        isRestoringDraft.value = true;
-        const raw = window.localStorage.getItem(MANUAL_LONG_TERM_DRAFT_KEY);
-        if (!raw) return;
-
-        const draft = JSON.parse(raw) as ManualDraftPayload;
-        manualForm.classroom_id = draft.manualForm.classroom_id;
-        manualForm.teacher_name = draft.manualForm.teacher_name;
-        manualForm.course_name = draft.manualForm.course_name;
-        manualForm.day_of_week = Array.isArray(draft.manualForm.day_of_week)
-            ? draft.manualForm.day_of_week
-            : [...FULL_WEEK_DAYS];
-        manualForm.start_date = draft.manualForm.start_date;
-        manualForm.end_date = draft.manualForm.end_date;
-        manualForm.periods = Array.isArray(draft.manualForm.periods) ? draft.manualForm.periods : [];
-        manualSelectedSlots.value = Array.isArray(draft.manualSelectedSlots) ? draft.manualSelectedSlots
-            .filter(slot => isoWeekdayFromDateString(slot.date))
-            .map(slot => ({ ...slot, date: String(isoWeekdayFromDateString(slot.date)) })) : [];
-        slotResolutionMap.value = draft.slotResolutionMap ?? {};
-        manualConflicts.value = Array.isArray(draft.manualConflicts) ? draft.manualConflicts : [];
-        manualConflictSummary.value = draft.manualConflictSummary ?? null;
-        manualConflictError.value = '已還原未完成的申請草稿。';
-    } catch {
-        window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
-    } finally {
-        isRestoringDraft.value = false;
-    }
-}
-
-function saveManualDraft() {
-    if (typeof window === 'undefined') return;
-
-    const payload: ManualDraftPayload = {
-        manualForm: {
-            classroom_id: manualForm.classroom_id,
-            teacher_name: manualForm.teacher_name,
-            course_name: manualForm.course_name,
-            day_of_week: [...manualForm.day_of_week],
-            start_date: manualForm.start_date,
-            end_date: manualForm.end_date,
-            periods: [...manualForm.periods],
-        },
-        manualSelectedSlots: [...manualSelectedSlots.value],
-        slotResolutionMap: { ...slotResolutionMap.value },
-        manualConflicts: [...manualConflicts.value],
-        manualConflictSummary: manualConflictSummary.value,
-    };
-
-    window.localStorage.setItem(MANUAL_LONG_TERM_DRAFT_KEY, JSON.stringify(payload));
-}
-
-function clearManualDraft() {
-    if (typeof window === 'undefined') return;
-    window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
-}
-
-function closeConflictActionModal() {
-    conflictActionModalOpen.value = false;
-    activeConflictSlot.value = null;
-}
-
-function handleManualOccupiedClick(payload: OccupiedClickPayload) {
-    const displayed = payload.item as OccupiedItem | undefined;
-    if (displayed?.details && !displayed.status.startsWith('conflict_')) {
-        manualOccupancySelection.value = { date: payload.date, period: payload.period, item: displayed };
-        return;
-    }
-    const dayOfWeek = manualDateToWeekdayMap.value[payload.date];
-    const period = Number(payload.period);
-    if (!dayOfWeek || !Number.isFinite(period) || period <= 0) return;
-
-    const slotKey = toSlotKey(dayOfWeek, period);
-    const item = payload.item as { status?: string; conflict_key?: string } | string | null | undefined;
-    const clickedStatus = typeof item === 'string'
-        ? item
-        : (item && typeof item === 'object' ? item.status ?? null : null);
-    const kind = conflictKindFromOccupiedStatus(clickedStatus) ?? conflictKindBySlot.value[slotKey];
-    if (!kind) return;
-
-    const conflictKey = item && typeof item === 'object' ? (item.conflict_key ?? undefined) : undefined;
-    const bookingId = item && typeof item === 'object' ? Number((item as { booking_id?: number }).booking_id ?? 0) : 0;
-
-    activeConflictSlot.value = {
-        slotKey,
-        dayOfWeek,
-        period,
-        kind,
-        conflictKey,
-        bookingId: Number.isFinite(bookingId) ? bookingId : 0,
-    };
-    conflictActionModalOpen.value = true;
-}
-
-async function applyConflictAction(action: SlotResolutionAction) {
-    const slot = activeConflictSlot.value;
-    if (!slot) return;
-
-    if (!validActionsByKind[slot.kind].includes(action)) {
-        manualConflictError.value = '此衝突類型不支援該操作。';
-        return;
-    }
-
-    if (action === 'review_pending') {
-        if ((slot.bookingId ?? 0) > 0) {
-            shortTermConflictEntries.value
-                .filter((entry) => entry.kind === 'short_term_pending' && entry.bookingId === slot.bookingId)
-                .forEach((entry) => {
-                    slotResolutionMap.value[entry.conflictKey] = action;
-                });
-        } else {
-            const targetKey = slot.conflictKey ?? slot.slotKey;
-            slotResolutionMap.value[targetKey] = action;
-        }
-        saveManualDraft();
-        closeConflictActionModal();
-        window.location.href = withBase('/admin/reviews?from=long-term-borrowing');
-        return;
-    }
-
-    if (action === 'cancel_slot') {
-        if (slot.conflictKey) {
-            slotResolutionMap.value[slot.conflictKey] = action;
-        } else {
-            slotResolutionMap.value[slot.slotKey] = action;
-        }
-        removeSelectedSlotByWeekdayPeriod(slot.dayOfWeek, slot.period);
-        closeConflictActionModal();
-        return;
-    }
-
-    if (action === 'defer_to_short_term') {
-        if (slot.conflictKey) {
-            // 僅標記當前衝突為讓給短借，不移除整個節次選取。
-            slotResolutionMap.value[slot.conflictKey] = action;
-        } else {
-            slotResolutionMap.value[slot.slotKey] = action;
-        }
-        closeConflictActionModal();
-        return;
-    }
-
-    if (action === 'reject_and_override' || action === 'override_with_long_term') {
-        const bookingId = Number(slot.bookingId ?? 0);
-        if (!Number.isFinite(bookingId) || bookingId <= 0) {
-            manualConflictError.value = '缺少短期借用識別資訊，請重新整理後再試。';
-            return;
-        }
-
-        const actionLabel = action === 'reject_and_override'
-            ? '直接覆蓋並拒絕'
-            : '該節讓給長期借用';
-        const firstConfirm = window.confirm(
-            `【高風險操作】你選擇「${actionLabel}」。此動作會駁回整筆短期借用申請（同申請內其他日期/節次也會失效），是否繼續？`,
-        );
-        if (!firstConfirm) {
-            return;
-        }
-
-        const secondConfirm = window.confirm(
-            '請再次確認：本次駁回無法自動復原，必須由借用人重新提出申請。確定要執行嗎？',
-        );
-        if (!secondConfirm) {
-            return;
-        }
-
-        shortTermConflictEntries.value
-            .filter((entry) => entry.bookingId === bookingId)
-            .forEach((entry) => {
-                slotResolutionMap.value[entry.conflictKey] = action;
-            });
-
-        manualConflictLoading.value = true;
-        try {
-            await window.axios.post(withBase('/admin/long-term-borrowing/manual/resolve-conflict'), {
-                action,
-                booking_id: bookingId,
-            });
-
-            await previewManualConflicts();
-            manualConflictError.value = '';
-        } catch (error: any) {
-            const backendMessage =
-                error?.response?.data?.message
-                || error?.response?.data?.errors?.action?.[0]
-                || error?.response?.data?.errors?.booking_id?.[0];
-            manualConflictError.value = backendMessage || '衝突處理執行失敗，請稍後再試。';
-        } finally {
-            manualConflictLoading.value = false;
-        }
-
-        closeConflictActionModal();
-        return;
-    }
-
-    const targetKey = slot.conflictKey ?? slot.slotKey;
-    slotResolutionMap.value[targetKey] = action;
-
-    closeConflictActionModal();
-}
-
-const canPreviewManualConflicts = computed(() => (
-    !!manualForm.classroom_id
-    && manualForm.periods.length > 0
-    && !!manualForm.start_date
-    && !!manualForm.end_date
-));
-
-const canSubmitManual = computed(() => (
-    canPreviewManualConflicts.value
-    && !manualConflictLoading.value
-    && !manualForm.processing
-));
-
-const conflictStatusPriority: Record<string, number> = {
-    conflict_short_term_pending: 1,
-    conflict_short_term_approved: 2,
-    conflict_schedule: 3,
-};
-
-function conflictStatusForKind(item: ManualConflictItem): 'conflict_short_term_pending' | 'conflict_short_term_approved' | 'conflict_schedule' {
-    if (item.conflict_kind === 'short_term_pending') return 'conflict_short_term_pending';
-    if (item.conflict_kind === 'short_term_approved') return 'conflict_short_term_approved';
-    return 'conflict_schedule';
-}
-
-function conflictTypeText(kind: ManualConflictKind): string {
-    if (kind === 'schedule') return '課表衝突';
-    if (kind === 'short_term_pending') return '未審核短期借用衝突';
-    return '已審核短期借用衝突';
-}
-
-function conflictKindFromOccupiedStatus(status: string | null): ManualConflictKind | null {
-    if (status === 'conflict_schedule') return 'schedule';
-    if (status === 'conflict_short_term_pending') return 'short_term_pending';
-    if (status === 'conflict_short_term_approved') return 'short_term_approved';
-    return null;
-}
-
-const manualConflictOccupiedData = computed<OccupiedData>(() => {
-    const occupied: OccupiedData = {};
-    const dateToWeekday = manualDateToWeekdayMap.value;
-
-    const datesByWeekday = new Map<number, string[]>();
-    manualWeekDates.value.forEach((day) => {
-        const weekday = dateToWeekday[day.fullDate];
-        if (!weekday) return;
-        if (!datesByWeekday.has(weekday)) datesByWeekday.set(weekday, []);
-        datesByWeekday.get(weekday)?.push(day.fullDate);
-    });
-
-    manualConflicts.value.forEach((item) => {
-        if (!item.overlap_periods.length || item.conflict_kind !== 'schedule') return;
-
-        const status = conflictStatusForKind(item);
-        const typeText = conflictTypeText(item.conflict_kind);
-        const detailText = item.conflict_kind === 'schedule'
-            ? (item.course_name || '—')
-            : null;
-        const counterpartText = item.applicant_name || item.teacher_name || '—';
-
-        let targetDates: string[] = [];
-        if (item.conflict_kind === 'schedule') {
-            targetDates = datesByWeekday.get(item.day_of_week) ?? [];
-        } else {
-            const weekdays = Array.from(new Set(
-                item.conflict_dates
-                    .map((date) => isoWeekdayFromDateString(date))
-                    .filter((weekday): weekday is number => !!weekday),
-            ));
-            targetDates = weekdays.flatMap((weekday) => datesByWeekday.get(weekday) ?? []);
-        }
-
-        const uniqueTargetDates = Array.from(new Set(targetDates));
-
-        uniqueTargetDates.forEach((date) => {
-            if (!occupied[date]) occupied[date] = {};
-
-            const weekday = manualDateToWeekdayMap.value[date];
-            if (!weekday) return;
-
-            item.overlap_periods.forEach((period) => {
-                const code = String(period);
-                const slotKey = toSlotKey(weekday, period);
-
-                if (!selectedSlotKeySet.value.has(slotKey)) {
-                    return;
-                }
-
-                if (isResolvedActionForKind(item.conflict_kind, slotResolutionMap.value[slotKey])) {
-                    return;
-                }
-
-                const existing = occupied[date][code];
-                const existingStatus = typeof existing === 'string' ? existing : existing?.status;
-                if (
-                    existingStatus
-                    && (conflictStatusPriority[existingStatus] ?? 0) >= conflictStatusPriority[status]
-                ) {
-                    return;
-                }
-
-                occupied[date][code] = {
-                    status,
-                    title: typeText,
-                    instructor: detailText ?? date,
-                    applicant: counterpartText,
-                    marker: '✗',
-                };
-            });
-        });
-    });
-
-    Object.entries(shortTermQueueByCell.value).forEach(([cellKey, queue]) => {
-        if (!queue.length) return;
-
-        const [date, periodText] = cellKey.split('|');
-        const period = Number(periodText);
-        if (!date || !Number.isFinite(period)) return;
-
-        const active = queue[0];
-        if (!occupied[date]) occupied[date] = {};
-
-        const code = String(period);
-        const current = occupied[date][code];
-        const currentStatus = typeof current === 'string' ? current : current?.status;
-        if (currentStatus === 'conflict_schedule') {
-            return;
-        }
-
-        const status = active.kind === 'short_term_pending'
-            ? 'conflict_short_term_pending'
-            : 'conflict_short_term_approved';
-
-        occupied[date][code] = {
-            status,
-            title: active.typeText,
-            instructor: active.conflictDate,
-            applicant: active.counterpart,
-            marker: active.kind === 'short_term_pending' ? '!' : '◆',
-            remaining_count: queue.length,
-            conflict_key: active.conflictKey,
-            booking_id: active.bookingId > 0 ? active.bookingId : undefined,
-        };
-    });
-
-    return occupied;
-});
-
-const manualDisplayedOccupiedData = computed<OccupiedData>(() => {
-    const result: OccupiedData = {};
-    FULL_WEEK_DAYS.forEach(day => { result[String(day)] = { ...manualAvailability.value[String(day)], ...manualConflictOccupiedData.value[String(day)] }; });
-    return result;
-});
-
-function toggleManualOccupiedSelection() {
-    const selected = manualOccupancySelection.value;
-    if (!selected) return;
-    const period = manualGridPeriods.value.find(period => period.code === selected.period);
-    if (!period) return;
-    const exists = manualSelectedSlots.value.some(slot => slot.date === selected.date && slot.period === selected.period);
-    manualSelectedSlots.value = exists
-        ? manualSelectedSlots.value.filter(slot => slot.date !== selected.date || slot.period !== selected.period)
-        : [...manualSelectedSlots.value, { date: selected.date, period: selected.period, id: period.id, label: period.label }];
-    manualOccupancySelection.value = null;
-}
-
-function resetManualConflictResult() {
-    manualConflictError.value = '';
-    manualConflicts.value = [];
-    manualConflictSummary.value = null;
-    slotResolutionMap.value = {};
-    closeConflictActionModal();
-}
-
-// periods_by_day 直接從 slot.date 反推 weekday，不再依賴 day_of_week
 function buildManualPeriodsByDay(): Record<string, number[]> {
     const grouped: Record<number, Set<number>> = {};
 
@@ -1021,128 +375,102 @@ function buildManualPeriodsByDay(): Record<string, number[]> {
     return result;
 }
 
-async function previewManualConflicts(): Promise<boolean> {
-    if (!canPreviewManualConflicts.value) {
-        manualConflictError.value = '請先完成教室、節次與日期範圍設定。';
-        return false;
-    }
+const manualConflictLoading = ref(false);
+const manualConflictError = ref('');
+const canSubmitManual = computed(() => manualAvailabilityReady.value
+    && !manualAvailabilityLoading.value && !manualAvailabilityError.value
+    && manualSelectedSlots.value.length > 0 && !manualConflictLoading.value);
 
+function periodLabelText(period: number): string {
+    return manualPeriodDisplayLabelByCode.value[period] ?? String(period);
+}
+
+function handleManualOccupiedClick(payload: OccupiedClickPayload) {
+    const item = payload.item as OccupiedItem | undefined;
+    manualOccupancySelection.value = item?.details
+        ? { date: payload.date, period: payload.period, item }
+        : null;
+}
+
+function resetManualConflictResult() {
+    manualConflictError.value = '';
+}
+
+function handleManualScheduleChange(slots: SelectedSlot[]) {
+    if (!manualAvailabilityReady.value || manualAvailabilityLoading.value || manualAvailabilityError.value) return;
+    manualSelectedSlots.value = slots;
+    resetManualConflictResult();
+}
+
+watch(manualSelectedSlots, (slots) => {
+    manualForm.periods = [...new Set(slots.map(slot => Number(slot.period)))].sort((a, b) => a - b);
+});
+
+watch(() => [manualForm.classroom_id, manualForm.start_date, manualForm.end_date], () => {
+    manualOccupancySelection.value = null;
+    resetManualConflictResult();
+});
+
+// Drop selections that became unavailable after a date range or classroom change.
+watch([manualAvailability, manualDisabledWeekdays], () => {
+    manualSelectedSlots.value = manualSelectedSlots.value.filter(slot =>
+        !manualDisabledWeekdays.value.includes(slot.date)
+        && !manualAvailability.value[slot.date]?.[slot.period]);
+});
+
+onMounted(() => {
+    const raw = window.localStorage.getItem(MANUAL_LONG_TERM_DRAFT_KEY);
+    if (!raw) return;
+    try {
+        const draft = JSON.parse(raw);
+        if (!draft?.manualForm) return;
+        // Restore only new-booking fields; old conflict actions are never restored.
+        for (const key of ['classroom_id', 'teacher_name', 'course_name', 'start_date', 'end_date'] as const) {
+            if (draft.manualForm[key] !== undefined) Object.assign(manualForm, { [key]: draft.manualForm[key] });
+        }
+        const slots: SelectedSlot[] = Array.isArray(draft.manualSelectedSlots) ? draft.manualSelectedSlots : [];
+        const normalized = slots.map(slot => ({ ...slot, date: String(isoWeekdayFromDateString(slot.date)) }));
+        manualSelectedSlots.value = normalized.filter(slot => slot.date === normalized[0]?.date);
+    } catch {
+        window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
+    }
+});
+
+async function handleManualSubmit() {
+    if (!canSubmitManual.value || manualForm.processing) return;
     manualConflictLoading.value = true;
     manualConflictError.value = '';
-
+    const payload = {
+        classroom_id: Number(manualForm.classroom_id),
+        teacher_name: manualForm.teacher_name,
+        course_name: manualForm.course_name,
+        start_date: manualForm.start_date,
+        end_date: manualForm.end_date,
+        day_of_week: [...manualForm.day_of_week],
+        periods: [...manualForm.periods],
+        periods_by_day: buildManualPeriodsByDay(),
+    };
     try {
-        const payload = {
-            classroom_id: Number(manualForm.classroom_id),
-            teacher_name: manualForm.teacher_name,
-            course_name: manualForm.course_name,
-            day_of_week: [...manualForm.day_of_week],
-            start_date: manualForm.start_date,
-            end_date: manualForm.end_date,
-            periods: [...manualForm.periods],
-            periods_by_day: buildManualPeriodsByDay(),
-        };
-
-        const response = await window.axios.post(withBase('/admin/long-term-borrowing/manual/conflicts'), payload);
-        manualConflicts.value = (response?.data?.conflicts ?? []) as ManualConflictItem[];
-        manualConflictSummary.value = (response?.data?.summary ?? null) as ManualConflictSummary | null;
-        return true;
+        const response = await window.axios.post<{ summary: ManualConflictSummary }>(withBase('/admin/long-term-borrowing/manual/conflicts'), payload);
+        if (response.data.summary.total > 0) {
+            manualConflictError.value = '所選節次已有占用，請調整日期區間或節次。若需修改長期借用，請至「長期借用紀錄」。';
+            await reloadManualAvailability();
+            return;
+        }
+        manualForm.transform(() => payload).post(withBase('/admin/long-term-borrowing/manual'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                manualForm.reset();
+                manualSelectedSlots.value = [];
+                resetManualConflictResult();
+                window.localStorage.removeItem(MANUAL_LONG_TERM_DRAFT_KEY);
+                void reloadManualAvailability();
+            },
+        });
     } catch (error: any) {
-        const backendMessage =
-            error?.response?.data?.message
-            || error?.response?.data?.errors?.semester?.[0]
-            || error?.response?.data?.errors?.periods?.[0]
-            || error?.response?.data?.errors?.classroom_id?.[0];
-        manualConflictError.value = backendMessage || '衝突檢查失敗，請稍後再試。';
-        manualConflicts.value = [];
-        manualConflictSummary.value = null;
-        return false;
+        manualConflictError.value = error?.response?.data?.message || '衝突檢查失敗，請稍後再試。';
     } finally {
         manualConflictLoading.value = false;
     }
 }
-
-function handleManualScheduleChange(slots: SelectedSlot[]) {
-    manualSelectedSlots.value = slots;
-}
-
-onMounted(() => {
-    restoreManualDraft();
-});
-
-watch(manualSelectedSlots, (slots) => {
-    const periods = Array.from(
-        new Set(slots.map((slot) => Number(slot.period)).filter((value) => Number.isFinite(value))),
-    ).sort((a, b) => a - b);
-    manualForm.periods = periods;
-});
-
-watch(
-    () => [
-        manualForm.classroom_id,
-        manualForm.start_date,
-        manualForm.end_date,
-    ],
-    () => {
-        manualOccupancySelection.value = null;
-        if (isRestoringDraft.value) return;
-        resetManualConflictResult();
-    },
-);
-
-watch(conflictKindBySlot, (kindMap) => {
-    const nextMap: Record<string, SlotResolutionAction> = {};
-    Object.entries(slotResolutionMap.value).forEach(([resolutionKey, action]) => {
-        const baseSlotKey = resolutionKey.split('|')[0] || resolutionKey;
-        const kind = kindMap[baseSlotKey];
-        if (kind && validActionsByKind[kind].includes(action)) {
-            nextMap[resolutionKey] = action;
-        }
-    });
-    slotResolutionMap.value = nextMap;
-});
-
-function submitManual() {
-    if (manualConflictLoading.value) {
-        manualConflictError.value = '衝突自動檢查進行中，請稍候再送出。';
-        return;
-    }
-
-    manualForm.transform((data) => ({
-        ...data,
-        periods_by_day: buildManualPeriodsByDay(),
-        slot_resolutions: { ...slotResolutionMap.value },
-    })).post(withBase('/admin/long-term-borrowing/manual'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            manualForm.reset();
-            manualForm.day_of_week = [...FULL_WEEK_DAYS];
-            manualSelectedSlots.value = [];
-            resetManualConflictResult();
-            clearManualDraft();
-        },
-    });
-}
-
-async function handleManualSubmit() {
-    if (!canSubmitManual.value) {
-        manualConflictError.value = '請先完成教室、節次與日期設定。';
-        return;
-    }
-
-    const checked = await previewManualConflicts();
-    if (!checked || !manualConflictSummary.value) return;
-
-    if (manualConflictSummary.value.total === 0) {
-        submitManual();
-        return;
-    }
-
-    if (unresolvedConflictSlots.value.length > 0) {
-        manualConflictError.value = `仍有 ${unresolvedConflictSlots.value.length} 個衝突格尚未處理，請點擊 ! 選擇操作。`;
-        return;
-    }
-
-    submitManual();
-}
-
 </script>

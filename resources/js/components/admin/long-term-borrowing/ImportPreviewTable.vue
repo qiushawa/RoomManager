@@ -1,6 +1,11 @@
 <template>
-    <div v-if="previewSchedules.length > 0" class="overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/5">
-        <div class="border-b border-emerald-500/20 px-4 py-2.5 text-sm font-medium text-emerald-400">
+    <div
+        v-if="previewSchedules.length > 0"
+        class="overflow-hidden rounded-xl border border-emerald-500/20 bg-emerald-500/5"
+    >
+        <div
+            class="border-b border-emerald-500/20 px-4 py-2.5 text-sm font-medium text-emerald-400"
+        >
             預覽：{{ previewSchedules.length }} 筆課表 — 確認後才會正式匯入
         </div>
         <div class="max-h-80 overflow-auto">
@@ -11,6 +16,7 @@
                         <th class="px-4 py-2 font-medium">星期</th>
                         <th class="px-4 py-2 font-medium">節次</th>
                         <th class="px-4 py-2 font-medium">課程</th>
+                        <th class="px-4 py-2 font-medium">開課班級</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-a-divider">
@@ -19,10 +25,21 @@
                         :key="`${row.classroom_id}-${row.day_of_week}-${row.time_slot_ids.join('-')}-${index}`"
                         class="text-xs"
                     >
-                        <td class="px-4 py-2.5 font-medium text-a-text">{{ getClassroomLabel(row.classroom_id) }}</td>
-                        <td class="px-4 py-2.5 text-a-text-muted">{{ weekdayLabel(row.day_of_week) }}</td>
-                        <td class="px-4 py-2.5 text-a-text-muted">{{ formatPeriodIds(row.time_slot_ids) }}</td>
-                        <td class="px-4 py-2.5 text-a-text-muted">{{ row.course_name || '—' }}</td>
+                        <td class="px-4 py-2.5 font-medium text-a-text">
+                            {{ getClassroomLabel(row.classroom_id) }}
+                        </td>
+                        <td class="px-4 py-2.5 text-a-text-muted">
+                            {{ weekdayLabel(row.day_of_week) }}
+                        </td>
+                        <td class="px-4 py-2.5 text-a-text-muted">
+                            {{ row.time_slot_labels?.join('、') || '—' }}
+                        </td>
+                        <td class="px-4 py-2.5 text-a-text-muted">
+                            {{ row.course_name || '—' }}
+                        </td>
+                        <td class="px-4 py-2.5 text-a-text-muted">
+                            {{ row.class_name || '—' }}
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -35,9 +52,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
 import type { ClassroomOption, PreviewSchedule } from '@/types';
 import { weekdayLabel } from '@/utils';
+import { computed } from 'vue';
 
 const props = defineProps<{
     classrooms: ClassroomOption[];
@@ -46,16 +63,13 @@ const props = defineProps<{
 
 const classroomLabelMap = computed(() => {
     const map = new Map<number, string>();
-    props.classrooms.forEach((room) => map.set(room.id, `${room.code} - ${room.name}`));
+    props.classrooms.forEach((room) =>
+        map.set(room.id, `${room.code} - ${room.name}`),
+    );
     return map;
 });
 
 const getClassroomLabel = (classroomId: number): string => {
     return classroomLabelMap.value.get(classroomId) ?? `教室 #${classroomId}`;
-};
-
-const formatPeriodIds = (ids: number[]): string => {
-    if (!ids?.length) return '—';
-    return ids.join('、') + ' 節';
 };
 </script>
