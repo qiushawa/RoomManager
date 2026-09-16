@@ -30,6 +30,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::delete('/long-term-borrowing/manual/{schedule}', [AdminLongTermBorrowingController::class, 'revokeManualLongTermBorrowing'])->name('longTermBorrowing.manual.revoke');
         Route::delete('/long-term-borrowing/import/{classroom}', [AdminLongTermBorrowingController::class, 'revokeClassroomImport'])->name('longTermBorrowing.revoke');
         Route::get('/long-term-borrowing/records', [AdminLongTermRecordController::class, 'index'])->name('longTermBorrowing.records');
+        Route::get('/long-term-borrowing/manual/availability', [AdminLongTermRecordController::class, 'manualAvailability'])->name('longTermBorrowing.manual.availability');
+        Route::get('/long-term-borrowing/records/{schedule}/availability', [AdminLongTermRecordController::class, 'availability'])->name('longTermBorrowing.records.availability');
         Route::patch('/long-term-borrowing/records/{schedule}', [AdminLongTermRecordController::class, 'update'])->name('longTermBorrowing.records.update');
         Route::delete('/long-term-borrowing/records/{schedule}', [AdminLongTermRecordController::class, 'destroy'])->name('longTermBorrowing.records.destroy');
 

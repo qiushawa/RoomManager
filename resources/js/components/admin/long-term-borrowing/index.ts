@@ -5,3 +5,5 @@ export { default as ManualRecordList } from './ManualRecordList.vue';
 export { default as ConflictActionModal } from './ConflictActionModal.vue';
 
 export { default as LongTermRecordsSection } from './LongTermRecordsSection.vue';
+export { default as LongTermRecordEditor } from './LongTermRecordEditor.vue';
+export { default as LongTermRecordSchedulePicker } from './LongTermRecordSchedulePicker.vue';

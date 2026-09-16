@@ -9,6 +9,7 @@
 - `LongTermCourseScheduleService` 僅替換指定學期中有取得課表的所選教室之 `course` 紀錄，交易內再檢查範圍與衝突；空結果不清除既有資料。
 - `AdminLongTermRecordController` 提供 `GET /admin/long-term-borrowing/records`、`PATCH/DELETE /admin/long-term-borrowing/records/{schedule}`，管理所有類型及學期。清單支援 `semester_id/type/building/classroom_id/day_of_week/search/page`。
 - `LongTermScheduleManagementService` 依實際日期及節次檢查重複長期紀錄與有效短期借用；編輯時排除本筆，純資訊修改不重新阻擋舊衝突。
+- `GET /admin/long-term-borrowing/records/{schedule}/availability` 驗證教室與 `start_date/end_date`，沿用 `RoomAvailabilityService` 彙整整段期間，按星期及節次回傳占用項目與各自日期；排除本筆。首頁原有呼叫與行為不變。
 - 長期管理路由仍受 `auth:admin` 保護，但不受當下／未來學期存在限制，歷史紀錄可持續管理。手動新增本身仍要求當下學期。
 - 回歸測試：`tests/Feature/Admin/LongTermScheduleManagementTest.php`。本機網址若包含子目錄，測試程序請覆寫 `APP_URL=http://localhost`，資料庫仍使用 `room_test`。
 

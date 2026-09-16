@@ -133,23 +133,40 @@
                             </div>
 
                             <div>
-                                <label class="mb-3 block text-sm font-medium text-a-text-body">節次選取</label>
-                                <div class="overflow-visible rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm">
+                                <label class="mb-3 block text-sm font-medium text-a-text-body">每週固定星期與節次</label>
+                                <p class="mb-3 text-sm text-a-text-muted">套用於 {{ manualForm.start_date || '開始日期' }}～{{ manualForm.end_date || '結束日期' }} 期間內的每個指定星期，可跨星期選取不同節次。</p>
+                                <p v-if="!manualAvailabilityReady" class="mb-2 text-sm text-a-text-muted">請先選擇教室及有效日期範圍。</p>
+                                <p v-if="manualAvailabilityLoading" role="status" class="mb-2 text-sm text-a-text-muted">正在彙整整段期間的佔用資訊…</p>
+                                <p v-if="manualAvailabilityError" role="alert" class="mb-2 text-sm text-red-500">{{ manualAvailabilityError }} <button type="button" class="underline" @click="reloadManualAvailability">重試</button></p>
+                                <div class="overflow-x-auto rounded-xl border border-a-border-2 bg-a-surface p-3 shadow-sm" :class="{ 'pointer-events-none opacity-50': !manualAvailabilityReady || manualAvailabilityLoading || manualAvailabilityError }">
                                     <ScheduleGrid
+                                        class="min-w-[660px]"
                                         :week-dates="manualWeekDates"
                                         :periods="manualGridPeriods"
-                                        :occupied-data="manualConflictOccupiedData"
+                                        :occupied-data="manualDisplayedOccupiedData"
                                         :model-value="manualSelectedSlots"
                                         :show-header-date="false"
                                         :allow-cross-date-selection="true"
                                         :allow-occupied-selection="true"
-                                        :show-period-time="false"
+                                        :show-period-time="true"
+                                        :show-occupied-labels="true"
+                                        :non-selectable-dates="manualDisabledWeekdays"
                                         period-column-width-class="w-16"
                                         :theme="adminScheduleGridTheme"
                                         @update:model-value="handleManualScheduleChange"
                                         @occupied-click="handleManualOccupiedClick"
                                     />
                                 </div>
+                                <p class="mt-2 text-xs text-a-text-muted">色塊代表期間內至少一次佔用，不代表每週皆被佔用。點擊色塊查看明細；選取後仍須完成原有衝突處理。</p>
+                                <div v-if="manualOccupancySelection" class="mt-3 rounded-lg border border-a-border-2 p-3 text-sm text-a-text-body">
+                                    <div class="flex justify-between"><strong>週{{ WEEKDAY_NAME_MAP[Number(manualOccupancySelection.date)] }} · {{ periodLabelText(Number(manualOccupancySelection.period)) }} 節佔用明細</strong><button type="button" @click="manualOccupancySelection = null">關閉</button></div>
+                                    <ul class="max-h-48 space-y-2 overflow-y-auto py-2"><li v-for="(detail, index) in manualOccupancySelection.item.details" :key="index">
+                                        <p>{{ detail.title }} · {{ detail.instructor || detail.applicant || '—' }}</p><p class="text-xs text-a-text-muted">{{ detail.dates.length }} 次：{{ detail.dates.join('、') }}</p>
+                                    </li></ul>
+                                    <button type="button" class="text-primary" @click="toggleManualOccupiedSelection">選取／取消此節次（送出前檢查衝突）</button>
+                                </div>
+                                <div class="mt-3 flex flex-wrap gap-3 text-sm text-a-text-muted"><span v-for="(periods, weekday) in buildManualPeriodsByDay()" :key="weekday">每週{{ WEEKDAY_NAME_MAP[Number(weekday)] }}：{{ periods.map(periodLabelText).join('、') }}</span></div>
+                                <button type="button" class="mt-2 text-sm text-primary" @click="manualSelectedSlots = []; resetManualConflictResult()">清除節次選取</button>
                                 <p v-if="manualForm.errors.periods" class="mt-2 text-xs text-red-400">
                                     {{ manualForm.errors.periods }}
                                 </p>
@@ -202,6 +219,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { AdminLayout } from '@/layouts';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ScheduleGrid } from '@/components';
+import { useManualScheduleAvailability } from '@/composables/useManualScheduleAvailability';
 import { useAdminTheme } from '@/composables';
 import { ConflictActionModal, LongTermImportSection, LongTermRecordsSection } from '@/components/admin';
 import type {
@@ -214,6 +232,7 @@ import type {
     ManualFormData,
     SemesterOption,
     OccupiedData,
+    OccupiedItem,
     Period,
     SelectedSlot,
     SlotResolutionAction,
@@ -328,6 +347,20 @@ const conflictActionModalOpen = ref(false);
 const activeConflictSlot = ref<ActiveConflictSlot | null>(null);
 const isRestoringDraft = ref(false);
 
+const { occupied: manualAvailability, loading: manualAvailabilityLoading, error: manualAvailabilityError, ready: manualAvailabilityReady, reload: reloadManualAvailability } = useManualScheduleAvailability(
+    () => ({ classroom_id: manualForm.classroom_id, start_date: manualForm.start_date, end_date: manualForm.end_date }),
+    () => props.timeSlots,
+);
+const manualOccupancySelection = ref<{ date: string; period: string; item: OccupiedItem } | null>(null);
+const manualDisabledWeekdays = computed(() => {
+    const start = new Date(`${manualForm.start_date}T00:00:00`);
+    const end = new Date(`${manualForm.end_date}T00:00:00`);
+    return FULL_WEEK_DAYS.filter(weekday => {
+        const first = new Date(start); first.setDate(first.getDate() + (weekday - (start.getDay() || 7) + 7) % 7);
+        return first > end;
+    }).map(String);
+});
+
 const manualGridPeriods = computed<Period[]>(() => {
     let nonLunchOrder = 0;
 
@@ -341,6 +374,8 @@ const manualGridPeriods = computed<Period[]>(() => {
             id: slot.id,
             code: String(index + 1),
             label: isLunch ? '午休' : String(nonLunchOrder),
+            start_time: slot.start_time,
+            end_time: slot.end_time,
         };
     });
 });
@@ -360,22 +395,7 @@ const manualPeriodDisplayLabelByCode = computed<Record<number, string>>(() => {
 
 // 固定產生週一到週日，不再依賴 day_of_week
 const manualWeekDates = computed<WeekDate[]>(() => {
-    const today = new Date();
-    const day = today.getDay();
-    const mondayOffset = day === 0 ? -6 : 1 - day;
-    const monday = new Date(today);
-    monday.setDate(today.getDate() + mondayOffset);
-
-    return [1, 2, 3, 4, 5, 6, 7].map((weekday) => {
-        const target = new Date(monday);
-        target.setDate(monday.getDate() + (weekday - 1));
-        const fullDate = formatDateToYYYYMMDD(target);
-        return {
-            date: String(target.getDate()).padStart(2, '0'),
-            dayName: WEEKDAY_NAME_MAP[weekday] ?? String(weekday),
-            fullDate,
-        };
-    });
+    return FULL_WEEK_DAYS.map(weekday => ({ date: '', dayName: WEEKDAY_NAME_MAP[weekday], fullDate: String(weekday) }));
 });
 
 function applyQuickDateRange() {
@@ -387,6 +407,7 @@ function applyQuickDateRange() {
 }
 
 function isoWeekdayFromDateString(dateString: string): number | null {
+    if (/^[1-7]$/.test(dateString)) return Number(dateString);
     const [yearText, monthText, dayText] = dateString.split('-');
     const year = Number(yearText);
     const month = Number(monthText);
@@ -621,7 +642,9 @@ function restoreManualDraft() {
         manualForm.start_date = draft.manualForm.start_date;
         manualForm.end_date = draft.manualForm.end_date;
         manualForm.periods = Array.isArray(draft.manualForm.periods) ? draft.manualForm.periods : [];
-        manualSelectedSlots.value = Array.isArray(draft.manualSelectedSlots) ? draft.manualSelectedSlots : [];
+        manualSelectedSlots.value = Array.isArray(draft.manualSelectedSlots) ? draft.manualSelectedSlots
+            .filter(slot => isoWeekdayFromDateString(slot.date))
+            .map(slot => ({ ...slot, date: String(isoWeekdayFromDateString(slot.date)) })) : [];
         slotResolutionMap.value = draft.slotResolutionMap ?? {};
         manualConflicts.value = Array.isArray(draft.manualConflicts) ? draft.manualConflicts : [];
         manualConflictSummary.value = draft.manualConflictSummary ?? null;
@@ -666,6 +689,11 @@ function closeConflictActionModal() {
 }
 
 function handleManualOccupiedClick(payload: OccupiedClickPayload) {
+    const displayed = payload.item as OccupiedItem | undefined;
+    if (displayed?.details && !displayed.status.startsWith('conflict_')) {
+        manualOccupancySelection.value = { date: payload.date, period: payload.period, item: displayed };
+        return;
+    }
     const dayOfWeek = manualDateToWeekdayMap.value[payload.date];
     const period = Number(payload.period);
     if (!dayOfWeek || !Number.isFinite(period) || period <= 0) return;
@@ -947,6 +975,24 @@ const manualConflictOccupiedData = computed<OccupiedData>(() => {
     return occupied;
 });
 
+const manualDisplayedOccupiedData = computed<OccupiedData>(() => {
+    const result: OccupiedData = {};
+    FULL_WEEK_DAYS.forEach(day => { result[String(day)] = { ...manualAvailability.value[String(day)], ...manualConflictOccupiedData.value[String(day)] }; });
+    return result;
+});
+
+function toggleManualOccupiedSelection() {
+    const selected = manualOccupancySelection.value;
+    if (!selected) return;
+    const period = manualGridPeriods.value.find(period => period.code === selected.period);
+    if (!period) return;
+    const exists = manualSelectedSlots.value.some(slot => slot.date === selected.date && slot.period === selected.period);
+    manualSelectedSlots.value = exists
+        ? manualSelectedSlots.value.filter(slot => slot.date !== selected.date || slot.period !== selected.period)
+        : [...manualSelectedSlots.value, { date: selected.date, period: selected.period, id: period.id, label: period.label }];
+    manualOccupancySelection.value = null;
+}
+
 function resetManualConflictResult() {
     manualConflictError.value = '';
     manualConflicts.value = [];
@@ -1037,6 +1083,7 @@ watch(
         manualForm.end_date,
     ],
     () => {
+        manualOccupancySelection.value = null;
         if (isRestoringDraft.value) return;
         resetManualConflictResult();
     },

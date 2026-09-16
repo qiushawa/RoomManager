@@ -223,4 +223,53 @@ class LongTermScheduleManagementTest extends TestCase
         auth()->guard('admin')->logout();
         $this->getJson($this->endpoint('/records'))->assertUnauthorized();
     }
+
+    public function test_editor_occupancy_excludes_self_but_keeps_other_occupants(): void
+    {
+        $self = $this->schedule(['course_name' => '正在編輯']);
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-30'))
+            ->assertOk()->assertJsonMissing(['title' => '正在編輯']);
+        $this->schedule(['course_name' => '其他課程', 'teacher_name' => '其他教師']);
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-30'))
+            ->assertOk()->assertJsonPath('occupied_data.1.1.title', '其他課程')
+            ->assertJsonPath('occupied_data.1.1.details.0.instructor', '其他教師');
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$this->room->id.'&start_date=2028-01-01&end_date=2028-01-31'))
+            ->assertUnprocessable()->assertJsonValidationErrors('start_date');
+    }
+
+    public function test_editor_occupancy_follows_selected_classroom(): void
+    {
+        $self = $this->schedule();
+        $other = Classroom::factory()->create();
+        $this->schedule(['classroom_id' => $other->id, 'course_name' => '另一間教室的課表']);
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$other->id.'&start_date=2026-09-01&end_date=2026-09-30'))
+            ->assertOk()->assertJsonPath('occupied_data.1.1.title', '另一間教室的課表');
+    }
+
+    public function test_recurring_grid_includes_later_weeks_and_all_overlapping_occupants(): void
+    {
+        $self = $this->schedule();
+        $this->schedule(['course_name' => '月底課程', 'start_date' => '2026-09-28', 'end_date' => '2026-09-28']);
+        $this->schedule(['course_name' => '同格另一課程', 'start_date' => '2026-09-28', 'end_date' => '2026-09-28']);
+        $this->schedule(['course_name' => '範圍之外', 'start_date' => '2026-10-05', 'end_date' => '2026-10-05']);
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-30'))
+            ->assertOk()->assertJsonCount(2, 'occupied_data.1.1.details')
+            ->assertJsonPath('occupied_data.1.1.details.0.dates', ['2026-09-28'])
+            ->assertJsonMissing(['title' => '範圍之外']);
+        $this->getJson($this->endpoint('/records/'.$self->id.'/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-20'))
+            ->assertOk()->assertJsonPath('occupied_data', []);
+    }
+
+    public function test_manual_grid_shows_range_occupancy_before_any_slots_are_selected(): void
+    {
+        $this->schedule(['course_name' => '本學期課程']);
+        $this->schedule(['course_name' => '月底借用', 'type' => 'borrowed', 'day_of_week' => 2, 'start_date' => '2026-09-29', 'end_date' => '2026-09-29']);
+        $url = $this->endpoint('/manual/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-30');
+        $this->getJson($url)->assertOk()
+            ->assertJsonPath('occupied_data.1.1.title', '本學期課程')
+            ->assertJsonPath('occupied_data.2.1.details.0.dates', ['2026-09-29']);
+        $this->getJson($this->endpoint('/manual/availability?classroom_id='.$this->room->id.'&start_date=2026-09-01&end_date=2026-09-20'))
+            ->assertOk()->assertJsonMissing(['title' => '月底借用']);
+        $this->getJson($this->endpoint('/manual/availability'))->assertUnprocessable()->assertJsonValidationErrors(['classroom_id', 'start_date', 'end_date']);
+    }
 }

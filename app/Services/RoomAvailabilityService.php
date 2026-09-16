@@ -28,14 +28,56 @@ class RoomAvailabilityService
     /**
      * 取得特定教室、日期範圍內的佔用狀況
      */
-    public function getOccupiedData(int $classroomId, Carbon $startDate, Carbon $endDate): array
+    public function getOccupiedData(int $classroomId, Carbon $startDate, Carbon $endDate, ?int $excludeScheduleId = null, bool $includeAllOccupants = false): array
     {
         $room = Classroom::find($classroomId);
         if (!$room) {
             return [];
         }
 
-        return $this->calculateOccupancy($room, $startDate, $endDate);
+        if ($excludeScheduleId !== null) {
+            $room->load(['courseSchedules' => fn ($query) => $query->where('id', '!=', $excludeScheduleId)]);
+        }
+
+        return $this->calculateOccupancy($room, $startDate, $endDate, null, $includeAllOccupants);
+    }
+
+    /** Aggregate every occurrence in the effective range by weekday and period. */
+    public function getRecurringOccupiedData(int $classroomId, Carbon $startDate, Carbon $endDate, ?int $excludeScheduleId = null): array
+    {
+        $daily = $this->getOccupiedData($classroomId, $startDate, $endDate, $excludeScheduleId, true);
+        $grouped = [];
+        foreach ($daily as $date => $slots) {
+            $weekday = Carbon::parse($date)->isoWeekday();
+            foreach ($slots as $slot => $item) {
+                $entries = is_array($item) ? ($item['occupants'] ?? [$item]) : [['status' => $item, 'title' => '不可借用日']];
+                foreach ($entries as $entry) {
+                    $key = json_encode([$entry['status'], $entry['title'] ?? '', $entry['instructor'] ?? '', $entry['applicant'] ?? '']);
+                    $grouped[$weekday][$slot][$key] ??= [
+                        'status' => $entry['status'], 'title' => $entry['title'] ?? '已佔用',
+                        'instructor' => $entry['instructor'] ?? '', 'applicant' => $entry['applicant'] ?? '', 'dates' => [],
+                    ];
+                    $grouped[$weekday][$slot][$key]['dates'][] = $date;
+                }
+            }
+        }
+        $result = [];
+        foreach ($grouped as $weekday => $slots) {
+            foreach ($slots as $slot => $entries) {
+                $details = array_values($entries);
+                foreach ($details as &$detail) {
+                    $detail['dates'] = array_values(array_unique($detail['dates']));
+                }
+                unset($detail);
+                $result[$weekday][$slot] = [
+                    'status' => $details[0]['status'],
+                    'title' => count($details) > 1 ? count($details).' 項佔用' : $details[0]['title'],
+                    'details' => $details,
+                ];
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -55,7 +97,7 @@ class RoomAvailabilityService
         return $result;
     }
 
-    private function calculateOccupancy(Classroom $room, Carbon $startDate, Carbon $endDate, ?Collection $holidays = null): array
+    private function calculateOccupancy(Classroom $room, Carbon $startDate, Carbon $endDate, ?Collection $holidays = null, bool $includeAllOccupants = false): array
     {
         if (is_null($holidays)) {
             $holidays = Holiday::whereBetween('date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')])->get();
@@ -202,6 +244,11 @@ class RoomAvailabilityService
                         return [$slotName => $val];
                     })
                     ->toArray();
+                if ($includeAllOccupants) {
+                    foreach ($occupiedSlots->groupBy('slot') as $slot => $items) {
+                        $occupiedData[$dateStr][$slot]['occupants'] = $items->values()->all();
+                    }
+                }
             }
 
             $currentDate->addDay();

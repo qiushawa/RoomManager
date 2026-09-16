@@ -33,6 +33,7 @@ export type OccupiedStatus =
     | 'conflict_schedule';
 
 export interface OccupiedItem {
+    details?: { status: OccupiedStatus; title: string; instructor: string; applicant: string; dates: string[] }[];
     status: OccupiedStatus;
     title?: string;
     instructor?: string;

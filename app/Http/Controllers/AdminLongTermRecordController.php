@@ -6,11 +6,37 @@ use App\Models\Classroom;
 use App\Models\CourseSchedule;
 use App\Services\Admin\LongTermCourseScheduleService;
 use App\Services\Admin\LongTermScheduleManagementService;
+use App\Services\RoomAvailabilityService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AdminLongTermRecordController extends Controller
 {
+    public function manualAvailability(Request $request, RoomAvailabilityService $availability)
+    {
+        abort_unless(\App\Models\Semester::findByDate(now()), 422, '目前沒有設定中的學期，請先建立學期資料。');
+        $data = $request->validate([
+            'classroom_id' => ['required', 'integer', 'exists:classrooms,id'],
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+        ]);
+
+        return response()->json(['occupied_data' => $availability->getRecurringOccupiedData((int) $data['classroom_id'], Carbon::parse($data['start_date']), Carbon::parse($data['end_date']))]);
+    }
+
+    public function availability(Request $request, CourseSchedule $schedule, RoomAvailabilityService $availability)
+    {
+        $semester = $schedule->semester;
+        abort_unless($semester, 422, '紀錄缺少所屬學期。');
+        $data = $request->validate([
+            'classroom_id' => ['required', 'integer', 'exists:classrooms,id'],
+            'start_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:'.$semester->start_date->toDateString(), 'before_or_equal:'.$semester->end_date->toDateString()],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date', 'before_or_equal:'.$semester->end_date->toDateString()],
+        ]);
+        return response()->json(['occupied_data' => $availability->getRecurringOccupiedData((int) $data['classroom_id'], Carbon::parse($data['start_date']), Carbon::parse($data['end_date']), $schedule->id)]);
+    }
+
     public function index(Request $request, LongTermCourseScheduleService $imports)
     {
         $filters = $request->validate([

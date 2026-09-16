@@ -8,7 +8,15 @@
         </div>
 
         <div class="flex flex-1 flex-col justify-start gap-2 pt-2 text-left overflow-hidden">
-            <template v-if="isObject">
+            <template v-if="itemData?.details?.length">
+                <div v-for="(detail, index) in itemData.details.slice(0, 3)" :key="index" class="text-xs">
+                    <p class="truncate">{{ detail.title }}</p>
+                    <p class="truncate text-gray-300">{{ detail.instructor || detail.applicant || '—' }}</p>
+                    <p class="text-gray-400">期間內 {{ detail.dates.length }} 次</p>
+                </div>
+                <p class="text-[10px] text-gray-400">點擊色塊查看完整日期與明細</p>
+            </template>
+            <template v-else-if="isObject">
                 <div v-if="displayTitle" class="flex flex-col">
                     <span class="text-[10px] font-medium leading-tight text-gray-400">{{ titleLabel }}</span>
                     <span class="truncate text-xs text-gray-100" :title="displayTitle">

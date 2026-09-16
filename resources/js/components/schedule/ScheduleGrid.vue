@@ -61,7 +61,7 @@
                         :class="isDarkTheme ? 'border-slate-600' : 'border-gray-300'"
                     >
                         <div
-                            v-if="isNonSelectablePeriod(period.code)"
+                            v-if="isNonSelectablePeriod(period.code) || nonSelectableDates.includes(day.fullDate)"
                             class="absolute inset-0 flex items-center justify-center text-xs font-medium"
                             :class="isDarkTheme ? 'bg-slate-700/40 text-slate-300' : 'bg-gray-100 text-gray-500'"
                         >
@@ -71,6 +71,11 @@
                         <!-- 佔用狀態格子 -->
                         <div
                             v-else-if="getOccupiedStatus(day.fullDate, period.code) && !allowOccupiedSelection"
+                            @click="showOccupiedLabels && handleOccupiedClick(day.fullDate, period.code)"
+                            :role="showOccupiedLabels ? 'button' : undefined"
+                            :tabindex="showOccupiedLabels ? 0 : undefined"
+                            @keydown.enter="showOccupiedLabels && handleOccupiedClick(day.fullDate, period.code)"
+                            :aria-label="showOccupiedLabels ? `星期${day.dayName} ${period.label} 節佔用資訊` : undefined"
                             class="group absolute inset-0 flex items-center justify-center text-xs text-white cursor-not-allowed z-10 hover:z-[60]"
                             :class="[
                                 getStatusClass(getOccupiedStatus(day.fullDate, period.code)),
@@ -78,6 +83,7 @@
                             ]"
                         >
                             <!-- Hover 資訊預覽元件 -->
+                            <span v-if="showOccupiedLabels" class="truncate px-1 text-[10px]">{{ occupiedLabel(day.fullDate, period.code) }}</span>
                             <OccupiedTooltip
                                 :item="getOccupiedItem(day.fullDate, period.code)"
                                 :show-below="pIndex < 3"
@@ -93,7 +99,7 @@
                             ]"
                             @click="handleOccupiedClick(day.fullDate, period.code)"
                         >
-                            {{ getOccupiedMarker(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code)) }}
+                            <span :class="showOccupiedLabels ? 'truncate px-1 text-[10px]' : ''">{{ showOccupiedLabels ? occupiedLabel(day.fullDate, period.code) : getOccupiedMarker(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code)) }}</span>
                             <span
                                 v-if="getOccupiedBadgeCount(getOccupiedItem(day.fullDate, period.code), getOccupiedStatus(day.fullDate, period.code))"
                                 class="absolute top-0.5 right-0.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] leading-none text-white"
@@ -179,6 +185,8 @@ const props = withDefaults(
         allowCrossDateSelection?: boolean;
         allowOccupiedSelection?: boolean;
         nonSelectablePeriodCodes?: string[];
+        nonSelectableDates?: string[];
+        showOccupiedLabels?: boolean;
         theme?: 'auto' | 'light' | 'dark';
     }>(),
     {
@@ -191,6 +199,8 @@ const props = withDefaults(
         allowCrossDateSelection: false,
         allowOccupiedSelection: false,
         nonSelectablePeriodCodes: () => [],
+        nonSelectableDates: () => [],
+        showOccupiedLabels: false,
         theme: 'auto',
     },
 );
@@ -226,6 +236,11 @@ const isDarkTheme = computed(() => {
 const nonSelectablePeriodCodeSet = computed(() => new Set(props.nonSelectablePeriodCodes));
 
 const isNonSelectablePeriod = (periodCode: string): boolean => nonSelectablePeriodCodeSet.value.has(periodCode);
+
+const occupiedLabel = (date: string, code: string): string => {
+    const item = getOccupiedItem(date, code);
+    return item && typeof item === 'object' ? item.title || '已佔用' : '已佔用';
+};
 
 const getStatusClass = (status: OccupiedStatus | null): string => getStatusClassByStatus(status);
 
@@ -279,6 +294,7 @@ const currentDragDate = ref('');
 const preventDragDefault = (e: DragEvent) => e.preventDefault();
 
 const handleMouseDown = (day: WeekDate, period: Period) => {
+    if (props.nonSelectableDates.includes(day.fullDate)) return;
     if (isNonSelectablePeriod(period.code)) {
         return;
     }
@@ -303,6 +319,7 @@ const handleMouseDown = (day: WeekDate, period: Period) => {
 };
 
 const handleMouseEnter = (day: WeekDate, period: Period) => {
+    if (props.nonSelectableDates.includes(day.fullDate)) return;
     if (!isDragging.value) return;
     if (isNonSelectablePeriod(period.code)) return;
     if (!props.allowCrossDateSelection && currentDragDate.value !== day.fullDate) return;
@@ -346,7 +363,7 @@ const applySelection = (day: WeekDate, period: Period, currentSlots: SelectedSlo
                 date: targetDate,
                 period: targetCode,
                 id: period.id,
-                label: formatSlotLabel(day.fullDate, day.dayName, period.label),
+                label: props.showHeaderDate ? formatSlotLabel(day.fullDate, day.dayName, period.label) : `星期${day.dayName} ${period.label}`,
             });
             // 根據節次順序排序 (假設 periods 是照順序來的字串或是可對齊的順序)
             currentSlots.sort((a, b) => {

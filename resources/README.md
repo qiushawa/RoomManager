@@ -7,6 +7,7 @@
 - `LongTermImportSection` 接收學期清單與預設學期；預覽、匯入、撤回都傳送明確的 `semester_id`。切換學期或教室會清除預覽，過期回應不更新畫面。
 - `LongTermRecordsSection` 統一管理匯入課表、手動課程與一般長期借用；使用後端搜尋、篩選及每頁 20 筆分頁。
 - `LongTermRecordEditor` 管理單筆資訊、星期、日期與不連續節次；所屬學期與來源類型固定。
+- `LongTermRecordSchedulePicker` 在編輯彈窗重用 `ScheduleGrid`，以星期作為格子識別，不選擇個別日期。依教室與有效起訖日期彙整所有週的占用資訊，排除被編輯紀錄，並提供各項占用的日期明細。
 - `useLongTermRecords` 管理清單請求、查詢條件、網址與錯誤。編輯和刪除完成後刷新清單及匯入標記。
 - 新型別：`SemesterOption`、`LongTermRecord`，位於 `types/longTermBorrowing.ts`。
 

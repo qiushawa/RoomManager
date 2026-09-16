@@ -1,5 +1,5 @@
 <template>
-    <BaseModal :show="true" @close="!saving && emit('close')">
+    <BaseModal :show="true" size="lg" @close="!saving && emit('close')">
         <form
             class="max-h-[85vh] space-y-4 overflow-y-auto p-6"
             @submit.prevent="save"
@@ -38,13 +38,6 @@
                     </option>
                 </select></label
             >
-            <label class="block"
-                >星期<select v-model="form.day_of_week" class="field">
-                    <option v-for="day in 7" :key="day" :value="day">
-                        {{ weekdayLabel(day) }}
-                    </option>
-                </select></label
-            >
             <div class="grid grid-cols-2 gap-3">
                 <label
                     >開始日期<input
@@ -65,27 +58,30 @@
                         class="field"
                 /></label>
             </div>
-            <fieldset>
-                <legend class="mb-2">節次（可不連續）</legend>
-                <div class="flex flex-wrap gap-3">
-                    <label
-                        v-for="slot in timeSlots"
-                        :key="slot.id"
-                        class="flex items-center gap-1"
-                        ><input
-                            v-model="form.time_slot_ids"
-                            type="checkbox"
-                            :value="slot.id"
-                        />{{ slot.name }}</label
-                    >
-                </div>
-            </fieldset>
+            <LongTermRecordSchedulePicker
+                v-if="
+                    form.start_date &&
+                    form.end_date &&
+                    form.start_date <= form.end_date
+                "
+                :record-id="record.id"
+                :classroom-id="form.classroom_id"
+                :start-date="form.start_date"
+                :end-date="form.end_date"
+                :day-of-week="form.day_of_week"
+                :time-slot-ids="form.time_slot_ids"
+                :time-slots="timeSlots"
+                @change="Object.assign(form, $event)"
+                @busy="availabilityBusy = $event"
+            />
             <div class="flex justify-end gap-3">
                 <button type="button" :disabled="saving" @click="emit('close')">
                     取消</button
                 ><button
                     class="rounded bg-primary px-4 py-2 text-white disabled:opacity-50"
-                    :disabled="saving || !form.time_slot_ids.length"
+                    :disabled="
+                        saving || availabilityBusy || !form.time_slot_ids.length
+                    "
                 >
                     {{ saving ? '儲存中…' : '儲存修改' }}
                 </button>
@@ -102,8 +98,9 @@ import type {
     SemesterOption,
     TimeSlotOption,
 } from '@/types';
-import { weekdayLabel, withBase } from '@/utils';
+import { withBase } from '@/utils';
 import { reactive, ref } from 'vue';
+import LongTermRecordSchedulePicker from './LongTermRecordSchedulePicker.vue';
 const props = defineProps<{
     record: LongTermRecord;
     semester?: SemesterOption;
@@ -121,9 +118,10 @@ const form = reactive({
     time_slot_ids: props.record.time_slots.map((s) => s.id),
 });
 const saving = ref(false);
+const availabilityBusy = ref(true);
 const error = ref('');
 async function save() {
-    if (saving.value) return;
+    if (saving.value || availabilityBusy.value || !form.time_slot_ids.length) return;
     saving.value = true;
     error.value = '';
     try {

@@ -61,37 +61,7 @@ class AdminLongTermBorrowingController extends Controller
 
         $timeSlots = TimeSlot::query()
             ->orderBy('start_time')
-            ->get(['id', 'name']);
-
-        $manualRecords = [];
-        if ($currentSemester) {
-            $manualRecords = CourseSchedule::with(['classroom', 'timeSlots'])
-                ->where('semester_id', $currentSemester->id)
-                ->whereIn('type', ['manual', 'borrowed'])
-                ->orderByDesc('created_at')
-                ->get()
-                ->map(function ($r) {
-                    $slotNames = $r->timeSlots
-                        ->sortBy('start_time')
-                        ->pluck('name')
-                        ->values();
-
-                    return [
-                        'id' => $r->id,
-                        'classroom_code' => $r->classroom?->code ?? '—',
-                        'classroom_name' => $r->classroom?->name ?? '—',
-                        'type' => $r->type,
-                        'teacher_name' => $r->teacher_name,
-                        'course_name' => $r->course_name,
-                        'day_of_week' => $r->day_of_week,
-                        'start_slot' => $slotNames->first() ?? '—',
-                        'end_slot' => $slotNames->last() ?? '—',
-                        'start_date' => $r->start_date?->format('Y-m-d'),
-                        'end_date' => $r->end_date?->format('Y-m-d'),
-                    ];
-                })
-                ->toArray();
-        }
+            ->get(['id', 'name', 'start_time', 'end_time']);
 
         $buildingOptions = collect(config('school.buildings', []))
             ->filter(fn ($item) => ! empty($item['code']) && ! empty($item['label']))
@@ -109,7 +79,6 @@ class AdminLongTermBorrowingController extends Controller
             'classrooms' => $classrooms,
             'buildingOptions' => $buildingOptions,
             'timeSlots' => $timeSlots,
-            'manualRecords' => $manualRecords,
             'semesterEndDate' => $currentSemester?->end_date?->format('Y-m-d'),
             'importConfig' => [
                 'year' => (int) ($importSemester?->academic_year ?? Setting::get('course_import_year', (string) ($currentSemester?->academic_year ?? 114))),
